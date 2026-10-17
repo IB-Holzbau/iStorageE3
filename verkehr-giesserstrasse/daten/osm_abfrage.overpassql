@@ -17,6 +17,7 @@ node.gn.nn->.k;          /* gemeinsamer Knoten = Kreuzung */
   node(around.k:150)["crossing"];
   node(around.k:150)["railway"];
   node(around.k:150)["public_transport"];
+  nwr(around.k:60)["shop"];
   relation(around.k:150)["type"="restriction"];
   relation(around.k:150)["route"~"bus|tram"];
 )->.alle;

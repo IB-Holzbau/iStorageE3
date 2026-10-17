@@ -22,7 +22,7 @@ Aus der Arbeitsumgebung waren overpass-api.de, openstreetmap.org, nominatim, lei
 * Laut Leipzig-Lexikon verläuft die Gießerstraße von der Endersstraße in Lindenau über die Karl-Heine-, Weißenfelser und Naumburger Straße nach Kleinzschocher bis zur Rolf-Axen-Straße, Gesamtlänge rund 1.744 m. An der Antonienstraße wechselt sie nach Kleinzschocher. [V] ([Leipzig-Lexikon Gießerstraße](https://www.leipzig-lexikon.de/STRASSEN/06021.htm), [Straßen in Plagwitz](https://www.leipzig-lexikon.de/STRASSEN/Plagwitz.htm))
 * Beide Straßen stehen im amtlichen Straßennamenverzeichnis der Stadt Leipzig. [V] ([Gießerstraße](https://www.leipzig.de/buergerservice-und-verwaltung/unsere-stadt/gebietsgliederung-und-strassennamen/strassennamen/strassennamenverzeichnis/strasse/strassen-details/giesserstrasse), [Naumburger Straße](https://www.leipzig.de/buergerservice-und-verwaltung/unsere-stadt/gebietsgliederung-und-strassennamen/strassennamen/strassennamenverzeichnis/strasse/strassen-details/naumburger-strasse))
 * Die Stadt selbst spricht in einer Pressemitteilung von der städtischen Grünfläche „an der Kreuzung Naumburger Straße/Gießerstraße“ (Wagenburg, um 2012). [V] ([leipzig.de](https://www.leipzig.de/newsarchiv/news/bergangslsung-fr-wagenburg-gefunden))
-* Andere Städte. Eine Naumburger Straße gibt es laut strassen-in-deutschland.de in rund 57 Orten, darunter Jena, Weißenfels, Merseburg (B 181). In Chemnitz gibt es eine Gießerstraße. Eine Kreuzung beider Namen außerhalb Leipzigs wurde in der Websuche nicht gefunden. [U] Eine bundesweite Overpass-Prüfung auf gemeinsame Knoten war wegen der Sperre nicht möglich. Die Abfrage dafür steht in Abschnitt 6.
+* Andere Städte. Eine Naumburger Straße gibt es laut strassen-in-deutschland.de in rund 57 Orten, darunter Jena, Weißenfels, Merseburg (B 181). In Chemnitz gibt es eine Gießerstraße. Eine Kreuzung beider Namen außerhalb Leipzigs wurde in der Websuche nicht gefunden. [U] Der Ort ist vom Koordinator vor Ort bestätigt, die Städtesuche wurde daher beendet. Die Abfrage für eine bundesweite Prüfung steht in Abschnitt 6.
 
 ## 2 Was über die Kreuzung bekannt ist
 
@@ -43,15 +43,30 @@ Aus der Arbeitsumgebung waren overpass-api.de, openstreetmap.org, nominatim, lei
 
 ### 2.3 Spurführung, Vorfahrt, Signalanlage
 
+**Abgleich mit den Ortsangaben des Koordinators** (Stand 17.10.2026, Quelle Ortskenntnis bzw. Luftbild, nicht online belegt)
+
+| Merkmal laut Koordinator | Online-Beleg | Bewertung |
+|---|---|---|
+| Einmündung (T-Knoten), Arme Nord und Süd Gießerstraße, West Naumburger Straße | Leipzig-Lexikon nennt die Naumburger Straße als Querstraße der Gießerstraße. Die Buslinie 60 fährt laut Fahrplanportalen von der Siemensstraße über die Haltestelle Naumburger Straße zur Zollschuppenstraße, biegt also hier von Süd nach West ab | passt [U] |
+| Abknickende Vorfahrt Süd ↔ West auf der Gießerstraße | kein Online-Beleg, aber plausibel, weil die Hauptachse (früher Obus, heute Bus 60) genau diese Beziehung fährt | [U], in OSM als `highway=give_way`/`stop` am Nordarm und Zeichen 306 mit Zusatz 1002 prüfen |
+| Gießerstraße Tempo 50 | Lärmaktionsplan nennt die Gießerstraße unter den Tempo-30-Abschnitten bis 2027, Umsetzung bisher nicht belegt | passt zum heutigen Stand [U] |
+| Naumburger Straße beidseitig Tempo 30 | Tempo 30 zwischen Engert- und Gießerstraße seit 1.12.2025 [V] | West passt [V]. „Beidseitig“ bedeutet hier vermutlich beide Fahrtrichtungen. Für den **Ostteil** Gießer- bis Zschochersche Straße hat die Stadt im Oktober 2024 Tempo 30 abgelehnt. Wenn der Ostteil an einem anderen Punkt der Gießerstraße beginnt (versetzter Knoten), ist das kein Widerspruch zum T-Knoten. Klären! |
+| Stoppschild (Zeichen 206) am Nordarm | kein Online-Beleg | [O] |
+| Bushaltestelle Süd mit Gelenkbussen | Haltestelle „Naumburger Straße“, Linie 60, laut Anbieter barrierefrei [U] | Linie 60 [U], Gelenkbus und Lage am Südarm [O] |
+| Kiosk Südwestecke | kein Online-Beleg | [O] |
+| Parkende Autos Ostseite | kein Online-Beleg | [O] |
+
 * Fahrstreifenzahl, Abbiegestreifen, Markierungen [O]. Beide Straßen sind nach Breite und Funktion vermutlich je ein Fahrstreifen pro Richtung ohne eigene Abbiegestreifen. [U]
-* Lichtsignalanlage an der Kreuzung [O]. In keiner gefundenen Quelle erwähnt. Die nächste gesicherte Ampel ist Karl-Heine-/Gießerstraße (geplant 2019/20). An Antonien-/Gießerstraße gibt es eine Ampel, die am 28.09.2026 wegen Wartung abgeschaltet war, als dort ein Transporter nach Zusammenstoß umkippte (sechs Leichtverletzte). Das ist **nicht** diese Kreuzung, aber der nächste südliche Knoten. [V] ([ms-aktuell](https://ms-aktuell.de/?p=162452))
+* Lichtsignalanlage an der Kreuzung [O]. In keiner gefundenen Quelle erwähnt, passt zur Angabe Stoppschild statt Ampel. Die nächste gesicherte Ampel ist Karl-Heine-/Gießerstraße (geplant 2019/20). An Antonien-/Gießerstraße gibt es eine Ampel, die am 28.09.2026 wegen Wartung abgeschaltet war, als dort ein Transporter nach Zusammenstoß umkippte (sechs Leichtverletzte). Das ist **nicht** diese Kreuzung, aber der nächste südliche Knoten. [V] ([ms-aktuell](https://ms-aktuell.de/?p=162452))
 * Vorfahrtregelung (Zeichen 306 / 205, rechts vor links) [O].
 * Radverkehr. Im Südabschnitt Mischverkehr auf der Fahrbahn [V]. An der Kreuzung selbst [O].
 * Straßenbahn. Keine Straßenbahn in Gießer- oder Naumburger Straße bekannt. [U]
 
 ### 2.4 ÖPNV
 
-* Buslinie 60 der LVB mit Haltestelle „Naumburger Straße“ in der Gießerstraße zwischen „Antonien-/Gießerstraße“ und „Karl-Heine-/Gießerstraße“, Richtung S-Bf Plagwitz und Lindenau Bushof. [U] Nur aus Aggregator ([findit.city 60E](https://findit.city/en/germany/leipzig/transport/bus/60E)). Bitte mit der LVB-Fahrplanauskunft (l.de) prüfen.
+* **Buslinie 60 der LVB** (Lipsiusstraße bzw. Lindenauer Hafen ↔ Lindenau Bushof) bedient die Haltestelle „Naumburger Str.“, laut Fahrplanportalen zwischen Siemensstraße und Zollschuppenstraße, also mit Abbiegen Süd ↔ West an diesem Knoten. Die Haltestelle wird als barrierefrei beschrieben. [U] Mehrere Drittanbieter stimmen überein ([fahrplan-bus-bahn.de](https://fahrplan-bus-bahn.de/sachsen/leipzig/haltestelle/naumburger_str_leipzig-9580693), [bus-bahn-fahrplan.de](https://bus-bahn-fahrplan.de/fahrplan-leipzig/20-958069/bus-60-lindenau-bushof-leipzig-naumburger-strasse), [Gründungsküche Anfahrt](https://gruendungskueche.de/anfahrt/), [Moovit](https://moovitapp.com/index/en/public_transit-line-60-Dresden-5796-3764189-196821436-0)).
+* Eine Variante 60E wird mit der Folge Antonien-/Gießerstraße, Naumburger Straße, Karl-Heine-/Gießerstraße angegeben, also geradeaus Süd ↔ Nord. [U] ([findit.city 60E](https://findit.city/en/germany/leipzig/transport/bus/60E))
+* Weitere Linien an dieser Haltestelle nicht gefunden [O]. Bestätigung über die LVB-Fahrplanauskunft (l.de) oder den GTFS-Datensatz des MDV/DELFI nötig.
 
 ### 2.5 Umfeld
 
@@ -85,7 +100,10 @@ Aus der Arbeitsumgebung waren overpass-api.de, openstreetmap.org, nominatim, lei
 
 ### 3.3 Unfallatlas
 
-* [unfallatlas.statistikportal.de](https://unfallatlas.statistikportal.de) zeigt Unfälle mit Personenschaden ab 2016 punktgenau mit Jahr, Unfalltyp, Beteiligten und Lichtverhältnis. Die Rohdaten gibt es als CSV/Shape je Jahr zum Download (Opendata-Bereich des Statistikportals). Filter auf einen Kreis um die Kreuzung ergibt die Unfallliste. [O] Ergebnis, da die Seite nicht abrufbar war.
+* [unfallatlas.statistikportal.de](https://unfallatlas.statistikportal.de) zeigt Unfälle mit Personenschaden ab 2016 punktgenau mit Jahr, Unfallart, Unfalltyp, Beteiligten und Lichtverhältnis. Die Rohdaten gibt es als CSV/Shape je Jahr zum Download. Filter auf einen Kreis von etwa 30 m um den Knoten ergibt die Unfallliste. [O] Ergebnis, da die Seite nicht abrufbar war. Eine Auswertung für genau diesen Knoten ist im Netz nicht veröffentlicht.
+* Open Data Leipzig bietet den Datensatz „Unfälle mit Radbeteiligung“ 2016 bis 2021 (aus dem Unfallatlas) als CSV. [V] ([opendata.leipzig.de](https://opendata.leipzig.de/dataset/unfaelle-mit-radbeteiligung))
+* Unfallhäufungsstellen benennt die Verkehrsunfallkommission der Stadt, deren Unterlagen sind im Musterantrag mit abgefragt.
+* Presse 2026 in der Nähe, aber nicht an diesem Knoten Antonien-/Gießerstraße 28.09.2026 (Ampel abgeschaltet, sechs Leichtverletzte, etwa 50.000 Euro Schaden), Haltestelle Adler Zschochersche Straße Januar 2026 (Fußgänger leicht verletzt). [V] ([ms-aktuell](https://ms-aktuell.de/?p=162452), [L-IZ Januar 2026](https://www.l-iz.de/melder/polizeimelder/2026/01/polizeibericht-20-januar-dachstuhlbrand-in-gruenau-zeugen-zu-unfall-in-plagwitz-gesucht-blindgaenger-verletzt-polizeibeamte-644831))
 
 ### 3.4 Straßenbilder zur Beschilderung
 
@@ -136,7 +154,7 @@ Rechtsgrundlagen für eine Anfrage
 
 ## 5 Offene Punkte für die nächste Sitzung
 
-1. `bash daten/osm_abfrage.sh` mit freiem Internet ausführen und die Tag-Übersicht hier ergänzen (Spuren, Vorfahrt, Ampel ja oder nein, Haltestellenlage).
+1. `bash daten/osm_abfrage.sh` mit freiem Internet ausführen und die Tag-Übersicht hier ergänzen. Gezielt prüfen `highway=stop` am Nordarm, `priority_road`/Zeichen 306 mit Zusatz 1002 (abknickende Vorfahrt), `maxspeed` je Arm, `highway=bus_stop` am Südarm, `parking:right`/`parking:left` auf der Ostseite, `shop=kiosk` an der Südwestecke.
 2. Unfallatlas für 2016 bis 2025 im Radius 50 m auswerten.
 3. Mapillary/Panoramax Bilder sichten, Schilder fotografisch dokumentieren, besser noch eigene Begehung.
 4. Buslinie und Haltestellenlage über l.de bestätigen.
