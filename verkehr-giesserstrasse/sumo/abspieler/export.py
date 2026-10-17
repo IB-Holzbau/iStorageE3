@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Baut den Browser-Abspieler grafik/abspieler.html.
 
-Aufruf (nach build.py und run.py)
+Aufruf (nach build.py, werkzeuge/schleppkurve.py und run.py)
     python3 abspieler/export.py
 
-Je Variante laeuft SUMO einmal mit 0,2 s Schrittweite. Aufgezeichnet werden drei
-Minuten nach zehn Minuten Einschwingzeit. Die Bahnen aller Fahrzeuge und Personen,
-die Konflikte und die Kartengeometrie werden kompakt in eine einzige HTML-Datei
-geschrieben, die im Browser mit 60 Bildern je Sekunde abspielt.
+Je Variante laeuft SUMO einmal mit 0,2 s Schrittweite. Aufgezeichnet werden fuenf
+Minuten nach zehn Minuten Einschwingzeit. Fuer jedes Fahrzeug wird hier die Lage der
+Glieder mit Schleppkurve berechnet (kinematik.py), dazu Blinker. Diagonalquerer kommen aus
+diagonal.py. Bahnen, Konflikte und Kartengeometrie stehen kompakt in einer HTML-Datei, die
+im Browser mit 60 Bildern je Sekunde abspielt.
 """
 import csv
 import json
@@ -22,25 +23,33 @@ import xml.etree.ElementTree as ET
 from collections import defaultdict
 
 from shapely.geometry import LineString, Polygon, Point, box
-from shapely.ops import substring, unary_union
+from shapely.ops import unary_union
 
 HIER = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HIER)
 sys.path.insert(0, ROOT)
-import run as R          # noqa: E402  (Netzinfo und Fussgaengerkonflikte wiederverwenden)
+import run as R          # noqa: E402
+import build as B        # noqa: E402
+import kinematik as K    # noqa: E402
+import diagonal as DG    # noqa: E402
+import strassenraum as SR  # noqa: E402
 
 NETZE = os.path.join(ROOT, 'netze')
 OSM = os.path.join(ROOT, '..', 'daten', 'map.osm')
 ZIEL = os.path.join(ROOT, 'grafik', 'abspieler.html')
 VORLAGE = os.path.join(HIER, 'vorlage.html')
 
-VARIANTEN = ['bestand', 'rvl', 'minikreisel', 't30_zebra']
+VARIANTEN = list(B.VERGLEICH)
 SCHRITT = 0.2
 START, DAUER = 600.0, 300.0
 SEED = 1
-# Sichtfenster in SUMO-Koordinaten (Meter, Norden oben, Knoten bei 0,0)
-FENSTER = (-48.0, -80.0, 48.0, 46.0)
-RAND = 25.0              # Bahnen etwas ueber das Fenster hinaus aufzeichnen
+# Sichtfenster in SUMO-Koordinaten (Meter, Norden oben, Knoten bei 0,0). Nach Sueden so weit,
+# dass Haltestelle, Keil und die Parker suedlich davon zu sehen sind.
+FENSTER = (-48.0, -98.0, 48.0, 44.0)
+RAND = 25.0
+TYPEN = ['pkw', 'lkw', 'sattel', 'bus', 'rad', 'fuss', 'fussd', 'pkwx']
+# Fehlspur-Fahrer fahren auf dem Suedarm sichtbar mittig zwischen den Spuren
+FEHLSPUR_VERSATZ = 1.1
 
 
 def r2(v):
@@ -48,19 +57,16 @@ def r2(v):
 
 
 def svgpts(pts):
-    """SUMO (y nach oben) in SVG (y nach unten)."""
     return [(r2(x), r2(-y)) for x, y in pts]
 
 
 def pfad(geom):
-    """Shapely-Flaeche als SVG-Pfad."""
-    if geom.is_empty:
+    """Shapely-Flaeche als SVG-Pfad (mit Loechern)."""
+    if geom is None or geom.is_empty:
         return ''
-    polys = [geom] if geom.geom_type == 'Polygon' else list(geom.geoms)
+    polys = [geom] if geom.geom_type == 'Polygon' else [g for g in getattr(geom, 'geoms', []) if g.geom_type == 'Polygon']
     teile = []
     for p in polys:
-        if p.geom_type != 'Polygon':
-            continue
         for ring in [p.exterior] + list(p.interiors):
             c = svgpts(list(ring.coords))
             teile.append('M' + ' L'.join(f'{x} {y}' for x, y in c) + 'Z')
@@ -72,12 +78,17 @@ def linie(pts):
     return 'M' + ' L'.join(f'{x} {y}' for x, y in c)
 
 
+def winkel_svg(ux, uy):
+    """Drehwinkel fuer SVG (y nach unten), damit lokales +x in Richtung (ux, uy) zeigt."""
+    return round(math.degrees(math.atan2(-uy, ux)), 1)
+
+
 # ---------------------------------------------------------------- Simulation
 def simuliere(var, ordner):
     f = {k: os.path.join(ordner, f'{var}_{k}.xml') for k in ('fcd', 'ssm')}
     cmd = [R.sumo_bin(), '-n', os.path.join(NETZE, f'{var}.net.xml'), '-r', os.path.join(NETZE, f'{var}.rou.xml'),
            '-a', os.path.join(NETZE, 'haltestelle.add.xml'),
-           '--step-length', str(SCHRITT), '--begin', '0', '--end', str(START + DAUER), '--seed', str(SEED),
+           '--step-length', str(SCHRITT), '--begin', '0', '--end', str(START + DAUER + 20), '--seed', str(SEED),
            '--no-step-log', '--no-warnings', '--time-to-teleport', '300', '--ignore-junction-blocker', '15',
            '--pedestrian.striping.jamtime', '30',
            '--device.ssm.probability', '1', '--device.ssm.measures', 'TTC DRAC PET',
@@ -88,51 +99,58 @@ def simuliere(var, ordner):
     return f
 
 
-TYPEN = ['pkw', 'lkw', 'sattel', 'bus', 'rad', 'fuss']
-
-
 def in_fenster(x, y, rand=RAND):
     x0, y0, x1, y1 = FENSTER
     return x0 - rand <= x <= x1 + rand and y0 - rand <= y <= y1 + rand
 
 
+def fehlspur_versatz(lane):
+    e = lane.rsplit('_', 1)[0]
+    return e in ('S_in', 'S_in_f', 'S_in_m') or lane.startswith(':J')
+
+
 def bahnen_und_konflikte(var, f):
     lanelen, querung, form, nach = R.netzinfo(var)
     n_frames = int(round(DAUER / SCHRITT))
-    spuren = {}          # id -> [typ, f0, [x], [y], [a]]
+    roh = defaultdict(list)          # id -> [(frame, x, y, angle, lane)]
     fuss_konf = []
     paare = set()
+    ne, sw = DG.ecken(B)
+    diag = DG.Diagonal(SEED, B.DIAGONAL, 0, START + DAUER, ne, sw)
     for _, ts in ET.iterparse(f['fcd']):
         if ts.tag != 'timestep':
             continue
         t = float(ts.get('time'))
-        if t < START - 1e-6 or t >= START + DAUER - 1e-6:
+        fz = ts.findall('vehicle')
+        pers = ts.findall('person')
+        leute = diag.schritt(t, SCHRITT, [(float(v.get('x')), float(v.get('y')), float(v.get('speed'))) for v in fz])
+        # Fahrzeuge schon vor dem Fenster aufzeichnen, damit die Schleppkurve eingeschwungen ist
+        if t < START - 20 - 1e-6 or t >= START + DAUER - 1e-6:
             ts.clear()
             continue
         fr = int(round((t - START) / SCHRITT))
-        fz = ts.findall('vehicle')
-        pers = ts.findall('person')
-        for el, istp in [(v, False) for v in fz] + [(p, True) for p in pers]:
-            x, y = float(el.get('x')), float(el.get('y'))
-            vid = ('p:' if istp else '') + el.get('id')
-            typ = 'fuss' if istp else R.typ_von(el.get('id'))
-            s = spuren.get(vid)
-            if s is None or s[1] + len(s[2]) != fr:
-                # neue Spur (oder Luecke): eigener Abschnitt
-                key = vid if s is None else f'{vid}#{fr}'
-                s = spuren[key] = [typ, fr, [], [], []]
-                spuren[vid] = s
-            s[2].append(x)
-            s[3].append(y)
-            s[4].append(float(el.get('angle')))
-        # Fussgaenger auf Querungen gegen schnelle Fahrzeuge (wie run.py)
+        for v in fz:
+            roh[v.get('id')].append((fr, float(v.get('x')), float(v.get('y')), float(v.get('angle')), v.get('lane')))
+        if fr < 0:
+            ts.clear()
+            continue
+        for p in pers:
+            roh['p:' + p.get('id')].append((fr, float(p.get('x')), float(p.get('y')), 0.0, ''))
+        for pid, x, y, vx, vy, geht in leute:
+            roh['d:' + pid].append((fr, x, y, 0.0, ''))
+        # Fussgaenger auf Querungen und Diagonalquerer gegen schnelle Fahrzeuge (wie run.py)
+        kand = []
         for p in pers:
             m = re.match(r'(:\w+_c\d+)', p.get('edge') or '')
             if not m:
                 continue
-            px, py = float(p.get('x')), float(p.get('y'))
             pa = math.radians(float(p.get('angle')))
-            pvx, pvy = float(p.get('speed')) * math.sin(pa), float(p.get('speed')) * math.cos(pa)
+            kand.append((p.get('id'), 'f', float(p.get('x')), float(p.get('y')),
+                         float(p.get('speed')) * math.sin(pa), float(p.get('speed')) * math.cos(pa)))
+        for pid, x, y, vx, vy, geht in leute:
+            if geht:
+                kand.append((pid, 'd', x, y, vx, vy))
+        for pid, art, px, py, pvx, pvy in kand:
             for v in fz:
                 sp = float(v.get('speed'))
                 if sp < R.FUSS_TEMPO:
@@ -141,30 +159,75 @@ def bahnen_und_konflikte(var, f):
                 treffer = R.fuss_ttc(px, py, pvx, pvy, v.get('lane'), float(v.get('pos')), sp, R.LAENGE[typ],
                                      R.BREITE[typ], lanelen, form, nach)
                 if treffer is not None and sp / (2 * max(treffer, 0.05)) > R.FUSS_DRAC:
-                    paar = (p.get('id'), v.get('id'))
+                    paar = (pid, v.get('id'))
                     if paar not in paare:
                         paare.add(paar)
-                        fuss_konf.append([round(t - START, 1), r2(px), r2(-py), 'f',
-                                          1 if sp > 30 / 3.6 else 0])
+                        fuss_konf.append([round(t - START, 1), r2(px), r2(-py), art, 1 if sp > 30 / 3.6 else 0])
         ts.clear()
 
-    # Spuren kodieren: Dezimeter und Grad, ab dem zweiten Wert als Differenz
-    eindeutig = {id(s): s for s in spuren.values()}.values()
     out = []
-    for typ, f0, xs, ys, angs in eindeutig:
-        if not any(in_fenster(x, y) for x, y in zip(xs, ys)):
-            continue
-        d = [TYPEN.index(typ), f0, len(xs)]
-        px = py = pa = None
-        for x, y, a in zip(xs, ys, angs):
-            ix, iy, ia = round(x * 10), round(-y * 10), round(a) % 360
-            if px is None:
-                d += [ix, iy, ia]
+    kinem = {}
+    for vid, seq in roh.items():
+        if vid.startswith(('p:', 'd:')):
+            typ = 'fuss' if vid.startswith('p:') else 'fussd'
+        else:
+            typ = R.typ_von(vid)
+            if '_SNx' in vid:
+                typ = 'pkwx'
+        # Luecken teilen die Spur in Abschnitte
+        abschnitte, akt = [], [seq[0]]
+        for a, b in zip(seq, seq[1:]):
+            if b[0] != a[0] + 1:
+                abschnitte.append(akt)
+                akt = []
+            akt.append(b)
+        abschnitte.append(akt)
+        for ab in abschnitte:
+            if not any(in_fenster(x, y) for _, x, y, _, _ in ab):
+                continue
+            xs = [p[1] for p in ab]
+            ys = [p[2] for p in ab]
+            ws = [p[3] for p in ab]
+            if typ in ('fuss', 'fussd'):
+                frames = [(x, y) for x, y in zip(xs, ys)]
+                poses = None
             else:
-                da = (ia - pa + 180) % 360 - 180
-                d += [ix - px, iy - py, da]
-            px, py, pa = ix, iy, ia
-        out.append(d)
+                ktyp = 'pkw' if typ == 'pkwx' else typ
+                if typ == 'pkwx':
+                    # sichtbar mittig zwischen den Spuren: Versatz nach rechts auf dem Suedarm
+                    for i, p in enumerate(ab):
+                        if fehlspur_versatz(p[4]):
+                            a = math.radians(ws[i])
+                            xs[i] += math.cos(a) * FEHLSPUR_VERSATZ
+                            ys[i] -= math.sin(a) * FEHLSPUR_VERSATZ
+                poses = K.posen(ktyp, xs, ys, ws)
+                blink = K.blinker(ws, xs, ys, int(7 / SCHRITT)) if ktyp != 'rad' else [0] * len(xs)
+            # nur Frames ab Fensterbeginn
+            k0 = next((i for i, p in enumerate(ab) if p[0] >= 0), None)
+            if k0 is None:
+                continue
+            f0 = ab[k0][0]
+            d = [TYPEN.index(typ), f0, len(ab) - k0]
+            prev = None
+            for i in range(k0, len(ab)):
+                if poses is None:
+                    vals = [round(xs[i] * 10), round(-ys[i] * 10)]
+                    cur = vals
+                    d += vals if prev is None else [vals[0] - prev[0], vals[1] - prev[1]]
+                    prev = cur
+                    continue
+                Fx, Fy, h1, h2 = poses[i]
+                vals = [round(Fx * 10), round(-Fy * 10), round(h1) % 360]
+                if h2 is not None:
+                    vals.append(round(h2) % 360)
+                if prev is None:
+                    d += vals
+                else:
+                    dv = [vals[0] - prev[0], vals[1] - prev[1]] + [((v - p + 180) % 360) - 180 for v, p in zip(vals[2:], prev[2:])]
+                    d += dv
+                d.append(blink[i])
+                prev = vals
+            out.append(d)
 
     # Fahrzeugkonflikte aus SSM, Filter wie run.py
     konf = []
@@ -202,6 +265,8 @@ def bahnen_und_konflikte(var, f):
         if not 0 <= zeit < DAUER:
             continue
         x, y = map(float, pos.split(','))
+        if math.hypot(x, y) > R.KNOTENBEREICH:
+            continue
         schwer = (ttc is not None and ttc < 1.0) or (pet is not None and pet < 0.5)
         konf.append([round(zeit, 1), r2(x), r2(-y), 'a' if art in (1, 2, 3, 4, 18) else 'k', 1 if schwer else 0])
     konf += fuss_konf
@@ -212,22 +277,18 @@ def bahnen_und_konflikte(var, f):
 # ---------------------------------------------------------------- Karte
 def lies_netz(var):
     r = ET.parse(os.path.join(NETZE, f'{var}.net.xml')).getroot()
-    lanes, junctions, walk, cross = [], [], [], []
+    lanes, cross = [], []
     for e in r.findall('edge'):
         fn = e.get('function')
         for l in e.findall('lane'):
             pts = [tuple(map(float, p.split(','))) for p in l.get('shape').split()]
             info = dict(edge=e.get('id'), id=l.get('id'), index=int(l.get('index')), width=float(l.get('width', 3.2)),
-                        allow=l.get('allow', ''), disallow=l.get('disallow', ''), pts=pts, fn=fn,
-                        length=float(l.get('length')))
-            if fn == 'walkingarea':
-                walk.append(info)
-            elif fn == 'crossing':
-                info['prio'] = e.get('crossingEdges')
+                        allow=l.get('allow', ''), disallow=l.get('disallow', ''), pts=pts, fn=fn)
+            if fn == 'crossing':
+                info['kanten'] = e.get('crossingEdges')
                 cross.append(info)
-            else:
+            elif fn not in ('walkingarea', 'internal'):
                 lanes.append(info)
-    # Zebrastreifen (Querung mit Vorrang) aus den Plain-Daten von build.py lesen
     con = os.path.join(ROOT, 'build', f'{var}.con.xml')
     zebra = set()
     if os.path.exists(con):
@@ -235,29 +296,8 @@ def lies_netz(var):
             if c.get('priority') == 'true':
                 zebra.add(frozenset(c.get('edges').split()))
     for c in cross:
-        c['zebra'] = frozenset(c['prio'].split()) in zebra
-    for j in r.findall('junction'):
-        if j.get('type') == 'internal' or not j.get('shape'):
-            continue
-        pts = [tuple(map(float, p.split(','))) for p in j.get('shape').split()]
-        if len(pts) >= 3:
-            junctions.append((j.get('id'), pts))
-    return lanes, junctions, walk, cross
-
-
-def ist_fuss(l):
-    return l['allow'] == 'pedestrian'
-
-
-def ist_park(l):
-    return l['allow'] == 'custom1'
-
-
-def flaeche(l, extra=0.0):
-    ls = LineString(l['pts'])
-    if ls.length == 0:
-        return Polygon()
-    return ls.buffer(l['width'] / 2 + extra, cap_style=2, join_style=2, mitre_limit=3)
+        c['zebra'] = frozenset(c['kanten'].split()) in zebra
+    return lanes, cross
 
 
 def gebaeude(xy_proj):
@@ -277,14 +317,13 @@ def gebaeude(xy_proj):
 
 def osm_projektion():
     r = ET.parse(OSM).getroot()
-    j = [n for n in r.findall('node') if n.get('id') == '60015219'][0]
+    j = [n for n in r.findall('node') if n.get('id') == B.J_OSM][0]
     lat0, lon0 = float(j.get('lat')), float(j.get('lon'))
     kx = 111320 * math.cos(math.radians(lat0))
     return lambda p: ((p[1] - lon0) * kx, (p[0] - lat0) * 110540)
 
 
 def ende_info(pts, am_ende=True):
-    """Punkt und Richtungseinheitsvektor am Ende (oder Anfang) einer Polylinie."""
     if am_ende:
         a, b = pts[-2], pts[-1]
         p = b
@@ -295,81 +334,7 @@ def ende_info(pts, am_ende=True):
     return p, ((b[0] - a[0]) / d, (b[1] - a[1]) / d)
 
 
-def winkel_svg(ux, uy):
-    """Drehwinkel fuer SVG, damit lokales +x in Fahrtrichtung zeigt."""
-    return round(math.degrees(math.atan2(-uy, ux)), 1)
-
-
-# ---------------------------------------------------------------- Strassenraum (eigene Konstruktion)
-import build as B        # noqa: E402  (Achsen, Querschnitte, Eckausbildung)
-
-
-def _einheit(x, y):
-    d = math.hypot(x, y) or 1.0
-    return x / d, y / d
-
-
-def _schnitt(p, u, q, v):
-    """Schnittpunkt der Geraden p + t*u und q + s*v."""
-    det = u[0] * (-v[1]) - u[1] * (-v[0])
-    t = ((q[0] - p[0]) * (-v[1]) - (q[1] - p[1]) * (-v[0])) / det
-    return (p[0] + u[0] * t, p[1] + u[1] * t)
-
-
-def _ausrundung(V, a, b, r, n=10):
-    """Rundet die Blockecke V mit den Kantenrichtungen a und b (Einheitsvektoren, vom
-    Eckpunkt weg) mit Radius r. Gibt die Bogenpunkte von der a-Seite zur b-Seite zurueck."""
-    cosw = max(-1.0, min(1.0, a[0] * b[0] + a[1] * b[1]))
-    w = math.acos(cosw)
-    t = r / math.tan(w / 2)
-    h = _einheit(a[0] + b[0], a[1] + b[1])
-    m = r / math.sin(w / 2)
-    C = (V[0] + h[0] * m, V[1] + h[1] * m)
-    Ta = (V[0] + a[0] * t, V[1] + a[1] * t)
-    Tb = (V[0] + b[0] * t, V[1] + b[1] * t)
-    wa = math.atan2(Ta[1] - C[1], Ta[0] - C[0])
-    wb = math.atan2(Tb[1] - C[1], Tb[0] - C[0])
-    d = (wb - wa + math.pi) % (2 * math.pi) - math.pi      # kurzer Bogen
-    return [(C[0] + r * math.cos(wa + d * i / n), C[1] + r * math.sin(wa + d * i / n)) for i in range(n + 1)]
-
-
-def strassenraum():
-    """Fahrbahnflaeche als Shapely-Polygon: vier gerade Arme konstanter Breite und die
-    Bordsteinecken nach Beobachtung (Nordecken ein Radius, Suedecken abgeschraegt)."""
-    xy, nachbarn, _ = B.lade_osm()
-    achsen = {a: B.arm_polylinie(xy, nachbarn, name, ri) for a, (name, ri) in B.ARME.items()}
-    info = {}
-    teile = []
-    for a, achse in achsen.items():
-        g = B.grenzlinie(a, achse)
-        u = _einheit(g[1][0] - g[0][0], g[1][1] - g[0][1])
-        rgt = (u[1], -u[0])
-        wr, wl = B.breite(a, 'out'), B.breite(a, 'in')
-        p0 = g[0]
-        rechts = (p0[0] + rgt[0] * wr, p0[1] + rgt[1] * wr)
-        links = (p0[0] - rgt[0] * wl, p0[1] - rgt[1] * wl)
-        info[a] = dict(u=u, rechts=rechts, links=links)
-        s0, s1 = -3.0, B.ARM_LEN      # nur knapp ueber die Mitte, sonst ragt der breite Suedarm in den Nordarm
-        teile.append(Polygon([(rechts[0] + u[0] * s0, rechts[1] + u[1] * s0), (rechts[0] + u[0] * s1, rechts[1] + u[1] * s1),
-                              (links[0] + u[0] * s1, links[1] + u[1] * s1), (links[0] + u[0] * s0, links[1] + u[1] * s0)]))
-    for name, art in B.ECKEN.items():
-        a, b = name[0], name[1]
-        P = _schnitt(info[a]['rechts'], info[a]['u'], info[b]['links'], info[b]['u'])
-        ua, ub = info[a]['u'], info[b]['u']
-        if art[0] == 'rund':
-            bogen = _ausrundung(P, ua, ub, art[1])
-        else:
-            c, r = art[1], art[2]
-            Aa = (P[0] + ua[0] * c, P[1] + ua[1] * c)
-            Ab = (P[0] + ub[0] * c, P[1] + ub[1] * c)
-            k = _einheit(Ab[0] - Aa[0], Ab[1] - Aa[1])
-            bogen = _ausrundung(Aa, ua, k, r) + _ausrundung(Ab, (-k[0], -k[1]), ub, r)
-        teile.append(Polygon([P] + bogen).buffer(0))
-    return unary_union(teile).buffer(0.01).buffer(-0.01)
-
-
 def _schraffur(poly, abstand=1.0, winkel=45):
-    """Diagonale Linien innerhalb einer Flaeche (Sperrflaeche)."""
     x0, y0, x1, y1 = poly.bounds
     L = (x1 - x0) + (y1 - y0)
     ux, uy = math.cos(math.radians(winkel)), math.sin(math.radians(winkel))
@@ -385,63 +350,180 @@ def _schraffur(poly, abstand=1.0, winkel=45):
     return out
 
 
+ARME = None
+
+
+def rahmen(a, teil='m'):
+    global ARME
+    if ARME is None:
+        ARME = B.achsen()
+    r = B.Rahmen(a, ARME[a])
+    if teil != 'm':
+        g = B.grenzlinie(a, ARME[a], teil)
+        r.p0 = g[0]
+    return r
+
+
+def kante_q(a, seite, mit_park=True, teil='m'):
+    """Querlage der Bordsteinkante (Seite out positiv, in negativ)."""
+    q = sum(w for k, w in B.querschnitt(a, seite, teil) if mit_park or k != 'park')
+    return q if seite == 'out' else -q
+
+
+def punkt(a, seite, s, aussen, teil='m'):
+    """Punkt am Arm a, Seite seite, Abstand s, aussen Meter hinter der Bordsteinkante."""
+    r = rahmen(a, teil)
+    q = kante_q(a, seite, True, teil)
+    q += aussen if seite == 'out' else -aussen
+    return r.punkt(s, q)
+
+
+# Parkreihen je Variante (Arm, Seite, von s, bis s, Abschnitt fuer die Querlage), aus Luftbild,
+# Strassenfotos und Angaben der Initiative
+def parkreihen(var):
+    G = SR.geschuetzt()['G'] if var == 'geschuetzt' else None
+    r = [
+        ('W', 'in', 40.0, 120.0, 'm'),     # Naumburger West Suedseite, die letzten 30 m Halteverbot Mo-Fr
+        ('S', 'out', 45.0, 120.0, 'm'),    # Giesserstrasse Sued Westseite ab etwa 45 m
+        ('S', 'in', 73.0, 120.0, 'fern'),  # Giesserstrasse Sued Ostseite suedlich der Haltestelle
+        ('N', 'in', 31.0, 120.0, ''),      # Giesserstrasse Nord Westseite ab dem Halteverbotsschild
+    ]
+    if var == 'geschuetzt':
+        r += [('E', 'in', G['d_p']['E'] + 2.5, 120.0, 'm'), ('E', 'out', 31.0, 120.0, 'm')]
+    else:
+        r += [('E', 'in', 1.0, 120.0, 'm'), ('E', 'out', 10.0, 120.0, 'm')]   # Nord bis an die Ecke, Sued ab 10 m
+    return r
+
+
+def parkautos(var):
+    out = []
+    lanes_m = {'W': 14.6, 'E': 13.8, 'S': 17.0, 'N': 13.8}
+    for a, seite, s0, s1, teil in parkreihen(var):
+        r = rahmen(a, teil)
+        pw = sum(w for k, w in B.querschnitt(a, seite, teil) if k == 'park')
+        q_aussen = kante_q(a, seite, True, teil)
+        q = q_aussen - pw / 2 if seite == 'out' else q_aussen + pw / 2
+        if var != 'geschuetzt' and a == 'E' and s0 < 5:
+            s0 = max(s0, 9.5)        # ab der Knotenkante
+        s = s0
+        i = 0
+        while s + 4.4 <= min(s1, 118):
+            h = (i * 37 + int(s0) * 11 + len(a) * 7) % 100
+            if h > 10:
+                p = r.punkt(s + 2.2, q)
+                pr = r.punkt(s + 3.2, q)
+                out.append([r2(p[0]), r2(-p[1]), winkel_svg(pr[0] - p[0], pr[1] - p[1]), h % 5])
+            s += 5.6
+            i += 1
+    return out
+
+
+def schilder(var, lanes, cross):
+    """Schilder [x, y, art, zusatz]. Arten: vf (306), vg (205), stop (206), rvl (102), t30 (274),
+    zone (274.1), hv (283), zebra (350). Zusatz bei vf, vg, stop ist die Zufahrt (fuer 1002)."""
+    out = []
+    abkn = var in ('bestand', 't30_zebra', 'geschuetzt')
+    if abkn:
+        out.append(list(punkt('S', 'in', 14.0, 3.0)) + ['vf', 'S'])
+        out.append(list(punkt('W', 'in', 22.0, 2.4)) + ['vf', 'W'])
+        out.append(list(punkt('N', 'in', B.MUND['N'] + 4.5, 2.3)) + ['stop', 'N'])
+        out.append(list(punkt('E', 'in', 15.0, 2.4)) + ['vg', 'E'])
+    if var == 'rvl':
+        for a in 'SNWE':
+            out.append(list(punkt(a, 'in', 16.0, 2.4)) + ['rvl', ''])
+    if var in ('rvl', 't30_zebra', 'geschuetzt'):
+        for a in 'SNWE':
+            out.append(list(punkt(a, 'in', 27.0, 2.4)) + ['t30', ''])
+    else:
+        # Tempo-30-Zone Naumburger West beginnt am Knoten (Zeichen 274.1)
+        out.append(list(punkt('W', 'out', 17.0, 2.2)) + ['zone', ''])
+    # absolutes bzw. zeitweises Halteverbot
+    out.append(list(punkt('W', 'in', 38.0, 0.6)) + ['hv', 'Mo–Fr'])
+    out.append(list(punkt('N', 'in', 30.5, 0.6, '')) + ['hv', ''])
+    # Zeichen 350 an den Zebrastreifen
+    for c in cross:
+        if c['zebra']:
+            # ein Schild je Zebrastreifen, am rechten Ende fuer den ankommenden Verkehr
+            p, (ux, uy) = ende_info(c['pts'], True)
+            out.append([p[0] + ux * 2.4, p[1] + uy * 2.4, 'zebra', ''])
+    return [[r2(x), r2(-y), art, z] for x, y, art, z in out]
+
 
 def karte(var, bauten):
-    lanes, junctions, walk, cross = lies_netz(var)
+    lanes, cross = lies_netz(var)
     sicht = box(FENSTER[0] - 5, FENSTER[1] - 5, FENSTER[2] + 5, FENSTER[3] + 5)
-
-    fahrbahn = strassenraum()
-    # Gehweg: Band von 4,5 m entlang der Bordsteine bis an die Bebauung
-    gehweg = fahrbahn.buffer(4.5, join_style=2, mitre_limit=2.0).difference(fahrbahn)
+    alt = SR.fahrbahn_bestand()
+    fahrbahn = SR.fahrbahn(var)
+    gehweg = alt.buffer(4.5, join_style=2, mitre_limit=2.0).difference(alt)
     gehweg = gehweg.difference(unary_union(bauten)).intersection(sicht)
-    fahrbahn = fahrbahn.intersection(sicht)
-    k = {
-        'fahrbahn': pfad(fahrbahn.simplify(0.02)),
-        'gehweg': pfad(gehweg.simplify(0.03)),
-    }
+    k = {'fahrbahn': pfad(fahrbahn.intersection(sicht).simplify(0.02)), 'gehweg': pfad(gehweg.simplify(0.03))}
+    if var == 'geschuetzt':
+        g = SR.geschuetzt()
+        k['insel'] = pfad(g['insel'].simplify(0.02))
+        k['pflaster'] = pfad(g['pflaster'].simplify(0.02)) if not g['pflaster'].is_empty else ''
+        furten = {e: l for e, l in g['linien'].items() if e[0] == 'r'}
+        wege = {e: l for e, l in g['linien'].items() if e[0] != 'r'}
+        k['radweg'] = pfad(unary_union([l.buffer(B.G_RAD_B / 2, cap_style=2, join_style=2) for l in wege.values()]).simplify(0.02))
+        # Furten: zusammenhaengend je Arm, mit Blockmarkierung und Fahrradsymbolen
+        k['radfurt'] = []
+        k['radsym'] = []
+        for arm in ('S', 'E'):
+            l1, l2 = furten[f'r{arm}1'], furten[f'r{arm}2']
+            pts = list(l1.coords) + list(l2.coords)[1:]
+            k['radfurt'].append([linie(pts), B.G_RAD_B])
+            ln = LineString(pts)
+            for frac in (0.3, 0.7):
+                p = ln.interpolate(frac, normalized=True)
+                q = ln.interpolate(min(frac + 0.02, 1), normalized=True)
+                k['radsym'].append([r2(p.x), r2(-p.y), winkel_svg(q.x - p.x, q.y - p.y)])
+        for e, l in wege.items():
+            p = l.interpolate(0.5, normalized=True)
+            q = l.interpolate(0.52, normalized=True)
+            k['radsym'].append([r2(p.x), r2(-p.y), winkel_svg(q.x - p.x, q.y - p.y)])
 
-    # Kreiselinsel
-    ring = [l for l in lanes if l['edge'].startswith('ring_') and not ist_fuss(l)]
-    if ring:
-        rmin = min(math.hypot(x, y) for l in ring for x, y in l['pts'])
-        k['insel'] = r2(max(rmin - ring[0]['width'] / 2, 1.0))
-        k['inselring'] = r2(rmin + ring[0]['width'] / 2)
-
-    # Markierungen
+    # Markierungen: nur der Suedarm hat Leit- und Fahrstreifenlinien
     leit, trenn, halt, warte, zick, schmal, sperr, texte = [], [], [], [], [], [], [], []
-    kfz = [l for l in lanes if not ist_fuss(l) and not ist_park(l) and not l['id'].startswith(':')]
+    kfz = [l for l in lanes if l['allow'] not in ('pedestrian', 'custom1', 'bicycle') and not l['id'].startswith(':')]
     proedge = defaultdict(list)
     for l in kfz:
         proedge[l['edge']].append(l)
     for e, ls in proedge.items():
         ls.sort(key=lambda l: l['index'])
-        if e.startswith('ring_'):
+        if not e.startswith('S_') or e.startswith('ring'):
             continue
         links = ls[-1]
-        # Leitlinie Mitte: linker Rand der linken Spur der Zufahrt (nur _in, sonst doppelt)
-        if '_in' in e and len(links['pts']) >= 2 and not links['allow'] == 'custom2':
-            ls_ = LineString(links['pts']).offset_curve(links['width'] / 2)
-            if not ls_.is_empty and ls_.length > 1:
-                leit.append(linie(list(ls_.coords)))
+        if '_in' in e and len(links['pts']) >= 2:
+            off = LineString(links['pts']).offset_curve(links['width'] / 2)
+            if not off.is_empty and off.length > 1:
+                leit.append(linie(list(off.coords)))
         for l, nachbar in zip(ls[:-1], ls[1:]):
-            ls_ = LineString(l['pts']).offset_curve(l['width'] / 2)
-            if ls_.is_empty or ls_.length <= 1:
-                continue
-            if l['allow'] == 'custom2' or nachbar['allow'] == 'custom2':
+            off = LineString(l['pts']).offset_curve(l['width'] / 2)
+            if off.is_empty or off.length <= 1 or 'custom2' in (l['allow'], nachbar['allow']):
                 continue
             if 'bus' in l['allow']:
-                schmal.append(linie(list(ls_.coords)))     # Begrenzung Haltestellenstreifen
+                schmal.append(linie(list(off.coords)))     # breite Strichlinie Haltebereich
             else:
-                trenn.append(linie(list(ls_.coords)))      # Leitlinie zwischen Fahrstreifen
-    # Sperrflaeche (Minikreisel, rechte Spur am Suedarm)
-    for l in lanes:
-        if l['allow'] == 'custom2' and not l['id'].startswith(':'):
-            f = flaeche(l, -0.15)
-            if not f.is_empty:
-                sperr += _schraffur(f, 1.2, 60)
-                sperr.append(pfad(f))
+                trenn.append(linie(list(off.coords)))
 
-    # Halt- und Wartelinien am Knotenrand
+    abkn = var in ('bestand', 't30_zebra', 'geschuetzt')
+    if abkn:
+        # Bogen der Leitlinie durch den Knoten: abknickende Vorfahrt Sued -> West (Luftbild)
+        rs, rw = rahmen('S'), rahmen('W')
+        sS = 11.0 if var != 'geschuetzt' else SR.geschuetzt()['G']['d_f']['S'] - 1.2
+        P0, P3 = rs.punkt(sS, 0), rw.punkt(12.5 if var != 'geschuetzt' else 9.0, 0)
+        P1 = (P0[0] - rs.u[0] * 6, P0[1] - rs.u[1] * 6)
+        P2 = (P3[0] - rw.u[0] * 6, P3[1] - rw.u[1] * 6)
+        bogen = []
+        for i in range(25):
+            t = i / 24
+            bogen.append(((1 - t) ** 3 * P0[0] + 3 * (1 - t) ** 2 * t * P1[0] + 3 * (1 - t) * t * t * P2[0] + t ** 3 * P3[0],
+                          (1 - t) ** 3 * P0[1] + 3 * (1 - t) ** 2 * t * P1[1] + 3 * (1 - t) * t * t * P2[1] + t ** 3 * P3[1]))
+        k['bogen'] = linie(bogen)
+        # schmale Sperrflaeche links der Linksabbiegespur (Strassenfoto Sued)
+        if var != 'geschuetzt':
+            f = Polygon([rs.punkt(18.5, -0.45), rs.punkt(25.0, -0.45), rs.punkt(25.0, 0.45), rs.punkt(18.5, 0.45)])
+            sperr.append(pfad(f))
+
     def querlinie(edge):
         ls = sorted(proedge.get(edge, []), key=lambda l: l['index'])
         if not ls:
@@ -449,30 +531,24 @@ def karte(var, bauten):
         teile = []
         for l in ls:
             p, (ux, uy) = ende_info(l['pts'])
-            nx, ny = uy, -ux       # rechts
+            nx, ny = uy, -ux
             w = l['width'] / 2
             teile.append(((p[0] + nx * w - ux * 0.3, p[1] + ny * w - uy * 0.3), (p[0] - nx * w - ux * 0.3, p[1] - ny * w - uy * 0.3)))
         return linie([teile[0][0], teile[-1][1]])
-    if var in ('bestand', 't30_zebra'):
-        q = querlinie('N_in_m')
+    if abkn:
+        q = querlinie('N_in_b')
         if q:
             halt.append(q)
-        # Schriftzug STOP auf der Fahrbahn des Nordarms
-        l = proedge.get('N_in', [None])[0]
+        l = proedge.get('N_in_b', [None])[0]
         if l:
             ls_ = LineString(l['pts'])
-            p = ls_.interpolate(ls_.length - 3.0)
-            qq = ls_.interpolate(ls_.length - 2.0)
+            p = ls_.interpolate(ls_.length - 3.2)
+            qq = ls_.interpolate(ls_.length - 2.2)
             texte.append(['STOP', r2(p.x), r2(-p.y), winkel_svg(qq.x - p.x, qq.y - p.y) + 90, 2.0])
         q = querlinie('E_in_m')
         if q:
             warte.append(q)
-    if var == 'minikreisel':
-        for a in 'SNWE':
-            q = querlinie(f'{a}_in_m')
-            if q:
-                warte.append(q)
-    # Haltestelle auf der Fahrbahn: Zickzack ueber den rechten Streifen und Schriftzug BUS
+    # Haltestelle: Zickzack, BUS, Keil am Suedende, Wartehaeuschen
     for l in lanes:
         if l['edge'] == 'S_in_bucht' and 'bus' in l['allow']:
             ls = LineString(l['pts'])
@@ -487,104 +563,57 @@ def karte(var, bauten):
                 sg = (1 if i % 2 else -1) * (l['width'] / 2 - 0.35)
                 pts.append((p.x + nx * sg, p.y + ny * sg))
             zick.append(linie(pts))
-            # Schriftzug laengs der Spur, wie im Luftbild (von Nord nach Sued lesbar)
-            p = ls.interpolate(0.5, normalized=True)
-            q = ls.interpolate(0.51, normalized=True)
+            p = ls.interpolate(0.55, normalized=True)
+            q = ls.interpolate(0.56, normalized=True)
             texte.append(['BUS', r2(p.x), r2(-p.y), winkel_svg(q.x - p.x, q.y - p.y) + 180, 2.6])
-            p, (ux, uy) = ende_info(l['pts'])
+            # Keil: Sperrflaeche am Suedende (Einschwenken aus der Fahrspur)
+            a0 = ls.coords[0]
+            p_, (ux, uy) = ende_info(l['pts'], am_ende=False)
+            nx, ny = uy, -ux       # rechts
+            w = l['width'] / 2
+            keil = Polygon([(a0[0] + nx * w, a0[1] + ny * w), (a0[0] - nx * w, a0[1] - ny * w),
+                            (a0[0] + nx * w - ux * 6.5, a0[1] + ny * w - uy * 6.5)])
+            sperr += _schraffur(keil, 0.9, 30)
+            sperr.append(pfad(keil))
             mitte = ls.interpolate(0.5, normalized=True)
-            ab = l['width'] / 2 + 1.3
-            k['haltestelle'] = [r2(mitte.x + uy * ab), r2(-(mitte.y - ux * ab))]
+            ab = w + 2.0
+            k['haltestelle'] = [r2(mitte.x + nx * ab), r2(-(mitte.y + ny * ab))]
+            hh = [(mitte.x + nx * (w + 2.2) + ux * dx + nx * dq, mitte.y + ny * (w + 2.2) + uy * dx + ny * dq)
+                  for dx, dq in ((-2.2, 0), (2.2, 0), (2.2, 1.5), (-2.2, 1.5))]
+            k['haeuschen'] = pfad(Polygon(hh))
     k.update(leit=leit, trenn=trenn, halt=halt, warte=warte, zick=zick, schmal=schmal, sperr=sperr, texte=texte)
 
-    # Zebrastreifen
-    k['zebra'] = []
-    for c in cross:
-        if c['zebra']:
-            k['zebra'].append([linie(c['pts']), r2(c['width'])])
+    k['zebra'] = [[linie(c['pts']), r2(c['width'])] for c in cross if c['zebra']]
+    k['querung'] = [[linie(c['pts']), r2(c['width'])] for c in cross if not c['zebra']]
 
-    # Richtungspfeile Suedarm (zwei Spuren vor dem Knoten)
     pfeile = []
     for l in kfz:
-        if l['edge'] == 'S_in' and l['index'] > 0 and var != 'minikreisel':
+        if l['edge'] == 'S_in' and l['index'] > 0:
             ls = LineString(l['pts'])
+            if ls.length < 6:
+                continue
             p = ls.interpolate(ls.length - 4.0)
             q = ls.interpolate(ls.length - 3.0)
-            pfeile.append([r2(p.x), r2(-p.y), winkel_svg(q.x - p.x, q.y - p.y), 'L' if l['index'] == 2 else 'GR'])
+            idx = sorted(x['index'] for x in proedge['S_in'])
+            pfeile.append([r2(p.x), r2(-p.y), winkel_svg(q.x - p.x, q.y - p.y), 'L' if l['index'] == idx[-1] else 'GR'])
     k['pfeile'] = pfeile
-
-    # Parkende Autos
-    park = []
-    for l in lanes:
-        if not ist_park(l) or l['edge'].endswith('_m') or l['id'].startswith(':'):
-            continue
-        ls = LineString(l['pts'])
-        s = 3.0 if '_in' in l['edge'] else 6.0
-        ende = ls.length - (6.0 if '_in' in l['edge'] else 3.0)
-        i = 0
-        while s + 4.4 <= ende:
-            h = (i * 37 + len(l['id']) * 11) % 100   # feste Pseudozufallszahl fuer Luecken
-            if h > 12:      # einzelne Luecken
-                p = ls.interpolate(s + 2.2)
-                q = ls.interpolate(s + 3.2)
-                park.append([r2(p.x), r2(-p.y), winkel_svg(q.x - p.x, q.y - p.y), h % 5])
-            s += 5.7
-            i += 1
-    k['park'] = park
-
-    # Schilder: an der rechten Bordsteinkante vor der Haltlinie
-    schilder = []
-
-    def schild(edge, art, vor=1.5, aussen=1.6):
-        geh = [l for l in lanes if l['edge'] == edge and ist_fuss(l)]
-        if not geh:
-            return
-        l = geh[0]
-        ls = LineString(l['pts'])
-        p = ls.interpolate(max(ls.length - vor, 0))
-        q = ls.interpolate(ls.length)
-        ux, uy = q.x - p.x, q.y - p.y
-        d = math.hypot(ux, uy) or 1
-        nx, ny = uy / d, -ux / d
-        schilder.append([r2(p.x + nx * aussen * 0.3), r2(-(p.y + ny * aussen * 0.3)), art])
-
-    def schild_tempo(arm, art):
-        geh = [l for l in lanes if l['edge'] == f'{arm}_in' and ist_fuss(l)]
-        if geh:
-            ls = LineString(geh[0]['pts'])
-            p = ls.interpolate(max(ls.length - 18, 0))
-            schilder.append([r2(p.x), r2(-p.y), art])
-
-    if var in ('bestand', 't30_zebra'):
-        schild('S_in_m', 'vf')
-        schild('W_in_m', 'vf')
-        schild('N_in_m', 'stop')
-        schild('E_in_m', 'vg')
-    if var == 'minikreisel':
-        for a in 'SNWE':
-            schild(f'{a}_in_m', 'kr')
-    if var == 'rvl':
-        for a in 'SNWE':
-            schild(f'{a}_in_m', 'rvl')
-    if var in ('rvl', 'minikreisel', 't30_zebra'):
-        for a in 'SNWE':
-            schild_tempo(a, 't30')
-    # Zeichen 350 an beiden Enden jedes Zebrastreifens, etwas auf den Gehweg versetzt
-    for c in cross:
-        if c['zebra']:
-            for am_ende in (False, True):
-                p, (ux, uy) = ende_info(c['pts'], am_ende)
-                sgn = 1 if am_ende else -1
-                schilder.append([r2(p[0] + ux * sgn * 1.8), r2(-(p[1] + uy * sgn * 1.8)), 'zebra'])
-    k['schilder'] = schilder
+    k['park'] = parkautos(var)
+    k['schilder'] = schilder(var, lanes, cross)
+    # Kiosk in der abgeschraegten Hausecke, davor Stehtische, Schaltkasten als Sichthindernis
+    kiosk = punkt('W', 'in', 10.5, 5.2)
+    k['kiosk'] = [r2(kiosk[0]), r2(-kiosk[1])]
+    rw = rahmen('W')
+    qk = kante_q('W', 'in') - 0.9
+    kasten = Polygon([rw.punkt(15.6, qk), rw.punkt(17.4, qk), rw.punkt(17.4, qk - 0.7), rw.punkt(15.6, qk - 0.7)])
+    k['kasten'] = pfad(kasten)
     return k
 
 
 def namen():
-    # Beschriftung auf der Bebauung neben den Armen
     return [
-        ['Gießerstraße', -15.5, -30.0, -80],
-        ['Gießerstraße', 14.0, -64.0, -80],
+        ['Gießerstraße', -16.0, -36.0, -80],
+        ['Gießerstraße', 15.0, -60.0, -80],
+        ['Gießerstraße', 13.5, 28.0, -80],
         ['Naumburger Straße', -33.0, 15.0, 8],
         ['Naumburger Straße', 31.0, -15.0, 8],
     ]
@@ -605,9 +634,13 @@ def kennzahlen():
         out[var] = {
             'konflikte': m(var, 'konflikte_fz', 'alle'),
             'schwer': m(var, 'konflikte_fz', 'schwer'),
+            'rad': m(var, 'konflikte_fz', 'kfz_rad'),
             'fuss': m(var, 'konflikte_fuss', 'alle'),
+            'diag': m(var, 'konflikte_fuss', 'diag'),
+            'fehlspur': m(var, 'konflikte_fz', 'fehlspur'),
             'verlust': m(var, 'zeitverlust_s', 'alle|Kfz'),
             'verlustN': m(var, 'zeitverlust_s', 'N|Kfz'),
+            'wartendN': m(var, 'anteil_zeit_wartend', 'N'),
             'wartenFuss': m(var, 'fuss_wartezeit_s', 'alle'),
             'laeufe': len(data.get((var, 'konflikte_fz', 'alle'), [])),
         }
@@ -623,6 +656,7 @@ def main():
              'schritt': SCHRITT, 'dauer': DAUER, 'typen': TYPEN,
              'bauten': pfad(unary_union(bauten).intersection(sicht).simplify(0.05)),
              'namen': namen(), 'kennzahlen': kennzahlen(), 'bus': open(os.path.join(NETZE, 'bus.txt')).read().strip(),
+             'geom': {t: {k: v for k, v in g.items() if not isinstance(v, bool)} for t, g in K.GEOM.items()},
              'varianten': {}}
     with tempfile.TemporaryDirectory() as tmp:
         for var in VARIANTEN:

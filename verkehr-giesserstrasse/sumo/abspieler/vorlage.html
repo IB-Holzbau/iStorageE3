@@ -73,6 +73,9 @@ details summary{cursor:pointer;color:var(--fg);font-weight:600;min-height:32px;d
 details ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
 .note{font-size:12.5px;color:var(--muted)}
 @media (prefers-reduced-motion: reduce){.fxring{display:none}}
+.signs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.signs .sg{display:grid;grid-template-columns:52px minmax(0,1fr);gap:8px;align-items:center;font-size:13px;line-height:1.25}
+.signs svg{width:52px;height:56px}
 </style>
 </head>
 <body>
@@ -88,47 +91,15 @@ details ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
       <div class="mapbox">
         <svg id="map" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Draufsicht der Kreuzung mit fahrenden Fahrzeugen und Fußgängern">
           <defs>
-            <symbol id="s-vf" viewBox="-2 -2 4 5.2" overflow="visible">
-              <rect x="-1.25" y="-1.25" width="2.5" height="2.5" transform="rotate(45)" fill="#fff" stroke="#222" stroke-width=".12"/>
-              <rect x="-.85" y="-.85" width="1.7" height="1.7" transform="rotate(45)" fill="#f2b705"/>
-              <rect x="-1.2" y="2.05" width="2.4" height="1.4" fill="#fff" stroke="#222" stroke-width=".1"/>
-              <path d="M-.8 3.15 V2.75 H.2 L.75 2.3" fill="none" stroke="#222" stroke-width=".22"/>
-            </symbol>
-            <symbol id="s-stop" viewBox="-2 -2 4 4" overflow="visible">
-              <polygon points="-.75,-1.8 .75,-1.8 1.8,-.75 1.8,.75 .75,1.8 -.75,1.8 -1.8,.75 -1.8,-.75" fill="#c62828" stroke="#fff" stroke-width=".18"/>
-              <text y=".42" font-size="1.15" font-weight="700" fill="#fff" text-anchor="middle" font-family="Arial,sans-serif">STOP</text>
-            </symbol>
-            <symbol id="s-vg" viewBox="-2 -2 4 4" overflow="visible">
-              <polygon points="-1.9,-1.5 1.9,-1.5 0,1.8" fill="#fff" stroke="#c62828" stroke-width=".42" stroke-linejoin="round"/>
-            </symbol>
-            <symbol id="s-kr" viewBox="-2 -2 4 4" overflow="visible">
-              <circle r="1.7" fill="#1f5fae" stroke="#fff" stroke-width=".15"/>
-              <path d="M0 -1.05 A1.05 1.05 0 1 1 -1 .3" fill="none" stroke="#fff" stroke-width=".32"/>
-              <path d="M-1.45 .05 L-1 .6 L-.55 .05 Z" fill="#fff"/>
-            </symbol>
-            <symbol id="s-rvl" viewBox="-2 -2 4 4" overflow="visible">
-              <polygon points="0,-1.8 1.95,1.5 -1.95,1.5" fill="#fff" stroke="#c62828" stroke-width=".42" stroke-linejoin="round"/>
-              <path d="M0 -.55 V1.05 M-.65 .3 H.65" stroke="#222" stroke-width=".3"/>
-            </symbol>
-            <symbol id="s-t30" viewBox="-2 -2 4 4" overflow="visible">
-              <circle r="1.6" fill="#fff" stroke="#c62828" stroke-width=".38"/>
-              <text y=".45" font-size="1.35" font-weight="700" fill="#222" text-anchor="middle" font-family="Arial,sans-serif">30</text>
-            </symbol>
-            <symbol id="s-zebra" viewBox="-2 -2 4 4" overflow="visible">
-              <rect x="-1.5" y="-1.5" width="3" height="3" rx=".2" fill="#1f5fae" stroke="#fff" stroke-width=".12"/>
-              <polygon points="0,-1.15 1.2,1.05 -1.2,1.05" fill="#fff"/>
-              <path d="M-.55 .85 L-.2 .15 M0 .85 L.3 .15 M.5 .85 L.75 .35" stroke="#1f5fae" stroke-width=".18"/>
-            </symbol>
-            <symbol id="s-H" viewBox="-2 -2 4 4" overflow="visible">
-              <circle r="1.5" fill="#f2c400" stroke="#2e7d32" stroke-width=".25"/>
-              <text y=".48" font-size="1.4" font-weight="700" fill="#2e7d32" text-anchor="middle" font-family="Arial,sans-serif">H</text>
-            </symbol>
             <symbol id="p-L" viewBox="-3 -1 5 2" overflow="visible">
               <path d="M-4.5 .18 H-1.6 Q-.9 .18 -.9 -.5 V-.65 H-1.25 L-.6 -1.35 L.05 -.65 H-.3 V-.5 Q-.3 .75 -1.6 .75 H-4.5 Z" fill="#fff" fill-opacity=".85"/>
             </symbol>
             <symbol id="p-GR" viewBox="-3 -1 5 2" overflow="visible">
               <path d="M-4.5 -.18 H-1 V-.5 L0 0 L-1 .5 V.18 H-4.5 Z" fill="#fff" fill-opacity=".85"/>
               <path d="M-2.8 .18 Q-2.2 .18 -2.2 .7 V.9 H-2.55 L-1.9 1.55 L-1.25 .9 H-1.6 V.7 Q-1.6 -.18 -2.8 -.18 Z" fill="#fff" fill-opacity=".85"/>
+            </symbol>
+            <symbol id="p-rad" viewBox="-1 -1 2 2" overflow="visible">
+              <g fill="none" stroke="#fff" stroke-width=".12" stroke-opacity=".9"><circle cx="-.45" cy=".15" r=".32"/><circle cx=".45" cy=".15" r=".32"/><path d="M-.45 .15 L-.1 -.3 L.3 -.3 L.45 .15 M-.1 -.3 L.05 .15 L.45 .15"/></g>
             </symbol>
           </defs>
           <rect id="bg" fill="#ece7dc"/>
@@ -146,14 +117,16 @@ details ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
       <div class="player">
         <button class="primary" id="play" aria-label="Abspielen">▶ Start</button>
         <div class="speed" role="group" aria-label="Tempo" id="speed"></div>
-        <input type="range" id="zeit" min="0" max="180" step="0.1" value="0" aria-label="Zeitleiste">
+        <input type="range" id="zeit" min="0" max="300" step="0.1" value="0" aria-label="Zeitleiste">
       </div>
       <div class="legend" aria-label="Legende">
         <span><i class="sw" style="background:#4a6fa5"></i>Pkw</span>
+        <span><i class="sw" style="background:#e85d04"></i>Pkw geradeaus aus der Linksabbiegespur</span>
         <span><i class="sw" style="background:#e07b00"></i>Lkw</span>
         <span><i class="sw" style="background:#2a6fb0;width:28px"></i>Gelenkbus</span>
         <span><i class="sw" style="background:#2e7d32;width:10px"></i>Rad</span>
         <span><i class="sw" style="background:#1b2129;width:9px;border-radius:50%"></i>Fußgänger</span>
+        <span><i class="sw" style="background:#b5179e;width:9px;border-radius:50%"></i>Fußgänger diagonal</span>
         <span><i class="sw" style="background:#8c919a"></i>parkend</span>
       </div>
     </div>
@@ -167,18 +140,24 @@ details ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
       <div class="card">
         <h2>Konflikte bisher in der Animation</h2>
         <div class="live" id="live"></div>
-        <p class="note">Ein Ring blinkt, wenn sich zwei Verkehrsteilnehmer sehr nahe kommen. Gezählt wird, wenn die Zeit bis zum Zusammenstoß unter 1,5 Sekunden liegt, ein Fahrzeug stärker als 3 m/s² bremsen müsste oder zwei Wege sich in weniger als einer Sekunde kreuzen, jeweils ab 15 km/h.</p>
+        <p class="note">Ein Ring blinkt, wenn sich zwei Verkehrsteilnehmer sehr nahe kommen. Gezählt wird im Knotenbereich, wenn die Zeit bis zum Zusammenstoß unter 1,5 Sekunden liegt, ein Fahrzeug stärker als 3 m/s² bremsen müsste oder zwei Wege sich in weniger als einer Sekunde kreuzen, jeweils ab 15 km/h.</p>
+      </div>
+      <div class="card">
+        <h2>Schilder in dieser Variante</h2>
+        <div class="signs" id="signlegend"></div>
       </div>
       <div class="card">
         <details>
           <summary>Annahmen und Grenzen</summary>
           <ul>
-            <li>Geometrie aus OpenStreetMap. Spuren, Vorfahrt und Schilder nach Beobachtung vor Ort.</li>
-            <li>Busse der Linien 60 und 60E fahren im Regelbetrieb von Süd nach West. Derzeit sind sie wegen der Baustelle in der Naumburger Straße umgeleitet.</li>
-            <li>Nachfrage für die Spitzenstunde geschätzt, etwa 950 Pkw, 200 Räder, 12 Busse. Fußgänger an der Nordquerung etwa 100 je Stunde, West 50, Süd und Ost je 30.</li>
+            <li>Geometrie aus OpenStreetMap, Spuren, Parken, Schilder und Markierungen nach Luftbild, Straßenfotos und Beobachtung der Initiative.</li>
+            <li>Busse der Linien 60 und 60E fahren im Regelbetrieb in beiden Richtungen zwischen Süd und West. Der Bus nach West hält rechts im Haltebereich und muss danach auf die Linksabbiegespur wechseln.</li>
+            <li>Nachfrage für die Spitzenstunde geschätzt, etwa 970 Pkw, 33 Lkw, 200 Räder, 12 Busse. Aus Nord etwa 225 Kfz je Stunde. Fußgänger Nordquerung etwa 100 je Stunde, West 50, Süd und Ost je 30, dazu etwa 10 je Stunde diagonal zwischen Nordost- und Südwestecke.</li>
+            <li>Rund ein Viertel der Geradeausfahrer von Süd nutzt die Linksabbiegespur (orange). Sie fahren hier mittig zwischen den Spuren.</li>
+            <li>Diagonalquerer werden neben SUMO geführt, die Fahrzeuge reagieren nicht auf sie. Gezählt wird, wie oft ein Fahrzeug stark bremsen müsste.</li>
             <li>Das Modell ist nicht mit einer Zählung abgeglichen. Es zeigt Unterschiede zwischen den Varianten, keine genauen Werte.</li>
             <li>SUMO-Fußgänger betreten einen Zebrastreifen, ohne auf Autos zu achten. Konflikte an Zebrastreifen sind deshalb eher zu hoch.</li>
-            <li>Fehlverhalten wie Rasen oder Missachten der Vorfahrt ist nur über eine zufällige Streuung im Fahrverhalten enthalten.</li>
+            <li>Die Enge im Begegnungsverkehr auf der Naumburger Straße Ost bildet SUMO nicht ab, die Fahrzeuge fahren dort auf zwei schmalen Spuren.</li>
           </ul>
         </details>
       </div>
@@ -189,14 +168,15 @@ details ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
 const D=/*__DATEN__*/null;
 const NS='http://www.w3.org/2000/svg';
 const VAR=[
-  {id:'bestand',t:'Bestand',k:'heute',x:'Abknickende Vorfahrt von Süd nach West, Stoppschild am Nordarm, Ost wartepflichtig. Tempo 50 auf der Gießerstraße und der Naumburger Straße Ost.'},
+  {id:'bestand',t:'Bestand',k:'heute',x:'Abknickende Vorfahrt von Süd nach West, Stoppschild am Nordarm, Ost wartepflichtig. Tempo 50 auf der Gießerstraße und der Naumburger Straße Ost, Tempo-30-Zone West.'},
   {id:'rvl',t:'Rechts vor links',k:'Tempo 30',x:'Alle Schilder zur Vorfahrt entfallen, überall gilt rechts vor links und Tempo 30. Querungen bleiben ohne Markierung.'},
-  {id:'minikreisel',t:'Minikreisel',k:'mit Zebrastreifen',x:'Kleiner Kreisverkehr mit überfahrbarer Mitte, Zebrastreifen an allen vier Armen, Tempo 30 auf den Zufahrten.'},
-  {id:'t30_zebra',t:'Tempo 30',k:'Zebra Nord und West',x:'Vorfahrt wie heute, aber Tempo 30 überall und Zebrastreifen an der Nord- und Westquerung.'}
+  {id:'t30_zebra',t:'Tempo 30',k:'Zebra Nord und West',x:'Vorfahrt wie heute, aber Tempo 30 überall und Zebrastreifen an der Nord- und Westquerung.'},
+  {id:'geschuetzt',t:'Geschützt',k:'Inseln und Radfurten',x:'Eckinseln anstelle der Parkstreifen, Radwege hinter den Inseln, abgesetzte Radfurten über den Süd- und den Ostarm, Zebrastreifen an allen Armen, Tempo 30. Vorfahrt wie heute. An den Nordecken ist für Radwege kein Platz.'}
 ];
-const KONF={k:{c:'#d62828',t:'Kreuzen und Einbiegen'},a:{c:'#f08c00',t:'Auffahren'},f:{c:'#b5179e',t:'Fußgänger auf der Querung'}};
+const KONF={k:{c:'#d62828',t:'Kreuzen und Einbiegen'},a:{c:'#f08c00',t:'Auffahren'},f:{c:'#7b2cbf',t:'Fußgänger auf der Querung'},d:{c:'#b5179e',t:'Fußgänger diagonal'}};
 const CARC=['#4a6fa5','#8c919a','#b0413e','#2f4858','#e8e8e8','#6b8f71','#3d3d3d','#c9a227','#5b7fa6','#7a6c5d'];
 const PARKC=['#8c919a','#9aa0a8','#7d838c','#a6a39b','#6f757e'];
+const SIGNTXT={vf:'Vorfahrtstraße (Zeichen 306) mit abknickender Vorfahrt (Zusatz 1002), dicker Strich zeigt die Hauptrichtung',vg:'Vorfahrt gewähren (205) mit Zusatz abknickende Vorfahrt',stop:'Halt, Vorfahrt gewähren (206) mit Zusatz abknickende Vorfahrt',rvl:'Kreuzung, rechts vor links (102)',t30:'Tempo 30 (274)',zone:'Beginn Tempo-30-Zone (274.1)',hv:'Halteverbot (283), West mit Zusatz Mo–Fr',zebra:'Fußgängerüberweg (350)'};
 const $=id=>document.getElementById(id);
 const svg=$('map'), gStatic=$('static'), gPark=$('park'), gAg=$('agents'), gFx=$('fx'), gSigns=$('signs'), gLab=$('labels');
 const [vx,vy,vw,vh]=D.fenster;
@@ -204,112 +184,169 @@ svg.setAttribute('viewBox',`${vx} ${vy} ${vw} ${vh}`);
 $('bg').setAttribute('x',vx);$('bg').setAttribute('y',vy);$('bg').setAttribute('width',vw);$('bg').setAttribute('height',vh);
 $('bauten').setAttribute('d',D.bauten);
 function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e;}
-
-// Strassennamen
 for(const [txt,x,y,rot] of D.namen){
   el('text',{x,y:-y,transform:`rotate(${rot} ${x} ${-y})`,'font-size':2.7,'font-weight':600,'text-anchor':'middle','font-family':'Barlow Semi Condensed,Arial Narrow,Arial,sans-serif',fill:'#6b6355','letter-spacing':'.06'},gLab).textContent=txt;
 }
-
 // ---------- Bahnen dekodieren
+const STRIDE={pkw:4,pkwx:4,lkw:4,rad:4,bus:5,sattel:5,fuss:2,fussd:2};
 const cache={};
 function decode(v){
   if(cache[v])return cache[v];
   const raw=D.varianten[v];const tr=[];
   for(const d of raw.tracks){
-    const n=d[2];const xs=new Float32Array(n),ys=new Float32Array(n),as=new Float32Array(n),cum=new Float32Array(n);
-    let x=0,y=0,a=0;
-    for(let i=0;i<n;i++){const o=3+i*3;if(i===0){x=d[o];y=d[o+1];a=d[o+2];}else{x+=d[o];y+=d[o+1];a+=d[o+2];}
-      xs[i]=x/10;ys[i]=y/10;as[i]=((a%360)+360)%360;
-      cum[i]=i?cum[i-1]+Math.hypot(xs[i]-xs[i-1],ys[i]-ys[i-1]):0;}
-    tr.push({typ:D.typen[d[0]],f0:d[1],n,xs,ys,as,cum,idx:tr.length});
+    const typ=D.typen[d[0]],n=d[2],st=STRIDE[typ];
+    const xs=new Float32Array(n),ys=new Float32Array(n),a1=new Float32Array(n),a2=new Float32Array(n),bl=new Uint8Array(n);
+    let x=0,y=0,p=0,q=0;
+    for(let i=0;i<n;i++){const o=3+i*st;
+      if(i===0){x=d[o];y=d[o+1];if(st>=4)p=d[o+2];if(st===5)q=d[o+3];}
+      else{x+=d[o];y+=d[o+1];if(st>=4)p+=d[o+2];if(st===5)q+=d[o+3];}
+      xs[i]=x/10;ys[i]=y/10;a1[i]=((p%360)+360)%360;a2[i]=((q%360)+360)%360;
+      if(st>=4)bl[i]=d[o+st-1];}
+    tr.push({typ,f0:d[1],n,xs,ys,a1,a2,bl,idx:tr.length});
   }
   const k=raw.konflikte.map(c=>({t:c[0],x:c[1],y:c[2],k:c[3],s:c[4]}));
   return cache[v]={tr,k,n:raw.n,karte:raw.karte};
 }
-
+// ---------- Schilder
+function zusatz1002(g,zuf,x0,y0,s){
+  // abknickende Vorfahrt Sued-West aus Sicht der jeweiligen Zufahrt (eigene Zufahrt unten)
+  const rot={S:0,W:-90,N:180,E:90}[zuf]||0;
+  el('rect',{x:x0-s/2,y:y0,width:s,height:s*.78,fill:'#fff',stroke:'#222','stroke-width':s*.05,rx:s*.05},g);
+  const c=el('g',{transform:`translate(${x0} ${y0+s*.39}) rotate(${rot})`},g);
+  const L=s*.3;
+  el('path',{d:`M0 ${-L} V0 H${L}`,stroke:'#222','stroke-width':s*.06,fill:'none'},c);  // Nebenarme Nord und Ost
+  el('path',{d:`M0 ${L} V0 H${-L}`,stroke:'#222','stroke-width':s*.2,fill:'none','stroke-linejoin':'miter'},c); // Hauptrichtung Sued-West
+}
+function schild(g,art,z,s){
+  if(art==='vf'){
+    el('rect',{x:-s*.42,y:-s*.42,width:s*.84,height:s*.84,transform:'rotate(45)',fill:'#fff',stroke:'#222','stroke-width':s*.04},g);
+    el('rect',{x:-s*.3,y:-s*.3,width:s*.6,height:s*.6,transform:'rotate(45)',fill:'#f2b705'},g);
+    zusatz1002(g,z,0,s*.66,s*.82);
+  }else if(art==='vg'||art==='stop'){
+    if(art==='vg')el('polygon',{points:`${-s*.55},${-s*.45} ${s*.55},${-s*.45} 0,${s*.5}`,fill:'#fff',stroke:'#c62828','stroke-width':s*.13,'stroke-linejoin':'round'},g);
+    else{const r=s*.52,a=r*.414;el('polygon',{points:`${-a},${-r} ${a},${-r} ${r},${-a} ${r},${a} ${a},${r} ${-a},${r} ${-r},${a} ${-r},${-a}`,fill:'#c62828',stroke:'#fff','stroke-width':s*.05},g);
+      el('text',{y:s*.13,'font-size':s*.36,'font-weight':700,fill:'#fff','text-anchor':'middle','font-family':'Arial,sans-serif'},g).textContent='STOP';}
+    zusatz1002(g,z,0,s*.62,s*.82);
+  }else if(art==='rvl'){
+    el('polygon',{points:`0,${-s*.5} ${s*.56},${s*.45} ${-s*.56},${s*.45}`,fill:'#fff',stroke:'#c62828','stroke-width':s*.12,'stroke-linejoin':'round'},g);
+    el('path',{d:`M0 ${-s*.15} V${s*.32} M${-s*.18} ${s*.08} H${s*.18}`,stroke:'#222','stroke-width':s*.08},g);
+  }else if(art==='t30'||art==='zone'){
+    if(art==='zone')el('rect',{x:-s*.5,y:-s*.55,width:s,height:s*1.2,rx:s*.06,fill:'#fff',stroke:'#222','stroke-width':s*.04},g);
+    el('circle',{r:s*.4,cy:art==='zone'?-s*.1:0,fill:'#fff',stroke:'#c62828','stroke-width':s*.1},g);
+    el('text',{y:(art==='zone'?-s*.1:0)+s*.14,'font-size':s*.38,'font-weight':700,fill:'#222','text-anchor':'middle','font-family':'Arial,sans-serif'},g).textContent='30';
+    if(art==='zone')el('text',{y:s*.52,'font-size':s*.22,'font-weight':700,fill:'#222','text-anchor':'middle','font-family':'Arial,sans-serif'},g).textContent='ZONE';
+  }else if(art==='hv'){
+    el('circle',{r:s*.42,fill:'#1f5fae',stroke:'#c62828','stroke-width':s*.09},g);
+    el('path',{d:`M${-s*.28} ${-s*.28} L${s*.28} ${s*.28} M${s*.28} ${-s*.28} L${-s*.28} ${s*.28}`,stroke:'#c62828','stroke-width':s*.09},g);
+    if(z){el('rect',{x:-s*.45,y:s*.5,width:s*.9,height:s*.34,fill:'#fff',stroke:'#222','stroke-width':s*.03},g);
+      el('text',{y:s*.75,'font-size':s*.24,'font-weight':700,fill:'#222','text-anchor':'middle','font-family':'Arial,sans-serif'},g).textContent=z;}
+  }else if(art==='zebra'){
+    el('rect',{x:-s*.42,y:-s*.42,width:s*.84,height:s*.84,rx:s*.06,fill:'#1f5fae',stroke:'#fff','stroke-width':s*.04},g);
+    el('polygon',{points:`0,${-s*.32} ${s*.34},${s*.3} ${-s*.34},${s*.3}`,fill:'#fff'},g);
+  }else if(art==='H'){
+    el('circle',{r:s*.42,fill:'#f2c400',stroke:'#2e7d32','stroke-width':s*.07},g);
+    el('text',{y:s*.15,'font-size':s*.42,'font-weight':700,fill:'#2e7d32','text-anchor':'middle','font-family':'Arial,sans-serif'},g).textContent='H';
+  }
+}
+const GROESSE={vf:5.2,vg:5,stop:5,rvl:4.4,t30:3.6,zone:3.8,hv:3.2,zebra:2.8};
 // ---------- statische Karte
 function zeichneKarte(k){
   gStatic.replaceChildren();gPark.replaceChildren();gSigns.replaceChildren();
-  el('path',{d:k.fahrbahn,fill:'#5b5f66'},gStatic);
-  el('path',{d:k.gehweg,fill:'#cfc8b8',stroke:'#a39b8a','stroke-width':.22,'stroke-linejoin':'round'},gStatic);
-  if(k.insel!=null){
-    el('circle',{cx:0,cy:0,r:k.insel+.9,fill:'#8a8f96'},gStatic);
-    el('circle',{cx:0,cy:0,r:k.insel,fill:'#b9b2a3',stroke:'#fff','stroke-width':.25},gStatic);
-  }
+  el('path',{d:k.fahrbahn,fill:'#5b5f66','fill-rule':'evenodd'},gStatic);
+  el('path',{d:k.gehweg,fill:'#cfc8b8',stroke:'#a39b8a','stroke-width':.22,'stroke-linejoin':'round','fill-rule':'evenodd'},gStatic);
+  if(k.insel){el('path',{d:k.insel,fill:'#c9c4b8',stroke:'#f4f1ea','stroke-width':.35,'stroke-linejoin':'round','fill-rule':'evenodd'},gStatic);}
+  if(k.pflaster){el('path',{d:k.pflaster,fill:'#a59a8a',stroke:'#8d8375','stroke-width':.12,'stroke-dasharray':'.5 .35','fill-rule':'evenodd'},gStatic);}
+  if(k.radweg){el('path',{d:k.radweg,fill:'#b5523b','fill-opacity':.85,'fill-rule':'evenodd'},gStatic);}
   const m=el('g',{fill:'none',stroke:'#fff','stroke-linecap':'butt'},gStatic);
+  for(const [d,w] of (k.radfurt||[])){
+    el('path',{d,'stroke-width':w,stroke:'#b5523b','stroke-opacity':.8},m);
+    // Blockmarkierung an beiden Raendern
+    const g2=el('g',{},m);el('path',{d,'stroke-width':w+.5,'stroke-dasharray':'.5 .5',stroke:'#fff'},g2);el('path',{d,'stroke-width':w-.5,stroke:'#b5523b'},g2);
+  }
+  for(const [x,y,r] of (k.radsym||[]))el('use',{href:'#p-rad',x:-1,y:-1,width:2,height:2,transform:`translate(${x} ${y}) rotate(${r}) scale(1.1)`},gStatic);
   for(const d of k.leit)el('path',{d,'stroke-width':.13,'stroke-dasharray':'3 6'},m);
+  if(k.bogen)el('path',{d:k.bogen,'stroke-width':.13,'stroke-dasharray':'3 3'},m);
   for(const d of k.trenn)el('path',{d,'stroke-width':.13,'stroke-dasharray':'3 3','stroke-opacity':.9},m);
   for(const d of k.halt)el('path',{d,'stroke-width':.5},m);
   for(const d of k.warte)el('path',{d,'stroke-width':.5,'stroke-dasharray':'.5 .25'},m);
-  for(const d of (k.schmal||[]))el('path',{d,'stroke-width':.12,'stroke-dasharray':'1.5 1.5'},m);
+  for(const d of (k.schmal||[]))el('path',{d,'stroke-width':.3,'stroke-dasharray':'3 1.5'},m);
   for(const d of k.zick)el('path',{d,'stroke-width':.16,'stroke-linejoin':'miter'},m);
   for(const d of (k.sperr||[]))el('path',{d,'stroke-width':.14},m);
-  for(const [txt,x,y,r,h] of (k.texte||[]))el('text',{x:0,y:0,transform:`translate(${x} ${y}) rotate(${r})`,'font-size':h,'font-weight':700,'text-anchor':'middle','dominant-baseline':'middle','font-family':'Barlow Semi Condensed,Arial Narrow,Arial,sans-serif',fill:'#fff','fill-opacity':.92,'stroke':'none','transform-origin':'0 0'},m).textContent=txt;
+  for(const [txt,x,y,r,h] of (k.texte||[]))el('text',{x:0,y:0,transform:`translate(${x} ${y}) rotate(${r})`,'font-size':h,'font-weight':700,'text-anchor':'middle','dominant-baseline':'middle','font-family':'Barlow Semi Condensed,Arial Narrow,Arial,sans-serif',fill:'#fff','fill-opacity':.92,'stroke':'none'},m).textContent=txt;
   for(const [d,w] of k.zebra)el('path',{d,'stroke-width':w,'stroke-dasharray':'.5 .5','stroke-opacity':.95},m);
+  for(const [d,w] of (k.querung||[]))el('path',{d,'stroke-width':w*.85,stroke:'#d8d2c4','stroke-opacity':.22},m);
   for(const [x,y,r,art] of k.pfeile)el('use',{href:`#p-${art}`,x:0,y:0,width:5,height:2,transform:`translate(${x} ${y}) rotate(${r}) translate(-2 -1)`},gStatic);
   for(const [x,y,r,c] of k.park){
     const g=el('g',{transform:`translate(${x} ${y}) rotate(${r})`},gPark);
     el('rect',{x:-2.2,y:-.88,width:4.4,height:1.76,rx:.5,fill:PARKC[c],stroke:'#fff','stroke-width':.12},g);
     el('rect',{x:.4,y:-.68,width:.8,height:1.36,rx:.2,fill:'#fff','fill-opacity':.45},g);
   }
-  for(const [x,y,art] of k.schilder)el('use',{href:`#s-${art}`,x:-1.75,y:-1.75,width:3.5,height:3.5,transform:`translate(${x} ${y})`},gSigns);
-  if(k.haltestelle)el('use',{href:'#s-H',x:-1.6,y:-1.6,width:3.2,height:3.2,transform:`translate(${k.haltestelle[0]} ${k.haltestelle[1]})`},gSigns);
+  if(k.haeuschen)el('path',{d:k.haeuschen,fill:'#9fb7c9',stroke:'#4a6274','stroke-width':.15},gStatic);
+  if(k.kasten){el('path',{d:k.kasten,fill:'#7d8288',stroke:'#3d4247','stroke-width':.12},gStatic);}
+  if(k.kiosk){const [x,y]=k.kiosk;
+    el('text',{x,y,'font-size':2.2,'font-weight':700,'text-anchor':'middle','font-family':'Barlow Semi Condensed,Arial Narrow,Arial,sans-serif',fill:'#7a5a00'},gLab).textContent='Kiosk';}
+  const vorh=new Set();
+  for(const [x,y,art,z] of k.schilder){
+    const g=el('g',{transform:`translate(${x} ${y})`},gSigns);vorh.add(art);
+    el('title',{},g).textContent=SIGNTXT[art]||art;
+    schild(g,art,z,GROESSE[art]||3.5);
+  }
+  if(k.haltestelle){const g=el('g',{transform:`translate(${k.haltestelle[0]} ${k.haltestelle[1]})`},gSigns);schild(g,'H','',3.2);}
+  // Legende der Schilder
+  const lg=$('signlegend');lg.replaceChildren();
+  for(const art of ['vf','stop','vg','rvl','t30','zone','hv','zebra']){
+    if(!vorh.has(art))continue;
+    const d=document.createElement('div');d.className='sg';
+    const s=document.createElementNS(NS,'svg');s.setAttribute('viewBox',art==='vf'||art==='vg'||art==='stop'?'-3 -3 6 7.5':(art==='hv'?'-2.6 -2.4 5.2 6':'-2.6 -2.6 5.2 5.2'));
+    schild(el('g',{},s),art,art==='vf'?'S':(art==='stop'?'N':(art==='vg'?'E':(art==='hv'?'Mo–Fr':''))),4);
+    d.appendChild(s);const t=document.createElement('span');t.textContent=SIGNTXT[art];d.appendChild(t);lg.appendChild(d);
+  }
 }
-
 // ---------- Fahrzeuge
-const FORM={
-  pkw:{L:4.5,W:1.85},lkw:{L:10,W:2.5},sattel:{L:16.5,W:2.55,j:3.4},bus:{L:18,W:2.55,j:11},rad:{L:1.8,W:.65},fuss:{L:.6,W:.6}
-};
+const G=D.geom;
+function blinker(g,len,w,front){
+  const out=[];
+  for(const side of [-1,1]){const pts=front?[[front,side],[-len,side]]:[[-len,side]];
+    for(const [x,s] of pts)out.push(el('circle',{cx:x>0?x-.25:x+.25,cy:s*(w/2-.15),r:.28,fill:'#ffab00',stroke:'#fff','stroke-width':.06,visibility:'hidden','data-s':s},g));}
+  return out;
+}
 function baueAgent(t){
-  const g=el('g',{},gAg);const f=FORM[t.typ];const segs=[];
-  if(t.typ==='fuss'){const c=el('circle',{r:.5,fill:'#1b2129',stroke:'#fff','stroke-width':.18},g);segs.push(c);return {g,segs};}
+  const g=el('g',{},gAg);const segs=[];let bl=[];
+  if(t.typ==='fuss'||t.typ==='fussd'){const c=el('circle',{r:t.typ==='fussd'?.6:.5,fill:t.typ==='fussd'?'#b5179e':'#1b2129',stroke:'#fff','stroke-width':.18},g);segs.push(c);return {g,segs,bl};}
   if(t.typ==='rad'){const s=el('g',{},g);
-    el('rect',{x:-1.8,y:-.18,width:1.8,height:.36,rx:.18,fill:'#1d5e24'},s);
-    el('circle',{cx:-.85,cy:0,r:.42,fill:'#2e7d32',stroke:'#fff','stroke-width':.1},s);segs.push(s);return {g,segs};}
-  if(t.typ==='pkw'){const s=el('g',{},g);const c=CARC[t.idx%CARC.length];
-    el('rect',{x:-4.5,y:-.925,width:4.5,height:1.85,rx:.6,fill:c,stroke:'rgba(0,0,0,.35)','stroke-width':.08},s);
-    el('rect',{x:-1.85,y:-.74,width:.75,height:1.48,rx:.2,fill:'#dfe9f2','fill-opacity':.85},s);
-    el('rect',{x:-4.15,y:-.7,width:.45,height:1.4,rx:.15,fill:'#dfe9f2','fill-opacity':.6},s);
-    segs.push(s);return {g,segs};}
+    el('rect',{x:-1.45,y:-.18,width:1.8,height:.36,rx:.18,fill:'#1d5e24'},s);
+    el('circle',{cx:-.5,cy:0,r:.42,fill:'#2e7d32',stroke:'#fff','stroke-width':.1},s);segs.push(s);return {g,segs,bl};}
+  if(t.typ==='pkw'||t.typ==='pkwx'){const s=el('g',{},g);const c=t.typ==='pkwx'?'#e85d04':CARC[t.idx%CARC.length];
+    el('rect',{x:-3.6,y:-.925,width:4.5,height:1.85,rx:.6,fill:c,stroke:'rgba(0,0,0,.35)','stroke-width':.08},s);
+    el('rect',{x:-.95,y:-.74,width:.75,height:1.48,rx:.2,fill:'#dfe9f2','fill-opacity':.85},s);
+    el('rect',{x:-3.25,y:-.7,width:.45,height:1.4,rx:.15,fill:'#dfe9f2','fill-opacity':.6},s);
+    bl=blinker(s,3.6,1.85,.9);segs.push(s);return {g,segs,bl};}
   if(t.typ==='lkw'){const s=el('g',{},g);
-    el('rect',{x:-10,y:-1.25,width:7.7,height:2.5,rx:.3,fill:'#f3efe6',stroke:'#8a8172','stroke-width':.12},s);
-    el('rect',{x:-2.2,y:-1.2,width:2.2,height:2.4,rx:.45,fill:'#e07b00'},s);
-    el('rect',{x:-.75,y:-1,width:.5,height:2,rx:.15,fill:'#dfe9f2','fill-opacity':.8},s);
-    segs.push(s);return {g,segs};}
-  if(t.typ==='sattel'){const s2=el('g',{},g),s1=el('g',{},g);
-    el('rect',{x:-13.4,y:-1.27,width:13.4,height:2.54,rx:.3,fill:'#f3efe6',stroke:'#8a8172','stroke-width':.12},s2);
-    el('rect',{x:-3.6,y:-1.2,width:3.6,height:2.4,rx:.45,fill:'#c0392b'},s1);
-    el('rect',{x:-.75,y:-1,width:.5,height:2,rx:.15,fill:'#dfe9f2','fill-opacity':.8},s1);
-    segs.push(s1,s2);return {g,segs};}
-  if(t.typ==='bus'){const s2=el('g',{},g),s1=el('g',{},g);
-    el('rect',{x:-7,y:-1.27,width:7,height:2.54,rx:.45,fill:'#2a6fb0',stroke:'#fff','stroke-width':.12},s2);
-    el('rect',{x:-6.6,y:-.75,width:6.2,height:1.5,rx:.3,fill:'#ffffff','fill-opacity':.25},s2);
-    el('rect',{x:-11,y:-1.27,width:11,height:2.54,rx:.45,fill:'#2a6fb0',stroke:'#fff','stroke-width':.12},s1);
-    el('rect',{x:-10.6,y:-.75,width:9.4,height:1.5,rx:.3,fill:'#ffffff','fill-opacity':.25},s1);
-    el('rect',{x:-.85,y:-1.1,width:.6,height:2.2,rx:.2,fill:'#dfe9f2','fill-opacity':.9},s1);
-    el('rect',{x:-11.6,y:-1.05,width:.8,height:2.1,fill:'#23272d'},s1);
-    segs.push(s1,s2);return {g,segs};}
+    el('rect',{x:-8.6,y:-1.25,width:7.7,height:2.5,rx:.3,fill:'#f3efe6',stroke:'#8a8172','stroke-width':.12},s);
+    el('rect',{x:-.8,y:-1.2,width:2.2,height:2.4,rx:.45,fill:'#e07b00'},s);
+    el('rect',{x:.65,y:-1,width:.5,height:2,rx:.15,fill:'#dfe9f2','fill-opacity':.8},s);
+    bl=blinker(s,8.6,2.5,1.4);segs.push(s);return {g,segs,bl};}
+  if(t.typ==='sattel'){const s1=el('g',{},g),s2=el('g',{},g);const z=G.sattel;
+    el('rect',{x:-(z.L+z.ro),y:-1.27,width:z.L+z.ro+z.fo,height:2.54,rx:.3,fill:'#f3efe6',stroke:'#8a8172','stroke-width':.12},s2);
+    el('rect',{x:-(z.wb+z.back),y:-1.2,width:z.wb+z.back+z.front,height:2.4,rx:.45,fill:'#c0392b'},s1);
+    el('rect',{x:z.front-.75,y:-1,width:.5,height:2,rx:.15,fill:'#dfe9f2','fill-opacity':.8},s1);
+    bl=blinker(s1,z.wb+z.back,2.54,z.front).concat(blinker(s2,z.L+z.ro,2.54,0));
+    g.appendChild(s1);segs.push(s1,s2);return {g,segs,bl};}
+  if(t.typ==='bus'){const s1=el('g',{},g),s2=el('g',{},g);const z=G.bus;
+    el('rect',{x:-(z.L+z.ro),y:-1.27,width:z.L+z.ro+z.fo,height:2.54,rx:.45,fill:'#2a6fb0',stroke:'#fff','stroke-width':.12},s2);
+    el('rect',{x:-(z.L+z.ro)+.4,y:-.75,width:z.L+z.ro+z.fo-.8,height:1.5,rx:.3,fill:'#fff','fill-opacity':.25},s2);
+    el('rect',{x:-(z.wb+z.back),y:-1.27,width:z.wb+z.back+z.front,height:2.54,rx:.45,fill:'#2a6fb0',stroke:'#fff','stroke-width':.12},s1);
+    el('rect',{x:-(z.wb+z.back)+.4,y:-.75,width:z.wb+z.back+z.front-1.6,height:1.5,rx:.3,fill:'#fff','fill-opacity':.25},s1);
+    el('rect',{x:z.front-.85,y:-1.1,width:.6,height:2.2,rx:.2,fill:'#dfe9f2','fill-opacity':.9},s1);
+    bl=blinker(s1,z.wb+z.back,2.54,z.front).concat(blinker(s2,z.L+z.ro,2.54,0));
+    g.appendChild(s1);segs.push(s1,s2);return {g,segs,bl};}
 }
-// Punkt auf der Bahn bei Bogenlaenge s (rueckwaerts ueber den Start hinaus gerade verlaengert)
-function punkt(t,s){
-  if(s<=0){const a=t.as[0]*Math.PI/180;const dx=Math.sin(a),dy=-Math.cos(a);return [t.xs[0]+dx*s,t.ys[0]+dy*s];}
-  const c=t.cum;let lo=0,hi=t.n-1;
-  if(s>=c[hi])return [t.xs[hi],t.ys[hi]];
-  while(hi-lo>1){const m=(lo+hi)>>1;if(c[m]<=s)lo=m;else hi=m;}
-  const d=c[hi]-c[lo];const f=d>0?(s-c[lo])/d:0;
-  return [t.xs[lo]+(t.xs[hi]-t.xs[lo])*f,t.ys[lo]+(t.ys[hi]-t.ys[lo])*f];
-}
-function seg(node,front,back,laenge){
-  // richtet ein Teil so aus, dass lokal x=0 auf front liegt und die Achse nach back zeigt
-  let dx=front[0]-back[0],dy=front[1]-back[1];const d=Math.hypot(dx,dy);
-  const ang=Math.atan2(dy,dx)*180/Math.PI;
-  node.setAttribute('transform',`translate(${front[0].toFixed(2)} ${front[1].toFixed(2)}) rotate(${ang.toFixed(1)})`);
-}
-
+function dir(a){const r=a*Math.PI/180;return [Math.sin(r),-Math.cos(r)];}
+function lerpA(a,b,f){let d=((b-a+540)%360)-180;return a+d*f;}
+function place(node,x,y,a){node.setAttribute('transform',`translate(${x.toFixed(2)} ${y.toFixed(2)}) rotate(${(a-90).toFixed(1)})`);}
 // ---------- Zustand
 let cur='bestand',T=0,playing=false,tempo=2,last=null,aktiv=new Map();
 const DT=D.schritt, DUR=D.dauer;
-
 function setVariante(v){
   cur=v;for(const a of aktiv.values())a.g.remove();aktiv.clear();gFx.replaceChildren();
   const V=decode(v);zeichneKarte(V.karte);
@@ -318,32 +355,30 @@ function setVariante(v){
   zeigeKennzahlen(v);render();
   try{localStorage.setItem('giesser-variante',v);}catch(e){}
 }
-
 function render(){
   const V=decode(cur);const f=Math.min(T/DT,V.n-1.001);const i=Math.floor(f),fr=f-i;
-  const seen=new Set();
+  const seen=new Set();const blinkAn=Math.floor(T*2.6)%2===0;
   for(const t of V.tr){
     const k=i-t.f0;if(k<0||k>=t.n)continue;
     const k2=Math.min(k+1,t.n-1);const ff=k2>k?fr:0;
     let a=aktiv.get(t.idx);if(!a){a=baueAgent(t);aktiv.set(t.idx,a);}
     seen.add(t.idx);
     const x=t.xs[k]+(t.xs[k2]-t.xs[k])*ff,y=t.ys[k]+(t.ys[k2]-t.ys[k])*ff;
-    if(t.typ==='fuss'){a.segs[0].setAttribute('cx',x.toFixed(2));a.segs[0].setAttribute('cy',y.toFixed(2));continue;}
-    const s=t.cum[k]+(t.cum[k2]-t.cum[k])*ff;const fo=FORM[t.typ];
-    if(fo.j){
-      const joint=punkt(t,s-fo.j),back=punkt(t,s-fo.L);
-      seg(a.segs[0],[x,y],joint);seg(a.segs[1],t.typ==='bus'?joint:punkt(t,s-2.8),back);
-    }else{
-      // Heck liegt auf der eigenen Bahn eine Fahrzeuglaenge zurueck, bei Stillstand Richtung aus dem Winkel
-      const back=punkt(t,s-Math.max(fo.L,1));
-      if(Math.hypot(x-back[0],y-back[1])<.3){const an=t.as[k]*Math.PI/180;seg(a.segs[0],[x,y],[x-Math.sin(an),y+Math.cos(an)]);}
-      else seg(a.segs[0],[x,y],back);
+    if(t.typ==='fuss'||t.typ==='fussd'){a.segs[0].setAttribute('cx',x.toFixed(2));a.segs[0].setAttribute('cy',y.toFixed(2));continue;}
+    const h1=lerpA(t.a1[k],t.a1[k2],ff);
+    place(a.segs[0],x,y,h1);
+    const z=G[t.typ==='pkwx'?'pkw':t.typ];
+    if(a.segs.length>1){
+      const h2=lerpA(t.a2[k],t.a2[k2],ff);const u=dir(h1);
+      const Ax=x-u[0]*z.wb,Ay=y-u[1]*z.wb;const Hx=Ax+u[0]*z.hitch,Hy=Ay+u[1]*z.hitch;
+      place(a.segs[1],Hx,Hy,h2);
     }
+    const b=t.bl[k];
+    for(const c of a.bl){const s=+c.getAttribute('data-s');c.setAttribute('visibility',b&&blinkAn&&((b===1&&s<0)||(b===2&&s>0))?'visible':'hidden');}
   }
   for(const [id,a] of aktiv)if(!seen.has(id)){a.g.remove();aktiv.delete(id);}
-  // Konflikte
   gFx.replaceChildren();
-  const cnt={k:0,a:0,f:0};
+  const cnt={k:0,a:0,f:0,d:0};
   for(const c of V.k){
     if(c.t<=T)cnt[c.k]++;
     const age=T-c.t;if(age<0||age>2.2)continue;
@@ -352,28 +387,30 @@ function render(){
   }
   const m=Math.floor(T/60),s=Math.floor(T%60);
   $('clock').textContent=`${m}:${String(s).padStart(2,'0')}`;
-  const tot=cnt.k+cnt.a+cnt.f;$('badge').textContent=`Konflikte ${tot}`;
+  const tot=cnt.k+cnt.a+cnt.f+cnt.d;$('badge').textContent=`Konflikte ${tot}`;
   $('live').replaceChildren(...Object.entries(KONF).map(([key,o])=>{const r=document.createElement('div');r.className='row';
     r.innerHTML=`<span class="ring" style="color:${o.c}"></span><span>${o.t}</span><b>${cnt[key]}</b>`;return r;}));
   $('zeit').value=T.toFixed(1);
 }
-
 function frame(ts){
   if(!playing){last=null;return;}
   if(last!=null){T+=Math.min((ts-last)/1000,.1)*tempo;if(T>=DUR)T=0;}
   last=ts;render();requestAnimationFrame(frame);
 }
 function setPlay(p){playing=p;$('play').textContent=p?'❚❚ Pause':'▶ Start';$('play').setAttribute('aria-label',p?'Pause':'Abspielen');if(p)requestAnimationFrame(frame);}
-
 // ---------- Kennzahlen
 function zeigeKennzahlen(v){
   const K=D.kennzahlen[v],B=D.kennzahlen.bestand;
   const tiles=[
     ['Fahrzeugkonflikte je Stunde','konflikte',''],
     ['davon schwer','schwer',''],
-    ['Fußgänger auf der Querung bedrängt, je Stunde','fuss',''],
-    ['Zeitverlust Kfz','verlust','s'],
+    ['Konflikte Kfz gegen Rad','rad',''],
+    ['Fußgänger auf der Querung bedrängt','fuss',''],
+    ['Fußgänger diagonal bedrängt','diag',''],
+    ['Konflikte durch Geradeausfahrer aus der Abbiegespur','fehlspur',''],
+    ['Nordarm: Anteil der Zeit mit Wartenden','wartendN','%'],
     ['Zeitverlust Kfz am Nordarm','verlustN','s'],
+    ['Zeitverlust Kfz','verlust','s'],
     ['Wartezeit Fußgänger','wartenFuss','s'],
   ];
   $('tiles').replaceChildren(...tiles.map(([lbl,key,unit])=>{
@@ -382,13 +419,13 @@ function zeigeKennzahlen(v){
     if(v!=='bestand'&&val!=null&&base){const diff=(val-base)/base*100;
       cls=Math.abs(diff)<5?'':(diff<0?'better':'worse');
       cmp=Math.abs(diff)<5?'etwa wie heute':`${diff<0?'−':'+'}${Math.abs(diff).toFixed(0)} % gegenüber heute`;}
+    else if(v!=='bestand'&&val!=null&&!base)cmp=val>0?'heute 0':'wie heute';
     else if(v==='bestand')cmp='heutiger Zustand';
     const fmt=x=>x==null?'–':(x>=10?x.toFixed(0):x.toFixed(1)).replace('.',',');
     d.innerHTML=`<span class="lbl">${lbl}</span><span class="val">${fmt(val)}${unit?`<small>${unit}</small>`:''}</span><span class="cmp ${cls}">${cmp}</span>`;
     return d;}));
-  $('vnote').textContent=`Mittelwerte aus ${K.laeufe} simulierten Spitzenstunden. Die Animation zeigt davon fünf Minuten.`;
+  $('vnote').textContent=`Mittelwerte je Stunde aus ${K.laeufe} simulierten Spitzenstunden. Die Animation zeigt davon fünf Minuten.`;
 }
-
 // ---------- Bedienung
 for(const v of VAR){const b=document.createElement('button');b.role='tab';b.dataset.v=v.id;b.innerHTML=`${v.t}<small>${v.k}</small>`;
   b.addEventListener('click',()=>setVariante(v.id));$('tabs').appendChild(b);}

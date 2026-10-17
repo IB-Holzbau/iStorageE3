@@ -20,34 +20,48 @@ import re
 import statistics as st
 import subprocess
 import sys
+import random
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
+
+from shapely.geometry import Polygon
+from shapely.prepared import prep
+
+import build as B
+import diagonal as DG
+import kinematik as K
+import strassenraum as SR
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 NETZE = os.path.join(ROOT, 'netze')
 ERG = os.path.join(ROOT, 'ergebnisse')
 ROH = os.path.join(ERG, 'roh')
 
-VARIANTEN = ['bestand', 'rvl', 'minikreisel', 't30_zebra']
+VARIANTEN = list(B.VERGLEICH)
+ALLE = list(B.VARIANTEN)
 TITEL = {'bestand': 'Bestand', 'rvl': 'Rechts vor links, Tempo 30',
-         'minikreisel': 'Minikreisel mit Zebrastreifen', 't30_zebra': 'Bestand mit Tempo 30 und Zebra Nord und West'}
+         'minikreisel': 'Minikreisel mit Zebrastreifen (nur Referenz)', 't30_zebra': 'Bestand mit Tempo 30 und Zebra Nord und West',
+         'geschuetzt': 'Geschützte Kreuzung (angepasst)'}
 ARME = ['S', 'N', 'W', 'E']
 ARMNAME = {'S': 'Süd (Gießerstr.)', 'N': 'Nord (Gießerstr.)', 'W': 'West (Naumburger Str.)', 'E': 'Ost (Naumburger Str.)'}
-ZUFAHRT = {'S': ['S_in_fern', 'S_in_bucht', 'S_in_mitte', 'S_in', 'S_in_m'],
-           'N': ['N_in', 'N_in_m'], 'W': ['W_in', 'W_in_m'], 'E': ['E_in', 'E_in_m']}
+ZUFAHRT = {'S': ['S_in_fern', 'S_in_bucht', 'S_in_mitte', 'S_in', 'S_in_f', 'S_in_m'],
+           'N': ['N_in', 'N_in_b', 'N_in_f', 'N_in_m'], 'W': ['W_in', 'W_in_b', 'W_in_f', 'W_in_m'],
+           'E': ['E_in', 'E_in_b', 'E_in_f', 'E_in_m']}
 LAENGE = {'pkw': 4.5, 'lkw': 10.0, 'sattel': 16.5, 'bus': 18.0, 'rad': 1.8}
 BREITE = {'pkw': 1.85, 'lkw': 2.5, 'sattel': 2.55, 'bus': 2.55, 'rad': 0.8}
 
 WEG = {'pNw2e': 'Nordseite West nach Ost, quert Nordarm', 'pNe2w': 'Nordseite Ost nach West, quert Nordarm',
        'pKiosk': 'Von Nordost zum Kiosk, quert Nord- und Westarm', 'pKioskBack': 'Vom Kiosk nach Nordost, quert West- und Nordarm',
-       'pSued': 'Quert Südarm am Knoten', 'pEastN': 'Ostseite Süd nach Nord, quert Ostarm', 'pEastS': 'Ostseite Nord nach Süd, quert Ostarm'}
+       'pSued': 'Quert Südarm am Knoten', 'pEastN': 'Ostseite Süd nach Nord, quert Ostarm', 'pEastS': 'Ostseite Nord nach Süd, quert Ostarm',
+       'diag': 'Diagonal über den Knoten zwischen Nordost- und Südwestecke (Kiosk)'}
 
 WARMUP, DAUER = 600, 3600
 SCHRITT = 0.5
 
 # Grenzwerte
 TTC, DRAC, PET = 1.5, 3.0, 1.0
+KNOTENBEREICH = 22.0     # m um die Knotenmitte, nur dort zaehlen Fahrzeugkonflikte (alle Varianten gleich)
 KONFLIKT_TEMPO = 15 / 3.6  # m/s, langsamere Konflikte (Stop and go in der Schlange) zaehlen nicht
 FUSS_TTC = 3.0           # s, Vorausschau fuer das Zusammentreffen
 FUSS_DRAC = 3.0          # m/s², ab dieser noetigen Bremsung zaehlt es als Konflikt
@@ -76,7 +90,7 @@ def lauf(var, seed):
            '--pedestrian.striping.jamtime', '30',
            '--device.ssm.probability', '1', '--device.ssm.measures', 'TTC DRAC PET',
            '--device.ssm.thresholds', f'{TTC} {DRAC} {PET}', '--device.ssm.range', '50',
-           '--device.ssm.trajectories', 'false', '--device.ssm.file', f['ssm'],
+           '--device.ssm.trajectories', 'false', '--device.ssm.write-positions', 'true', '--device.ssm.file', f['ssm'],
            '--fcd-output', f['fcd'], '--fcd-output.attributes', 'x,y,speed,lane,pos,angle,edge',
            '--tripinfo-output', f['trip'], '--statistic-output', f['stat'],
            # Zusammenstoesse nur melden, nicht aufloesen. Sie zeigen Fehler im Modell (sich
@@ -180,14 +194,11 @@ def auswerten(var, seed, f):
         for g in (grp, 'alle'):
             fuss_v[g].append(float(w.get('timeLoss')))
             fuss_w[g].append(float(w.get('waitingTime')))
-    for g in fuss_v:
-        werte.append(('fuss_zeitverlust_s', g, st.mean(fuss_v[g])))
-        werte.append(('fuss_wartezeit_s', g, st.mean(fuss_w[g])))
-        werte.append(('fuss_wege', g, len(fuss_v[g])))
 
     # ---- Konflikte zwischen Fahrzeugen (SSM)
     konf = defaultdict(int)
     gesehen = set()
+    bus_konf = defaultdict(list)       # Zeitpunkte der Konflikte je Bus
     for c in ET.parse(f['ssm']).getroot().findall('conflict'):
         if not im_fenster(float(c.get('begin'))):
             continue
@@ -200,6 +211,7 @@ def auswerten(var, seed, f):
         def wert(tag):
             e = c.find(tag)
             return None if e is None or e.get('value') in (None, 'NA') else float(e.get('value'))
+
         def tempo(tag):
             e = c.find(tag)
             return None if e is None or e.get('speed') in (None, 'NA') else float(e.get('speed'))
@@ -216,79 +228,114 @@ def auswerten(var, seed, f):
         kritisch = (ttc is not None and ttc < TTC) or (pet is not None and pet < PET) or (drac is not None and drac > DRAC)
         if not kritisch:
             continue
-        # SSM-Typen 1 bis 3 sind Folgeverkehr (Auffahren), uebrige Kreuzen oder Einfaedeln
+        pos = art_e.get('position') if art_e is not None else None
+        if pos and pos != 'NA':
+            px_, py_ = map(float, pos.split(','))
+            if math.hypot(px_, py_) > KNOTENBEREICH:
+                # ausserhalb des Knotens (Haltestelle, Einfaedeln am Ende der Radwege): getrennt zaehlen
+                konf['ausserhalb'] += 1
+                continue
         konf[f'typ{art}'] += 1
         if art == 111:
-            # SUMO meldet hier eine Ueberschneidung der Fahrzeugumrisse im Knoteninneren.
-            # Das ist meist ein Geometrieeffekt (Warteposition ragt in die Fahrlinie) und wird getrennt gezaehlt.
+            # Ueberschneidung der Fahrzeugumrisse im Knoteninneren, meist ein Geometrieeffekt
             konf['ueberschneidung'] += 1
             continue
         gruppe = 'auffahren' if art in (1, 2, 3, 4, 18) else 'kreuzen_einbiegen'
         konf['alle'] += 1
         konf[gruppe] += 1
-        if 'rad' in (typ_von(a), typ_von(b)):
+        typen = {typ_von(a), typ_von(b)}
+        if 'rad' in typen:
             konf['mit_rad'] += 1
-        if {'bus', 'lkw', 'sattel'} & {typ_von(a), typ_von(b)}:
+            if len(typen) == 2:
+                konf['kfz_rad'] += 1
+        if {'bus', 'lkw', 'sattel'} & typen:
             konf['mit_bus_lkw'] += 1
+        if '_SNx' in a or '_SNx' in b:
+            konf['fehlspur'] += 1
+        for v in (a, b):
+            if v.startswith('bus_'):
+                bus_konf[v].append(float(c.get('begin')))
         if (ttc is not None and ttc < 1.0) or (pet is not None and pet < 0.5):
             konf['schwer'] += 1
-    for g in ('alle', 'kreuzen_einbiegen', 'auffahren', 'mit_rad', 'mit_bus_lkw', 'schwer', 'ueberschneidung'):
-        werte.append(('konflikte_fz', g, konf[g]))
-    for g, n in konf.items():
-        if g.startswith('typ'):
-            werte.append(('konflikte_fz_ssmtyp', g[3:], n))
 
-    # ---- FCD: Fussgaenger-Beinahekonflikte und Rueckstau
+    # ---- FCD: Fussgaenger-Beinahekonflikte, Diagonalquerer, Rueckstau, Busspurwechsel, Bordstein
     stau = {a: [] for a in ARME}
+    stau_fz = {a: [] for a in ARME}
     fuss_konf = defaultdict(int)
     fuss_paare = set()
+    ne, sw = DG.ecken(B)
+    diag = DG.Diagonal(seed, B.DIAGONAL, 0, WARMUP + DAUER, ne, sw)
+    kantenlaenge = defaultdict(float)
+    for lid, ln in lanelen.items():
+        e = lid.rsplit('_', 1)[0]
+        kantenlaenge[e] = max(kantenlaenge[e], ln)
     kette = {}
     for a, edges in ZUFAHRT.items():
         rest = 0.0
         for e in reversed(edges):
+            if e not in kantenlaenge:
+                continue
             kette[e] = (a, rest)   # Restlaenge hinter dieser Kante bis zur Haltlinie
-            rest += max(lanelen.get(f'{e}_1', 0), lanelen.get(f'{e}_2', 0))
+            rest += kantenlaenge[e]
+    spuren = defaultdict(list)     # Kfz nahe am Knoten fuer die Schleppkurvenpruefung
+    bus_spur = defaultdict(list)   # (t, Kante, Spur) der Busse Sued nach West am Suedarm
     for _, ts in ET.iterparse(f['fcd']):
         if ts.tag != 'timestep':
             continue
         t = float(ts.get('time'))
+        fz = ts.findall('vehicle')
+        pers = ts.findall('person')
+        if t > WARMUP + DAUER + 60:
+            ts.clear()
+            continue
+        for v in fz:
+            vid = v.get('id')
+            x, y = float(v.get('x')), float(v.get('y'))
+            if typ_von(vid) != 'rad' and math.hypot(x, y) < 70:
+                spuren[vid].append((t, x, y, float(v.get('angle'))))
+            if vid.startswith('bus_SW'):
+                e, li = v.get('lane').rsplit('_', 1)
+                if e in ('S_in_mitte', 'S_in', 'S_in_f', 'S_in_m', 'S_in_bucht'):
+                    bus_spur[vid].append((t, e, int(li)))
+        diag_leute = diag.schritt(t, SCHRITT, [(float(v.get('x')), float(v.get('y')), float(v.get('speed'))) for v in fz])
         if not im_fenster(t):
             ts.clear()
             continue
-        fz, pers = [], []
-        for v in ts.findall('vehicle'):
-            fz.append(v)
-        for p in ts.findall('person'):
-            pers.append(p)
         # Rueckstau je Zufahrt
         proarm = defaultdict(list)
         for v in fz:
             lane = v.get('lane')
             e, li = lane.rsplit('_', 1)
-            if e not in kette:
+            if e not in kette or typ_von(v.get('id')) == 'rad':
                 continue
-            if e in ('S_in_fern', 'S_in_bucht', 'S_in_mitte') and li == '1':   # Haltestellenstreifen (Bus, Rad)
+            if e == 'S_in_bucht' and li == '1':   # Haltebereich Bus
                 continue
             arm, rest = kette[e]
             dist = lanelen[lane] - float(v.get('pos')) + rest
             proarm[arm].append((dist, float(v.get('speed')), LAENGE[typ_von(v.get('id'))]))
         for arm in ARME:
-            q, ende = 0.0, 0.0
+            q, ende, n = 0.0, 0.0, 0
             for dist, sp, ln in sorted(proarm[arm]):
                 if sp >= STAU_TEMPO or dist - ende > STAU_LUECKE:
                     break
                 ende = dist + ln
                 q = ende
+                n += 1
             stau[arm].append(q)
-        # Fussgaenger auf Querungen gegen schnelle Fahrzeuge
+            stau_fz[arm].append(n)
+        # Fussgaenger auf Querungen und diagonal gegen schnelle Fahrzeuge
+        kandidaten = []
         for p in pers:
             m = re.match(r'(:\w+_c\d+)', p.get('edge') or '')
             if not m:
                 continue
-            arm = querung.get(m.group(1), '?')
-            px, py = float(p.get('x')), float(p.get('y'))
             pa = math.radians(float(p.get('angle')))
-            pvx, pvy = float(p.get('speed')) * math.sin(pa), float(p.get('speed')) * math.cos(pa)
+            kandidaten.append((p.get('id'), querung.get(m.group(1), '?'), float(p.get('x')), float(p.get('y')),
+                               float(p.get('speed')) * math.sin(pa), float(p.get('speed')) * math.cos(pa)))
+        for pid, x, y, vx, vy, geht in diag_leute:
+            if geht:
+                kandidaten.append((pid, 'diag', x, y, vx, vy))
+        for pid, arm, px, py, pvx, pvy in kandidaten:
             for v in fz:
                 sp = float(v.get('speed'))
                 if sp < FUSS_TEMPO:
@@ -298,22 +345,94 @@ def auswerten(var, seed, f):
                                    lanelen, form, nach)
                 # noetige Verzoegerung, um vor der Person zu halten (DRAC)
                 if treffer is not None and sp / (2 * max(treffer, 0.05)) > FUSS_DRAC:
-                    paar = (p.get('id'), v.get('id'))
-                    if paar not in fuss_paare:
-                        fuss_paare.add(paar)
-                        fuss_konf[arm] += 1
+                    paar = (pid, v.get('id'))
+                    if paar in fuss_paare:
+                        continue
+                    fuss_paare.add(paar)
+                    fuss_konf[arm] += 1
+                    if arm != 'diag':
                         fuss_konf['alle'] += 1
-                        if sp > 30 / 3.6:
-                            fuss_konf['ueber30'] += 1
-                        if typ == 'rad':
-                            fuss_konf['durch_rad'] += 1
+                    if sp > 30 / 3.6:
+                        fuss_konf['ueber30'] += 1
+                    if typ == 'rad':
+                        fuss_konf['durch_rad'] += 1
+                    if '_SNx' in v.get('id'):
+                        fuss_konf['durch_fehlspur'] += 1
         ts.clear()
-    for g in ['alle', 'ueber30', 'durch_rad'] + ARME:
+
+    for g in fuss_v:
+        werte.append(('fuss_zeitverlust_s', g, st.mean(fuss_v[g])))
+        werte.append(('fuss_wartezeit_s', g, st.mean(fuss_w[g])))
+        werte.append(('fuss_wege', g, len(fuss_v[g])))
+    dw = diag.wartezeiten(WARMUP, WARMUP + DAUER)
+    werte.append(('fuss_wartezeit_s', 'diag', st.mean(dw) if dw else 0))
+    werte.append(('fuss_wege', 'diag', len(dw)))
+    for g in ('alle', 'kreuzen_einbiegen', 'auffahren', 'mit_rad', 'kfz_rad', 'mit_bus_lkw', 'fehlspur', 'schwer', 'ueberschneidung', 'ausserhalb'):
+        werte.append(('konflikte_fz', g, konf[g]))
+    for g, n in konf.items():
+        if g.startswith('typ'):
+            werte.append(('konflikte_fz_ssmtyp', g[3:], n))
+    for g in ['alle', 'ueber30', 'durch_rad', 'durch_fehlspur', 'diag'] + ARME:
         werte.append(('konflikte_fuss', g, fuss_konf[g]))
     for arm in ARME:
         werte.append(('rueckstau_mittel_m', arm, st.mean(stau[arm]) if stau[arm] else 0))
         werte.append(('rueckstau_p95_m', arm, perzentil(stau[arm], 95)))
         werte.append(('rueckstau_max_m', arm, max(stau[arm]) if stau[arm] else 0))
+        werte.append(('schlange_fz_mittel', arm, st.mean(stau_fz[arm]) if stau_fz[arm] else 0))
+        werte.append(('schlange_fz_max', arm, max(stau_fz[arm]) if stau_fz[arm] else 0))
+        werte.append(('anteil_zeit_wartend', arm, 100 * sum(1 for n in stau_fz[arm] if n > 0) / max(len(stau_fz[arm]), 1)))
+        for k in (1, 2, 3):
+            werte.append((f'anteil_zeit_{k}plus', arm, 100 * sum(1 for n in stau_fz[arm] if n >= k) / max(len(stau_fz[arm]), 1)))
+
+    # ---- Bus Sued nach West: Wechsel vom Haltebereich ganz rechts auf die Linksabbiegespur
+    wechsel, wechsel_konf = 0, 0
+    for vid, seq in bus_spur.items():
+        if not seq or not im_fenster(seq[0][0]):
+            continue
+        for (t0, e0, l0), (t1, e1, l1) in zip(seq, seq[1:]):
+            if e0 == e1 and l1 > l0 and e0 in ('S_in_mitte', 'S_in'):
+                wechsel += 1
+                wechsel_konf += sum(1 for tk in bus_konf.get(vid, []) if t1 - 4 <= tk <= t1 + 6)
+    werte.append(('bus_spurwechsel', 'SW', wechsel))
+    werte.append(('bus_spurwechsel_konflikte', 'SW', wechsel_konf))
+
+    # ---- Bordstein und Inseln: Fahrzeugumrisse mit Schleppkurve gegen die Fahrbahnflaeche
+    fb = SR.fahrbahn(var)
+    fb_p = prep(fb)
+    insel = SR.inseln(var)
+    ueber = defaultdict(int)
+    fahrten_k = defaultdict(int)
+    for vid, seq in spuren.items():
+        typ = typ_von(vid)
+        if len(seq) < 2:
+            continue
+        nah = [i for i, (t, x, y, w) in enumerate(seq) if im_fenster(t) and math.hypot(x, y) < 35]
+        if not nah or not im_fenster(seq[nah[0]][0]):
+            continue
+        posen = K.posen(typ, [p[1] for p in seq], [p[2] for p in seq], [p[3] for p in seq])
+        bord = ins = False
+        for i in nah:
+            F = posen[i]
+            for ecken_ in K.umrisse(typ, (F[0], F[1]), F[2], F[3], schrumpf=0.1):
+                P = Polygon(ecken_)
+                if fb_p.contains(P):
+                    continue
+                aus = P.difference(fb)
+                if aus.area < 0.2:
+                    continue
+                if not insel.is_empty and aus.intersection(insel).area > 0.1:
+                    ins = True
+                else:
+                    bord = True
+        fahrten_k[typ] += 1
+        if bord:
+            ueber[(typ, 'bordstein')] += 1
+        if ins:
+            ueber[(typ, 'insel')] += 1
+    for typ in ('pkw', 'lkw', 'sattel', 'bus'):
+        werte.append(('fahrten_knoten', typ, fahrten_k[typ]))
+        werte.append(('ueberfahren_bordstein', typ, ueber[(typ, 'bordstein')]))
+        werte.append(('ueberfahren_insel', typ, ueber[(typ, 'insel')]))
 
     # ---- Statistik
     s = ET.parse(f['stat']).getroot()
@@ -380,7 +499,7 @@ def bericht(rows, laeufe, bus):
     data = defaultdict(lambda: defaultdict(list))
     for var, seed, k, g, w in rows:
         data[var][(k, g)].append(w)
-    vs = [v for v in VARIANTEN if v in data]
+    vs = [v for v in ALLE if v in data]
     L = []
     L.append('# Vergleich der Varianten (SUMO)\n')
     L.append(f'Je Variante {laeufe} Läufe mit festen Startwerten, je Lauf {DAUER // 60} Minuten Spitzenstunde nach '
@@ -391,20 +510,39 @@ def bericht(rows, laeufe, bus):
     L.append('| Kennzahl | ' + ' | '.join(TITEL[v] for v in vs) + ' |')
     L.append('|---|' + '---|' * len(vs))
     zeilen = [
-        ('Konflikte Fahrzeug mit Fahrzeug (TTC < 1,5 s, PET < 1 s oder DRAC > 3 m/s²)', ('konflikte_fz', 'alle')),
+        ('Konflikte Fahrzeug mit Fahrzeug im Knotenbereich (22 m), TTC < 1,5 s, PET < 1 s oder DRAC > 3 m/s²', ('konflikte_fz', 'alle')),
         ('davon Kreuzen und Einbiegen', ('konflikte_fz', 'kreuzen_einbiegen')),
         ('davon Auffahren', ('konflikte_fz', 'auffahren')),
-        ('davon mit Rad', ('konflikte_fz', 'mit_rad')),
+        ('davon Kfz gegen Rad', ('konflikte_fz', 'kfz_rad')),
         ('davon mit Bus oder Lkw', ('konflikte_fz', 'mit_bus_lkw')),
+        ('davon mit Geradeausfahrer aus der Linksabbiegespur (Fehlspur)', ('konflikte_fz', 'fehlspur')),
         ('davon schwer (TTC < 1 s oder PET < 0,5 s)', ('konflikte_fz', 'schwer')),
+        ('Fahrzeugkonflikte außerhalb des Knotenbereichs (nicht mitgezählt)', ('konflikte_fz', 'ausserhalb')),
         ('Fußgänger auf Querung, Fahrzeug über 15 km/h müsste mit über 3 m/s² bremsen', ('konflikte_fuss', 'alle')),
         ('davon Fahrzeug schneller als 30 km/h', ('konflikte_fuss', 'ueber30')),
         ('davon durch Rad', ('konflikte_fuss', 'durch_rad')),
+        ('davon durch Fehlspur-Fahrer', ('konflikte_fuss', 'durch_fehlspur')),
+        ('Fußgänger diagonal über den Knoten bedrängt (eigene Kennzahl)', ('konflikte_fuss', 'diag')),
         ('Mittlerer Zeitverlust Kfz in s', ('zeitverlust_s', 'alle|Kfz')),
         ('Mittlerer Zeitverlust Rad in s', ('zeitverlust_s', 'alle|Rad')),
         ('Mittlerer Zeitverlust Bus in s', ('zeitverlust_s', 'alle|Bus')),
         ('Mittlere Wartezeit Fußgänger in s', ('fuss_wartezeit_s', 'alle')),
-        ('Mittlerer Zeitverlust Fußgänger in s', ('fuss_zeitverlust_s', 'alle')),
+        ('Mittlere Wartezeit Diagonalquerer in s', ('fuss_wartezeit_s', 'diag')),
+        ('Nordarm: wartende Fahrzeuge im Mittel', ('schlange_fz_mittel', 'N')),
+        ('Nordarm: größte Schlange (Fahrzeuge)', ('schlange_fz_max', 'N')),
+        ('Nordarm: Anteil der Zeit mit mindestens 1 wartenden Fahrzeug in %', ('anteil_zeit_wartend', 'N')),
+        ('Nordarm: Anteil der Zeit mit 2 oder mehr in %', ('anteil_zeit_2plus', 'N')),
+        ('Nordarm: Anteil der Zeit mit 3 oder mehr in %', ('anteil_zeit_3plus', 'N')),
+        ('Bus Süd nach West: Spurwechsel vom Haltebereich zur Linksabbiegespur', ('bus_spurwechsel', 'SW')),
+        ('dabei Konflikte (±5 s um den Wechsel)', ('bus_spurwechsel_konflikte', 'SW')),
+        ('Bus überfährt Bordstein (Fahrten je Stunde)', ('ueberfahren_bordstein', 'bus')),
+        ('Lkw überfährt Bordstein', ('ueberfahren_bordstein', 'lkw')),
+        ('Sattelzug überfährt Bordstein', ('ueberfahren_bordstein', 'sattel')),
+        ('Pkw überfährt Bordstein', ('ueberfahren_bordstein', 'pkw')),
+        ('Bus überfährt Insel oder Pflaster', ('ueberfahren_insel', 'bus')),
+        ('Lkw überfährt Insel oder Pflaster', ('ueberfahren_insel', 'lkw')),
+        ('Sattelzug überfährt Insel oder Pflaster', ('ueberfahren_insel', 'sattel')),
+        ('Pkw überfährt Insel oder Pflaster', ('ueberfahren_insel', 'pkw')),
         ('Teleports (Verklemmungen im Modell)', ('teleports', 'alle')),
         ('Überlappungen im Modell (SUMO-Zusammenstöße, Modellfehler)', ('ueberlappungen', 'alle')),
         ('Überschneidungen im Knoteninneren (SSM-Typ 111, nicht mitgezählt)', ('konflikte_fz', 'ueberschneidung')),
@@ -459,7 +597,7 @@ def bericht(rows, laeufe, bus):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--laeufe', type=int, default=10)
-    ap.add_argument('--varianten', nargs='+', default=VARIANTEN, choices=VARIANTEN)
+    ap.add_argument('--varianten', nargs='+', default=VARIANTEN, choices=ALLE)
     ap.add_argument('--jobs', type=int, default=os.cpu_count() or 2)
     ap.add_argument('--behalte-roh', action='store_true', help='Rohdaten nicht loeschen')
     ap.add_argument('--nur-bericht', action='store_true', help='nur vergleich.md aus kennzahlen.csv neu schreiben')

@@ -26,14 +26,17 @@ NETZE = os.path.join(ROOT, 'netze')
 ERG = os.path.join(ROOT, 'ergebnisse')
 GRAFIK = os.path.join(ROOT, 'grafik')
 
-VARIANTEN = ['bestand', 'rvl', 'minikreisel', 't30_zebra']
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import build as B  # noqa: E402
+VARIANTEN = list(B.VERGLEICH)
 KURZ = {'bestand': 'Bestand', 'rvl': 'Rechts vor links\nTempo 30', 'minikreisel': 'Minikreisel\nmit Zebras',
-        't30_zebra': 'T30, Zebra\nNord + West'}
+        't30_zebra': 'T30, Zebra\nNord + West', 'geschuetzt': 'Geschützt\nInseln, Radfurten'}
 TITEL = {'bestand': 'Bestand', 'rvl': 'Rechts vor links, Tempo 30', 'minikreisel': 'Minikreisel mit Zebrastreifen',
-         't30_zebra': 'Bestand mit Tempo 30 und Zebra Nord und West'}
+         't30_zebra': 'Bestand mit Tempo 30 und Zebra Nord und West', 'geschuetzt': 'Geschützte Kreuzung (angepasst)'}
 
 # Farben aus der Referenzpalette (dataviz), Kategorien in fester Reihenfolge
-FARBE = {'bestand': '#2a78d6', 'rvl': '#eb6834', 'minikreisel': '#1baf7a', 't30_zebra': '#eda100'}
+FARBE = {'bestand': '#2a78d6', 'rvl': '#eb6834', 'geschuetzt': '#1baf7a', 't30_zebra': '#eda100', 'minikreisel': '#8a8a8a'}
 FLAECHE = '#fcfcfb'
 TEXT1, TEXT2, RASTER = '#0b0b0b', '#52514e', '#e4e3df'
 FAHRBAHN, GEHWEG, KNOTEN = '#5b5f66', '#d9d6cf', '#6b6f76'
@@ -109,6 +112,13 @@ def zeichne_netz(ax, var, ausschnitt=45):
         else:
             p = line.buffer(w / 2, cap_style=2)
             ax.add_patch(Polygon(list(p.exterior.coords), closed=True, fc='none', ec='white', lw=0.8, ls=(0, (2, 2)), zorder=5))
+    if var == 'geschuetzt':
+        import strassenraum as SR
+        g = SR.geschuetzt()
+        for geom, fc in ((g['insel'], '#c9c4b8'), (g['pflaster'], '#a59a8a'), (g['rad'], '#b5523b')):
+            for poly in getattr(geom, 'geoms', [geom]):
+                if poly.geom_type == 'Polygon' and not poly.is_empty:
+                    ax.add_patch(Polygon(list(poly.exterior.coords), closed=True, fc=fc, ec='none', zorder=4))
     if var == 'minikreisel':
         # ueberfahrbare Mittelinsel (gepflastert)
         from matplotlib.patches import Circle
@@ -165,15 +175,18 @@ def lade_kennzahlen():
 def vergleich():
     d = lade_kennzahlen()
     tafeln = [
-        ('Fahrzeugkonflikte Kreuzen und Einbiegen\nje Stunde', ('konflikte_fz', 'kreuzen_einbiegen')),
+        ('Fahrzeugkonflikte im Knoten\nje Stunde', ('konflikte_fz', 'alle')),
         ('Schwere Fahrzeugkonflikte je Stunde\n(TTC < 1 s oder PET < 0,5 s)', ('konflikte_fz', 'schwer')),
+        ('Konflikte Kfz gegen Rad\nje Stunde', ('konflikte_fz', 'kfz_rad')),
         ('Fußgänger auf Querung, Fahrzeug müsste\nüber 3 m/s² bremsen, je Stunde', ('konflikte_fuss', 'alle')),
+        ('Fußgänger diagonal bedrängt\nje Stunde', ('konflikte_fuss', 'diag')),
         ('Mittlere Wartezeit Fußgänger\nin Sekunden', ('fuss_wartezeit_s', 'alle')),
         ('Mittlerer Zeitverlust Kfz\nalle Zufahrten, in Sekunden', ('zeitverlust_s', 'alle|Kfz')),
         ('Mittlerer Zeitverlust Kfz\nZufahrt Nord, in Sekunden', ('zeitverlust_s', 'N|Kfz')),
+        ('Nordarm: Anteil der Zeit mit\nwartenden Fahrzeugen in %', ('anteil_zeit_wartend', 'N')),
     ]
     vs = [v for v in VARIANTEN if any(d[k][v] for _, k in tafeln)]
-    fig, axs = plt.subplots(2, 3, figsize=(13, 8.2), facecolor=FLAECHE)
+    fig, axs = plt.subplots(3, 3, figsize=(13, 12), facecolor=FLAECHE)
     for ax, (titel, key) in zip(axs.flat, tafeln):
         ax.set_facecolor(FLAECHE)
         werte = [d[key][v] for v in vs]
@@ -197,9 +210,9 @@ def vergleich():
         ax.tick_params(axis='y', length=0)
     n = len(next(iter(d[tafeln[0][1]].values()), []))
     fig.suptitle('Kreuzung Gießerstraße / Naumburger Straße, Vergleich der Varianten (SUMO)', x=0.01, ha='left', fontsize=13)
-    fig.text(0.01, 0.935, f'Mittelwert aus {n} Läufen je Variante, Strich zeigt die Streuung. Spitzenstunde geschätzt, '
+    fig.text(0.01, 0.955, f'Mittelwert aus {n} Läufen je Variante, Strich zeigt die Streuung. Spitzenstunde geschätzt, '
              'Modell nicht kalibriert. Kleinere Werte sind besser.', fontsize=9, color=TEXT2)
-    fig.tight_layout(rect=(0, 0, 1, 0.92))
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
     fig.savefig(os.path.join(GRAFIK, 'vergleich.png'), dpi=130, facecolor=FLAECHE)
     plt.close(fig)
 
