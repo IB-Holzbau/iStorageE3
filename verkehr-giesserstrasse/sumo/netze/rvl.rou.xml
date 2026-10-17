@@ -61,36 +61,32 @@
     </flow>
     <flow id="rad_WE" type="rad" begin="0" end="4200" period="exp(0.002222)" from="W_in" to="E_out" departLane="best" departSpeed="max">
     </flow>
-    <personFlow id="pNw2e" type="fuss" begin="0" end="4200" period="exp(0.019444)" departPos="40">
+    <personFlow id="pNw2e" type="fuss" begin="0" end="4200" period="exp(0.006944)" departPos="40">
         <walk from="W_out" to="E_in" arrivalPos="-40"/>
     </personFlow>
-    <personFlow id="pNe2w" type="fuss" begin="0" end="4200" period="exp(0.019444)" departPos="-40">
+    <personFlow id="pNe2w" type="fuss" begin="0" end="4200" period="exp(0.006944)" departPos="-40">
         <walk from="E_in" to="W_out" arrivalPos="40"/>
     </personFlow>
-    <personFlow id="pKioskW" type="fuss" begin="0" end="4200" period="exp(0.020833)" departPos="-60">
-        <walk from="N_in" to="W_in" arrivalPos="-2"/>
+    <personFlow id="pKiosk" type="fuss" begin="0" end="4200" period="exp(0.007778)" departPos="60">
+        <walk from="N_out" to="W_out" arrivalPos="3"/>
+        <walk from="W_out" to="W_in" arrivalPos="-3"/>
     </personFlow>
-    <personFlow id="pKioskBackW" type="fuss" begin="0" end="4200" period="exp(0.016667)" departPos="-2">
-        <walk from="W_in" to="N_in" arrivalPos="-60"/>
+    <personFlow id="pKioskBack" type="fuss" begin="0" end="4200" period="exp(0.006111)" departPos="-3">
+        <walk from="W_in" to="W_out" arrivalPos="3"/>
+        <walk from="W_out" to="N_out" arrivalPos="60"/>
     </personFlow>
-    <personFlow id="pKioskE" type="fuss" begin="0" end="4200" period="exp(0.016667)" departPos="60">
-        <walk from="N_out" to="W_in" arrivalPos="-2"/>
+    <personFlow id="pSued" type="fuss" begin="0" end="4200" period="exp(0.008333)" departPos="2">
+        <walk from="S_in_m" to="S_out_m" arrivalPos="2"/>
     </personFlow>
-    <personFlow id="pKioskBackE" type="fuss" begin="0" end="4200" period="exp(0.013889)" departPos="-2">
-        <walk from="W_in" to="N_out" arrivalPos="60"/>
-    </personFlow>
-    <personFlow id="pWest" type="fuss" begin="0" end="4200" period="exp(0.008333)" departPos="-8">
-        <walk from="W_in" to="W_out" arrivalPos="8"/>
-    </personFlow>
-    <personFlow id="pEastN" type="fuss" begin="0" end="4200" period="exp(0.009722)" departPos="-10">
+    <personFlow id="pEastN" type="fuss" begin="0" end="4200" period="exp(0.004167)" departPos="-10">
         <walk from="S_in_fern" to="N_out" arrivalPos="60"/>
     </personFlow>
-    <personFlow id="pEastS" type="fuss" begin="0" end="4200" period="exp(0.009722)" departPos="60">
+    <personFlow id="pEastS" type="fuss" begin="0" end="4200" period="exp(0.004167)" departPos="60">
         <walk from="N_out" to="S_in_fern" arrivalPos="-10"/>
     </personFlow>
-    <flow id="bus_SN" type="bus" begin="60" end="4200" period="600" from="S_in_fern" to="N_out" departLane="best" departSpeed="max">
+    <flow id="bus_SW" type="bus" begin="60" end="4200" period="600" from="S_in_fern" to="W_out" departLane="best" departSpeed="max">
         <stop busStop="hst_naumburger" duration="20"/>
     </flow>
-    <flow id="bus_NS" type="bus" begin="360" end="4200" period="600" from="N_in" to="S_out_fern" departLane="best" departSpeed="max">
+    <flow id="bus_WS" type="bus" begin="360" end="4200" period="600" from="W_in" to="S_out_fern" departLane="best" departSpeed="max">
     </flow>
 </routes>

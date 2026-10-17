@@ -40,9 +40,8 @@ LAENGE = {'pkw': 4.5, 'lkw': 10.0, 'sattel': 16.5, 'bus': 18.0, 'rad': 1.8}
 BREITE = {'pkw': 1.85, 'lkw': 2.5, 'sattel': 2.55, 'bus': 2.55, 'rad': 0.8}
 
 WEG = {'pNw2e': 'Nordseite West nach Ost, quert Nordarm', 'pNe2w': 'Nordseite Ost nach West, quert Nordarm',
-       'pKioskW': 'Von Norden (Westseite) zum Kiosk, quert Westarm', 'pKioskBackW': 'Vom Kiosk nach Norden (Westseite)',
-       'pKioskE': 'Von Norden (Ostseite) zum Kiosk, quert Nord- und Westarm', 'pKioskBackE': 'Vom Kiosk nach Norden (Ostseite)',
-       'pWest': 'Quert Westarm am Knoten', 'pEastN': 'Ostseite Süd nach Nord, quert Ostarm', 'pEastS': 'Ostseite Nord nach Süd, quert Ostarm'}
+       'pKiosk': 'Von Nordost zum Kiosk, quert Nord- und Westarm', 'pKioskBack': 'Vom Kiosk nach Nordost, quert West- und Nordarm',
+       'pSued': 'Quert Südarm am Knoten', 'pEastN': 'Ostseite Süd nach Nord, quert Ostarm', 'pEastS': 'Ostseite Nord nach Süd, quert Ostarm'}
 
 WARMUP, DAUER = 600, 3600
 SCHRITT = 0.5

@@ -2,8 +2,8 @@
 """Baut die SUMO-Netze und die Nachfrage aller Varianten.
 
 Aufruf
-    python3 build.py              # Busse wie in OSM geradeaus Sued <-> Nord
-    python3 build.py --bus SW     # Busse wie im Browsermodell Sued <-> West
+    python3 build.py              # Busse im Regelbetrieb Sued <-> West
+    python3 build.py --bus SN     # Baustellenumleitung geradeaus Sued <-> Nord (Stand OSM Oktober 2026)
 
 Ergebnis liegt in netze/<variante>.net.xml, netze/<variante>.rou.xml und
 netze/haltestelle.add.xml. Die Geometrie der vier Arme kommt aus
@@ -27,7 +27,7 @@ VARIANTEN = ['bestand', 'rvl', 'minikreisel', 't30_zebra']
 
 J_OSM = '60015219'          # Knoten Giesserstrasse / Naumburger Strasse
 ARM_LEN = 120.0             # Laenge jedes Arms in Metern
-MUND = 13.0                 # Abstand Knotenmitte bis Mundknoten (Zebra im Kreisel)
+MUND = 16.0             # Abstand Knotenmitte bis Mundknoten (Zebra im Kreisel, Ende der Haltlinienkante)
 KREISEL_R = 3.5             # Innenrand der Kreisfahrbahn, mit 4,5 m Fahrbahn rund 16 m Aussendurchmesser
 
 V50, V30, V20 = 13.89, 8.33, 5.56
@@ -46,6 +46,16 @@ TEMPO_OSM = {'S': V50, 'N': V50, 'W': V30, 'E': V50}
 # Fahrstreifenbreite ohne Parkstreifen (aus OSM width minus Parken, gerundet)
 BREITE = {'S': 3.5, 'N': 3.5, 'W': 3.5, 'E': 2.75}
 GEHWEG = 2.5
+PARKEN = 2.0
+# Parkstreifen laut OSM (parking:*), als Spur ohne Verkehr (custom1). Sie bestimmen nur die Lage
+# des Bordsteins und der Querungen, gefahren wird darauf nicht. Schluessel (Arm, Richtung), Wert
+# die Abschnitte (siehe teile unten).
+PARKSTREIFEN = {
+    ('E', 'in'): {'m', ''}, ('E', 'out'): {'m', ''},     # Naumburger Ost, beidseitig
+    ('W', 'in'): {'m', ''},                              # Naumburger West, Suedseite
+    ('S', 'out'): {'bucht', 'fern'},                     # Giesserstrasse Sued, Westseite ab etwa 35 m
+    ('N', 'in'): {''},                                   # Giesserstrasse Nord, Westseite ab etwa 25 m
+}
 
 # Abschnitte am Suedarm (Abstand zur Knotenmitte). Bucht laut OSM-Haltestelle
 # ref 0505 etwa 45 bis 70 m suedlich, Linksabbiegestreifen auf den letzten 25 m
@@ -156,7 +166,7 @@ class Netz:
              f'speed="{speed}" shape="{fmt(shape)}">']
         for i, (allow, w) in enumerate(lanes):
             if allow == 'kfz':
-                s.append(f'        <lane index="{i}" disallow="pedestrian" width="{w}"/>')
+                s.append(f'        <lane index="{i}" disallow="pedestrian custom1" width="{w}"/>')
             else:
                 s.append(f'        <lane index="{i}" allow="{allow}" width="{w}"/>')
         s.append('    </edge>')
@@ -242,8 +252,13 @@ def baue_variante(var, arme):
                 zu = [('pedestrian', GEHWEG), ('kfz', 3.0), ('kfz', 3.0)]   # rechts geradeaus/rechts, links Linksabbieger
             if a == 'S' and teil == 'bucht':
                 zu = [('pedestrian', GEHWEG), ('bus', 3.0), ('kfz', w)]
+            von = [('pedestrian', GEHWEG), ('kfz', w)]
+            if teil in PARKSTREIFEN.get((a, 'in'), ()):
+                zu = zu[:1] + [('custom1', PARKEN)] + zu[1:]
+            if teil in PARKSTREIFEN.get((a, 'out'), ()):
+                von = von[:1] + [('custom1', PARKEN)] + von[1:]
             n.edge(f'{a}_in{suf}', k1, k0, list(reversed(sh)), zu, tempo[a], prio[a])
-            n.edge(f'{a}_out{suf}', k0, k1, sh, [('pedestrian', GEHWEG), ('kfz', w)], tempo[a], prio[a])
+            n.edge(f'{a}_out{suf}', k0, k1, sh, von, tempo[a], prio[a])
 
     # Querungen
     zebra = {'bestand': set(), 'rvl': set(), 't30_zebra': {'N', 'W'}, 'minikreisel': set(arme)}[var]
@@ -260,7 +275,7 @@ def baue_variante(var, arme):
         n.con('S_in', 'S_in_m', 1, 1)
         n.con('S_in', 'S_in_m', 2, 2)
         n.con('S_in_m', 'N_out_m', 1, 1)
-        n.con('S_in_m', 'E_out_m', 1, 1)
+        n.con('S_in_m', 'E_out_m', 1, 2)   # Ost hat Parkstreifen auf Spur 1
         n.con('S_in_m', 'W_out_m', 2, 1)
         n.con('S_in_mitte', 'S_in', 1, 1)
         n.con('S_in_mitte', 'S_in', 1, 2)
@@ -294,21 +309,24 @@ KFZ = {'SW': 260, 'WS': 240, 'SN': 110, 'NS': 120, 'NW': 55, 'WN': 60, 'NE': 12,
 LKW = {'SW': 8, 'WS': 8, 'NS': 4, 'SN': 3, 'NW': 2, 'WN': 2}
 SATTEL = {'SW': 3, 'WS': 3}
 RAD = {'SW': 45, 'WS': 45, 'SN': 25, 'NS': 30, 'WN': 22, 'NW': 15, 'EW': 8, 'WE': 8}
-BUS_TAKT = 6   # je Richtung und Stunde, Annahme 10-Minuten-Takt (Linien 60, 60E, N1 laut OSM)
+BUS_TAKT = 6   # je Richtung und Stunde, Annahme 10-Minuten-Takt (Linien 60 und 60E)
 
-# Fussgaenger (Browsermodell): Start- und Zielkante, Position, Personen je Stunde
-# Gehweg rechts der Fahrtrichtung, also z.B. N_in = Westseite Nordarm, W_out = Nordseite Westarm
+# Fussgaenger je Stunde, Schaetzung nach Beobachtung des Nutzers (Oktober 2026).
+# Die Nordquerung ueber die Giesserstrasse Nord ist die meistgenutzte (etwa 100 je Stunde),
+# West etwa 50, Sued und Ost je etwa 30. Der Strom zum Kiosk an der Suedwestecke kommt von der
+# Ostseite der Giesserstrasse Nord, quert erst den Nordarm und dann den Westarm.
+# Jeder Eintrag ist (id, Personen je Stunde, Etappen), eine Etappe ist (von, Pos, nach, Pos).
+# Gehweg rechts der Fahrtrichtung, also z.B. N_in = Westseite Nordarm, W_out = Nordseite Westarm.
 FUSS = [
-    ('pNw2e', 'W_out', 40, 'E_in', -40, 70),        # Nordseite West nach Ost, quert Nordarm
-    ('pNe2w', 'E_in', -40, 'W_out', 40, 70),
-    ('pKioskW', 'N_in', -60, 'W_in', -2, 75),       # von Norden (Westseite) zum Kiosk Suedwestecke, quert Westarm
-    ('pKioskBackW', 'W_in', -2, 'N_in', -60, 60),
-    ('pKioskE', 'N_out', 60, 'W_in', -2, 60),       # von Norden (Ostseite) zum Kiosk
-    ('pKioskBackE', 'W_in', -2, 'N_out', 60, 50),
-    ('pWest', 'W_in', -8, 'W_out', 8, 30),          # quert Westarm (nah am Knoten, sonst laeuft SUMO um das Netzende)
-    ('pEastN', 'S_in_fern', -10, 'N_out', 60, 35),  # Ostseite Sued nach Nord, quert Ostarm
-    ('pEastS', 'N_out', 60, 'S_in_fern', -10, 35),
+    ('pNw2e', 25, [('W_out', 40, 'E_in', -40)]),                      # Nordseite West nach Ost, quert Nordarm
+    ('pNe2w', 25, [('E_in', -40, 'W_out', 40)]),                      # Nordseite Ost nach West, quert Nordarm
+    ('pKiosk', 28, [('N_out', 60, 'W_out', 3), ('W_out', 3, 'W_in', -3)]),       # Nordost zum Kiosk, quert Nord und West
+    ('pKioskBack', 22, [('W_in', -3, 'W_out', 3), ('W_out', 3, 'N_out', 60)]),   # zurueck, quert West und Nord
+    ('pSued', 30, [('S_in_m', 2, 'S_out_m', 2)]),                     # quert Suedarm am Knoten (beide Richtungen gemischt)
+    ('pEastN', 15, [('S_in_fern', -10, 'N_out', 60)]),                # Ostseite Sued nach Nord, quert Ostarm
+    ('pEastS', 15, [('N_out', 60, 'S_in_fern', -10)]),
 ]
+FUSS_SUMME = {'N': 100, 'W': 50, 'S': 30, 'E': 30}   # Zielwerte, siehe README
 
 # impatience 0.5: Wartepflichtige akzeptieren nach laengerem Warten kleinere Luecken.
 # Ohne diesen Wert ueberschaetzt SUMO die Wartezeiten am Nordarm stark (siehe README).
@@ -362,9 +380,10 @@ def nachfrage(var, bus, ende):
     else:
         busflow('bus_SW', 'SW', 60, halt)
         busflow('bus_WS', 'WS', 360)
-    for pid, von, vp, nach, np_, q in FUSS:
-        flows.append((0, f'    <personFlow id="{pid}" type="fuss" begin="0" end="{ende}" period="exp({q / 3600:.6f})" departPos="{vp}">\n'
-                 f'        <walk from="{von}" to="{nach}" arrivalPos="{np_}"/>\n    </personFlow>'))
+    for pid, q, etappen in FUSS:
+        walks = ''.join(f'\n        <walk from="{von}" to="{nach}" arrivalPos="{np_}"/>' for von, _, nach, np_ in etappen)
+        flows.append((0, f'    <personFlow id="{pid}" type="fuss" begin="0" end="{ende}" period="exp({q / 3600:.6f})" '
+                         f'departPos="{etappen[0][1]}">{walks}\n    </personFlow>'))
     # SUMO verlangt Sortierung nach Startzeit
     z += [f for _, f in sorted(flows, key=lambda x: x[0])]
     z.append('</routes>')
@@ -380,7 +399,7 @@ HALTESTELLE = '''<additional>
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument('--bus', choices=['SN', 'SW'], default='SN', help='Busroute, SN laut OSM (Standard), SW wie Browsermodell')
+    ap.add_argument('--bus', choices=['SW', 'SN'], default='SW', help='Busroute, SW Regelbetrieb (Standard), SN Baustellenumleitung wie derzeit in OSM')
     ap.add_argument('--ende', type=int, default=4200, help='Ende der Nachfrage in s (600 Einschwingen plus 3600)')
     args = ap.parse_args()
 

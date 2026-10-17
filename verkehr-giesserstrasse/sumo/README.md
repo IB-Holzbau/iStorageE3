@@ -2,7 +2,11 @@
 
 Mikroskopische Verkehrssimulation der Kreuzung in Leipzig-Plagwitz mit dem freien Simulator [Eclipse SUMO](https://eclipse.dev/sumo/). Das Modell vergleicht den Bestand mit drei Umbauvarianten und liefert Kennzahlen zu Sicherheit und Wartezeiten für die Bürgerkampagne. Das Browsermodell in `../modell` bleibt das Anschauungsmodell, dieses SUMO-Modell ist die nachvollziehbare Rechengrundlage.
 
-![Varianten](grafik/netze.png)
+**Abspieler im Browser** in [`grafik/abspieler.html`](grafik/abspieler.html). Die Datei herunterladen und im Browser öffnen, sie läuft ohne Internet (nur die Schrift kommt von Google Fonts). Fünf Minuten der Spitzenstunde je Variante, flüssig mit 60 Bildern je Sekunde, Beinahe-Unfälle blinken als Ringe auf.
+
+| Bestand | Minikreisel |
+|---|---|
+| ![Bestand](grafik/abspieler_bestand.png) | ![Minikreisel](grafik/abspieler_minikreisel.png) |
 
 ## Aufruf
 
@@ -10,12 +14,13 @@ Mikroskopische Verkehrssimulation der Kreuzung in Leipzig-Plagwitz mit dem freie
 pip install -r requirements.txt     # SUMO, matplotlib, shapely, pillow
 python3 build.py                    # Netze und Nachfrage aller Varianten
 python3 run.py                      # 10 Läufe je Variante, etwa 2 Minuten
-python3 plots.py --animation        # Bilder und GIFs nach grafik/
+python3 plots.py                    # Vergleichsdiagramm und Netzbilder nach grafik/
+python3 abspieler/export.py         # Browser-Abspieler grafik/abspieler.html
 ```
 
 Weitere Schalter
 
-- `python3 build.py --bus SW` lässt die Busse wie im Browsermodell von Süd nach West fahren. Standard ist `SN` wie in OpenStreetMap.
+- Standard ist der Regelbetrieb, die Busse fahren von Süd nach West. `python3 build.py --bus SN` bildet die derzeitige Baustellenumleitung ab (Naumburger Straße ist Sackgasse, die Busse fahren geradeaus Süd und Nord, so steht es im Oktober 2026 auch in OpenStreetMap).
 - `python3 run.py --laeufe 3 --varianten bestand minikreisel` für schnelle Proben.
 - `python3 run.py --nur-bericht` schreibt `vergleich.md` aus der vorhandenen CSV neu.
 - `python3 werkzeuge/vorfahrt.py netze/bestand.net.xml J` zeigt, wer am Knoten auf wen wartet.
@@ -27,15 +32,17 @@ Weitere Schalter
 |---|---|
 | `build.py` | Liest die Geometrie aus `../daten/map.osm` und erzeugt je Variante Netz und Nachfrage |
 | `run.py` | Simuliert, wertet aus, schreibt `ergebnisse/kennzahlen.csv` und `ergebnisse/vergleich.md` |
-| `plots.py` | Netzbilder, Vergleichsdiagramm, Animationen |
+| `plots.py` | Netzbilder, Vergleichsdiagramm, optional GIFs (`--animation`) |
+| `abspieler/export.py` | Simuliert je Variante fünf Minuten mit 0,2 s Schrittweite und baut daraus den Abspieler |
+| `abspieler/vorlage.html` | Seite und Abspiellogik des Abspielers, die Daten werden beim Export eingesetzt |
 | `netze/` | Erzeugte SUMO-Netze (`*.net.xml`), Nachfrage (`*.rou.xml`), Haltestelle |
 | `ergebnisse/` | Kennzahlen je Lauf und Vergleichstabelle. Rohdaten unter `roh/` werden nicht eingecheckt |
-| `grafik/` | `netze.png`, `vergleich.png`, `netz_*.png`, `animation_*.gif` (eine Minute aus Lauf 1) |
+| `grafik/` | `abspieler.html`, `abspieler_*.png`, `vergleich.png`, `netze.png`, `netz_*.png` |
 | `werkzeuge/vorfahrt.py` | Prüfhilfe für die Vorfahrtregeln |
 
 ## Modellaufbau
 
-**Geometrie.** Lage und Richtung der vier Arme stammen aus OpenStreetMap (Knoten 60015219). Jeder Arm ist 120 m lang. Der Südarm endet im OSM-Ausschnitt nach 90 m und wird gerade verlängert. Die Fahrstreifen werden ohne Parkstreifen modelliert, die Breiten sind OSM-Breite abzüglich Parken (Ost nur 2,75 m je Richtung).
+**Geometrie.** Lage und Richtung der vier Arme stammen aus OpenStreetMap (Knoten 60015219). Jeder Arm ist 120 m lang. Der Südarm endet im OSM-Ausschnitt nach 90 m und wird gerade verlängert. Fahrstreifen 3,5 m, Ost nur 2,75 m je Richtung. Parkstreifen laut OSM (Ost beidseitig, West Südseite, Süd Westseite ab etwa 45 m, Nord Westseite ab etwa 16 m) sind als 2 m breite Spur ohne Verkehr enthalten. Sie legen nur Bordstein und Querungslänge fest. Die Engstelle Ost ist so geometrisch sichtbar, seitliche Konflikte im Begegnungsverkehr bildet SUMO aber nicht ab.
 
 **Südarm.** Busbucht 45 bis 70 m vor dem Knoten mit der Haltestelle Naumburger Straße (LVB 0505, Halt 20 s). Auf den letzten 25 m zwei Fahrstreifen, links für Linksabbieger nach West, rechts geradeaus und rechts.
 
@@ -58,9 +65,9 @@ Weitere Schalter
 |---|---|
 | Pkw | 941, davon Süd nach West 260 und West nach Süd 240 |
 | Lkw und Sattelzüge | 33 |
-| Gelenkbusse 18 m | 12 (Linien 60, 60E, N1) |
+| Gelenkbusse 18 m | 12 (Linien 60 und 60E, Regelbetrieb Süd nach West) |
 | Rad | 198 |
-| Fußgänger | 485, vor allem über Nord- und Westarm zum Kiosk an der Südwestecke |
+| Fußgänger | 160 Wege, die je Querung etwa Nord 100, West 50, Süd 30, Ost 30 ergeben (Schätzung nach Beobachtung). Der Strom von Nordost zum Kiosk an der Südwestecke quert erst den Nordarm, dann den Westarm |
 
 **Fahrverhalten.** SUMO-Standardmodell (Krauss) mit `sigma 0.5` und gestreuter Wunschgeschwindigkeit. Wartepflichtige Fahrer werden mit `impatience 0.5` mit der Zeit ungeduldiger und nehmen kleinere Lücken an. Radfahrende fahren auf der Fahrbahn ohne Überholen innerhalb des Fahrstreifens.
 
@@ -83,29 +90,34 @@ Die vollständigen Tabellen stehen in [`ergebnisse/vergleich.md`](ergebnisse/ver
 
 ![Vergleich](grafik/vergleich.png)
 
-Kernaussagen aus 10 Läufen je Variante (Mittelwert je Stunde)
+Kernaussagen aus 10 Läufen je Variante (Mittelwert je Stunde, Stand mit Bus Süd nach West und neuen Fußgängerzahlen)
 
 | | Bestand | Rechts vor links | Minikreisel | Tempo 30 und Zebra |
 |---|---|---|---|---|
-| Fahrzeugkonflikte Kreuzen und Einbiegen | 78 | 30 | 0 | 68 |
-| Schwere Fahrzeugkonflikte | 22 | 4 | 0 | 29 |
-| Fußgängerkonflikte | 45 | 47 | 44 | 49 |
-| Wartezeit Fußgänger in s | 9,8 | 8,8 | 0,5 | 0,5 |
-| Zeitverlust Kfz in s | 14 | 9 | 17 | 22 |
-| Zufahrt Nord, Zeitverlust Kfz in s und Stufe | 30, C | 8, A | 22, C | 49, E |
+| Fahrzeugkonflikte gesamt | 91 | 32 | 19 | 79 |
+| davon Kreuzen und Einbiegen | 62 | 23 | 0 | 61 |
+| Schwere Fahrzeugkonflikte | 21 | 2 | 0 | 27 |
+| Fußgänger auf der Querung bedrängt | 13 | 12 | 17 | 21 |
+| Wartezeit Fußgänger in s | 6,5 | 8,1 | 0,0 | 2,1 |
+| Zeitverlust Kfz in s | 13 | 8 | 10 | 11 |
+| Zufahrt Nord, Zeitverlust Kfz in s und Stufe | 25, C | 8, A | 12, B | 18, B |
 
 Lesart
 
 - Im Bestand entstehen die meisten Konflikte zwischen Fahrzeugen. Ursache sind die Lückensuche am Nordarm und die Abbieger von der abknickenden Vorfahrt.
-- Rechts vor links mit Tempo 30 und der Minikreisel senken die Fahrzeugkonflikte deutlich, der Minikreisel fast auf null bei den kreuzenden Strömen.
-- Zebrastreifen senken die Wartezeit der Fußgänger von rund 10 s auf unter 1 s. Die Zahl der Fußgängerkonflikte ändert sich im Modell kaum, weil Fußgänger am Zebrastreifen in SUMO ohne Blick auf den Verkehr losgehen.
-- Tempo 30 mit Zebrastreifen bei sonst gleicher Vorfahrt verlängert die Wartezeit am Nordarm. Wartepflichtige Fahrzeuge müssen dort zusätzlich Fußgänger abwarten.
+- Rechts vor links mit Tempo 30 und der Minikreisel senken die Fahrzeugkonflikte deutlich, der Minikreisel bei den kreuzenden Strömen auf null. Im Kreisel bleiben Auffahrkonflikte an den Einfahrten.
+- Zebrastreifen senken die Wartezeit der Fußgänger fast auf null. Die Zahl der bedrängten Fußgänger steigt im Modell an den Zebrastreifen, weil SUMO-Fußgänger dort ohne Blick auf den Verkehr losgehen und Fahrzeuge dann kräftig bremsen. Real ist das eher zu hoch angesetzt.
+- Tempo 30 mit Zebrastreifen bei sonst gleicher Vorfahrt ändert an den Fahrzeugkonflikten wenig.
+
+## Abspieler
+
+`abspieler/export.py` lässt SUMO je Variante mit Startwert 1 und 0,2 s Schrittweite laufen und zeichnet fünf Minuten nach zehn Minuten Einschwingzeit auf. Positionen werden in Dezimetern als Differenzen gespeichert, der Browser rechnet zwischen den Schritten weich weiter. Fahrzeuge werden aus der Bahn ihrer Front gezeichnet, das Heck folgt der Spur (Schleppkurve), Gelenkbus und Sattelzug knicken am Gelenk. Die Karte entsteht aus dem SUMO-Netz (Fahrbahn, Gehwege, Querungen), den Gebäuden aus `map.osm` und den Parkstreifen. Schilder und Markierungen sind je Variante gesetzt. Die Ringe zeigen dieselben Konflikte wie die Auswertung, nur aus diesem einen Fünf-Minuten-Ausschnitt. In fünf Minuten sind das nur wenige, die Stundenwerte in der Seitenleiste stammen aus den zehn ganzen Läufen.
 
 ## Abweichungen zwischen OSM und Beobachtung
 
 | Punkt | OpenStreetMap | Beobachtung oder Browsermodell | Im Modell |
 |---|---|---|---|
-| Buslinien 60, 60E, N1 | geradeaus Süd und Nord auf der Gießerstraße | Süd nach West | Süd und Nord, umschaltbar mit `--bus SW` |
+| Buslinien 60, 60E | geradeaus Süd und Nord auf der Gießerstraße | Süd nach West, derzeit wegen Baustelle umgeleitet (Naumburger Straße Sackgasse) | Regelbetrieb Süd nach West, Umleitung mit `--bus SN` |
 | Tempo Ost | kein Schild, also innerorts 50 | Tempo 30 | 50, laut Recherche wurde Tempo 30 für den Ostteil 2024 abgelehnt |
 | Vorfahrtschilder, Stoppschild | nicht erfasst | abknickende Vorfahrt Süd und West, Stopp Nord | nach Beobachtung |
 | Linksabbiegestreifen Süd | `lane_markings=no` | Linksabbieger und Geradeaus getrennt | zwei Streifen auf 25 m |
@@ -118,7 +130,8 @@ Vor einer Veröffentlichung sollte jemand vor Ort prüfen, welche Schilder stehe
 
 - Die Nachfrage ist geschätzt, es gibt keine Zählung. Das Modell zeigt Unterschiede zwischen Varianten, nicht die echten Werte.
 - Die Wartezeit am Nordarm hängt stark von der Lückenannahme ab. Im Bestand ergibt `impatience 0` eine Überlastung mit über 500 s Zeitverlust, 0.3 rund 67 s, 0.5 rund 33 s und 0.6 rund 23 s (je 5 Läufe). Gewählt ist 0.5. Eine grobe Abschätzung nach dem HBS-Verfahren mit üblichen Grenzzeitlücken landet in derselben Größenordnung, ist aber nicht am Original geprüft. Eine Zählung mit Wartezeitmessung würde diesen Wert festlegen.
-- Parkende Autos und die Engstelle Ost sind nicht abgebildet. SUMO kennt keine seitlichen Konflikte zwischen Gegenrichtungen auf derselben Fahrbahn.
+- Parkstreifen bestimmen nur die Geometrie. Ein- und Ausparken und die Enge im Begegnungsverkehr Ost bildet SUMO nicht ab.
+- An unmarkierten Querungen warten SUMO-Fußgänger auf eine Lücke. An Zebrastreifen gehen sie ohne Blick auf den Verkehr los, deshalb sind Fußgängerkonflikte an Zebrastreifen eher überschätzt.
 - Der Minikreisel ist vereinfacht. Busse fahren die Kreisfahrbahn wie Pkw, das Überfahren der Mitte und die Schleppkurve fehlen. Die Ablenkung, die real bremst, ersetzt Tempo 30 auf den Armen.
 - Fehlverhalten aus dem Browsermodell (Geradeausfahren aus der Linksabbiegespur, Übersehen von Radfahrenden) ist nicht enthalten.
 - SSM meldet zusätzlich Überschneidungen von Fahrzeugumrissen im Knoteninneren (Typ 111). Das sind meist Geometrieeffekte der Wartepositionen. Sie stehen getrennt in der Tabelle und sind nicht mitgezählt.
