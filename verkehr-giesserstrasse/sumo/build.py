@@ -27,15 +27,30 @@ PLAIN = os.path.join(ROOT, 'build')
 
 # Alle Varianten. Der Minikreisel wird weiter gebaut, ist aber nicht mehr Teil des Vergleichs
 # (siehe README, er passt fuer den 18 m Gelenkbus und den 8,2 m breiten Nordarm nicht).
-VARIANTEN = ['bestand', 'rvl', 't30_zebra', 'geschuetzt', 'minikreisel']
-VERGLEICH = ['bestand', 'rvl', 't30_zebra', 'geschuetzt']
+# Vergleich (Entscheidung der Initiative, Oktober 2026): Bestand, bessere Markierung mit Tempo 30,
+# Tempo-30-Zone mit rechts vor links und rote Radwege. Die frueheren Varianten (rechts vor links
+# ohne Markierung, Tempo 30 mit Zebra, geschuetzte Kreuzung, Minikreisel) sind verworfen und
+# werden nur mit --alt gebaut (siehe README, Abschnitt verworfene Varianten).
+VERGLEICH = ['bestand', 'markierung', 'zone', 'radwege']
+VERWORFEN = ['rvl', 't30_zebra', 'geschuetzt', 'minikreisel']
+VARIANTEN = VERGLEICH + VERWORFEN
+# Gruppen fuer die Regeln
+ABKNICKEND = {'bestand', 't30_zebra', 'markierung', 'radwege'}   # abknickende Vorfahrt Sued <-> West
+RECHTS_VOR_LINKS = {'rvl', 'zone'}
+ECK_SPERR = {'markierung', 'zone', 'radwege'}                    # Grenzmarkierung Zeichen 299 an den Ecken
 
 J_OSM = '60015219'          # Knoten Giesserstrasse / Naumburger Strasse
 ARM_LEN = 120.0             # Laenge jedes Arms in Metern
 # Abstand Knotenmitte bis Querungsknoten. Ortsbeobachtung: Nord wird zwischen Haltlinie und
 # Knoten gequert, Ost und West direkt an der Knotenkante (Wunschlinie zum Kiosk an der SW-Ecke).
 # Die Querungsknoten liegen deshalb unmittelbar am Rand des Hauptknotens.
-MUND = {'N': 12.8, 'S': 16.0, 'W': 15.0, 'E': 14.2}
+# Ortsbeobachtung (Oktober 2026): Fussgaenger queren so frueh wie moeglich, also direkt dort, wo
+# die Gehwegkante in die Eckausrundung uebergeht. Die Querungsachse liegt 0,5 m hinter dem Beginn
+# der Ausrundung (Tangentenpunkte aus ECKEN: Sued 9,2 m, Nord 9,8 m, West 10,8 m, Ost 10,2 m), die
+# 3 m breite Querung reicht also 1 m in den Eckbogen. Naeher geht in SUMO nicht, weil die Querung
+# einen eigenen Knoten am Rand des Hauptknotens braucht (siehe README, Ueberlappungen).
+# Die Haltlinie Nord liegt vor der Querung.
+MUND = {'N': 10.3, 'S': 9.7, 'W': 11.3, 'E': 10.7}
 KREISEL_R = 4.0             # Innenrand der Kreisfahrbahn (ueberfahrbare Mitte), mit 4,0 m Fahrbahn rund 16 m Aussendurchmesser
 KREISEL_B = 4.0
 
@@ -49,9 +64,11 @@ ARME = {
     'E': ('Naumburger Straße', 100),
 }
 
-# Tempo laut OSM. Ost hat kein Schild, also innerorts 50 (Annahme). West ist Tempo-30-Zone ab
-# dem Knoten (Zeichen 274.1, Ortsbeobachtung).
-TEMPO_OSM = {'S': V50, 'N': V50, 'W': V30, 'E': V50}
+# Tempo heute. Gießerstraße 50. Naumburger West Tempo 30 per Streckenschild (Zeichen 274,
+# Laermaktionsplan seit 12/2025, OSM maxspeed=30 sign). Naumburger Ost ist Tempo-30-Zone
+# (Zeichen 274.1 kurz hinter dem Knoten, Foto der Initiative). Die fruehere Annahme Ost 50 nach
+# OSM war falsch.
+TEMPO_OSM = {'S': V50, 'N': V50, 'W': V30, 'E': V30}
 
 # Querschnitte je Arm, konstant ueber die ganze Laenge (Abgleich mit OSM width und Luftbild
 # Geoportal Leipzig, Massstab 20 m). Jede Liste geht von rechts nach links in Fahrtrichtung,
@@ -110,7 +127,31 @@ def querschnitt(a, richtung, teil, var='bestand'):
         spuren = [('sperr', 3.6), ('kfz', 3.6)]
     if var == 'geschuetzt' and teil in ('m', 'f', 'b', 'innen'):
         spuren = [s for s in spuren if s[0] != 'park']
+    if var in ECK_SPERR and a == 'E' and teil == 'm':
+        # Grenzmarkierung (Zeichen 299) statt Parken an der Ecke, Sichtfeld frei
+        spuren = [('sperr', w) if k == 'park' else (k, w) for k, w in spuren]
+    if var == 'radwege':
+        spuren = RADWEGE.get((a, richtung, teil), RADWEGE.get((a, richtung, '*'), spuren))
     return spuren
+
+
+# Rote Radwege (Variante radwege). Breiten nach ERA 2010: Radfahrstreifen 1,85 m einschliesslich
+# Breitstrich, Sicherheitstrennstreifen zu Parkern 0,5 m. Die Summen je Seite bleiben wie heute,
+# damit Bordsteine und Mittellinie unveraendert liegen.
+#   Suedarm nordwaerts: Radfahrstreifen am rechten Rand, im Haltebereich teilen sich Bus und Rad
+#       den Streifen (wie heute), suedlich davon bleibt das Parken mit Trennstreifen.
+#   Suedarm suedwaerts: Radfahrstreifen 2,0 m statt Parkstreifen auf der Westseite.
+#   Naumburger West ostwaerts: Radfahrstreifen auf den letzten 30 m im heutigen Halteverbot.
+#       Westwaerts reicht die Breite nicht (3,75 m), dort Fahrbahn mit Piktogrammen.
+#   Nordarm (8,2 m) und Ostarm (Engstelle) bleiben ohne Radstreifen, Piktogramme.
+RADWEGE = {
+    ('S', 'in', 'fern'): [('park', 2.0), ('sperr', 0.5), ('rad', 1.85), ('kfz', 2.85)],
+    ('S', 'in', 'bucht'): [('bus', 3.6), ('kfz', 3.6)],
+    ('S', 'in', '*'): [('rad', 1.85), ('kfz', 2.8), ('kfz', 2.55)],
+    ('S', 'out', '*'): [('rad', 2.0), ('kfz', 3.8)],
+    ('W', 'in', 'm'): [('rad', 1.85), ('kfz', 3.9)],
+    ('W', 'in', 'b'): [('rad', 1.85), ('kfz', 3.9)],
+}
 
 
 def kfz_breite(a, richtung, teil='m'):
@@ -322,7 +363,7 @@ class Netz:
 def tempo_von(var, arme):
     # Umbauvarianten mit Tempo 30. Beim Minikreisel bremst real die Ablenkung, das bildet SUMO
     # nicht ab, deshalb auch dort Tempo 30 auf den Armen.
-    return {a: (V30 if var in ('rvl', 't30_zebra', 'minikreisel', 'geschuetzt') else TEMPO_OSM[a]) for a in arme}
+    return {a: (TEMPO_OSM[a] if var == 'bestand' else V30) for a in arme}
 
 
 def suedarm_verbindungen(n, var, gesch=False):
@@ -354,6 +395,16 @@ def suedarm_verbindungen(n, var, gesch=False):
         n.con(a, b, k(a)[1], k(b)[1])
     m = kette[-1]
     rm, lm = k(m)
+    if var == 'radwege':
+        # Radfahrstreifen: Haltebereich -> Streifen -> Knoten, geradeaus und rechts vom Streifen,
+        # links (nach West) wechseln Radfahrende vorher auf die Linksabbiegespur.
+        rad = lambda e: n.spuren[e].index('rad')
+        n.con('S_in_fern', 'S_in_bucht', rad('S_in_fern'), k('S_in_bucht')[0])
+        n.con('S_in_bucht', 'S_in_mitte', k('S_in_bucht')[0], rad('S_in_mitte'), allow='bicycle')
+        n.con('S_in_mitte', 'S_in', rad('S_in_mitte'), rad('S_in'))
+        n.con('S_in', 'S_in_m', rad('S_in'), rad('S_in_m'))
+        n.con('S_in_m', 'N_out_m', rad('S_in_m'), k('N_out_m')[0], allow='bicycle')
+        n.con('S_in_m', 'E_out_m', rad('S_in_m'), k('E_out_m')[0], allow='bicycle')
     # In der geschuetzten Kreuzung nehmen Radfahrende geradeaus und rechts den Radweg, auf der
     # Fahrbahn bleibt nur das direkte Linksabbiegen nach West.
     n.con(m, 'N_out_m', rm, k('N_out_m')[0], disallow='taxi bicycle' if gesch else 'taxi')
@@ -379,10 +430,10 @@ def baue_variante(var, arme):
     kreisel = var == 'minikreisel'
     tempo = tempo_von(var, arme)
     prio = {'S': 3, 'W': 3, 'N': 1, 'E': 1}
-    if var == 'rvl':
+    if var in RECHTS_VOR_LINKS:
         prio = {a: 1 for a in arme}
 
-    jtyp = {'bestand': 'priority', 't30_zebra': 'priority', 'rvl': 'right_before_left'}.get(var)
+    jtyp = None if kreisel else ('right_before_left' if var in RECHTS_VOR_LINKS else 'priority')
     if not kreisel:
         # edgePriority, damit die abknickende Vorfahrt Sued <-> West gilt
         n.node('J', (0, 0), jtyp, radius=str(KNOTEN_RADIUS), **({'rightOfWay': 'edgePriority'} if jtyp == 'priority' else {}))
@@ -413,9 +464,11 @@ def baue_variante(var, arme):
         stationen = [MUND[a], ARM_LEN]
         if a == 'S':
             stationen = [MUND[a], S_ABBIEGER, S_BUCHT[0], S_BUCHT[1], ARM_LEN]
-        if a == 'N':
+        if a == 'N' or (a == 'W' and var == 'radwege'):
             stationen = [MUND[a], G_INNEN, ARM_LEN]
         namen = {MUND[a]: f'M{a}', ARM_LEN: f'{a}0'}
+        if a == 'W':
+            namen[G_INNEN] = 'W30'
         if a == 'S':
             namen.update({S_ABBIEGER: 'S25', S_BUCHT[0]: 'S45', S_BUCHT[1]: 'S70'})
         if a == 'N':
@@ -424,6 +477,8 @@ def baue_variante(var, arme):
             n.node(namen[s], punkt_bei(pts, s))
         knoten = [(s_inner, inner)] + [(s, namen[s]) for s in stationen]
         teile = {'S': ['m', '', 'mitte', 'bucht', 'fern'], 'N': ['m', 'b', '']}.get(a, ['m', ''])
+        if a == 'W' and var == 'radwege':
+            teile = ['m', 'b', '']
         for (s0, k0), (s1, k1), teil in zip(knoten, knoten[1:], teile):
             grenze = grenzlinie(a, pts, teil)
             sh = schneide(grenze, max(s0 + (KREISEL_B if kreisel and s0 == s_inner else 0), 0.01), s1)
@@ -434,16 +489,16 @@ def baue_variante(var, arme):
             n.edge(f'{a}_out{suf}', k0, k1, sh, von, tempo[a], prio[a])
 
     # Querungen
-    zebra = {'bestand': set(), 'rvl': set(), 't30_zebra': {'N', 'W'}, 'minikreisel': set(arme)}[var]
+    zebra = {'t30_zebra': {'N', 'W'}, 'minikreisel': set(arme)}.get(var, set())
     for a in arme:
         # Alle Querungen liegen auf einem eigenen Knoten direkt am Knotenrand. Laegen sie im
         # Hauptknoten, wuerde ein Abbieger, der fuer Fussgaenger wartet, auf der Bahn des
         # einfaedelnden Gegenverkehrs stehen (siehe README, Abschnitt Ueberlappungen).
-        suf = '_b' if a == 'N' else ''
+        suf = '_b' if a == 'N' or (a == 'W' and var == 'radwege') else ''
         n.crossing(f'M{a}', f'{a}_in{suf} {a}_out{suf}', a in zebra)
 
     suedarm_verbindungen(n, var)
-    if var in ('bestand', 't30_zebra'):
+    if var in ABKNICKEND:
         vorfahrt_abknickend(n)
     return n
 
@@ -714,7 +769,11 @@ RAD = {'SW': 45, 'WS': 45, 'SN': 25, 'NS': 30, 'WN': 22, 'NW': 15, 'EW': 8, 'WE'
 BUS_TAKT = 6   # je Richtung und Stunde, Annahme 10-Minuten-Takt (Linien 60 und 60E)
 # Anteil der Geradeausfahrer Sued nach Nord, die die Linksabbiegespur nutzen (Ortsbeobachtung
 # Bestand etwa 25 %). Mit Tempo 30 und klarer Fuehrung weniger, mit Inseln kaum noch, im Kreisel nicht moeglich.
-FEHLSPUR = {'bestand': 0.25, 'rvl': 0.15, 't30_zebra': 0.15, 'geschuetzt': 0.05, 'minikreisel': 0.0}
+# Variante markierung und radwege: durchgezogene Fahrstreifenbegrenzung (Zeichen 295) zwischen
+# Links- und Geradeausspur auf den letzten 25 m und klarer Bogen der Vorfahrt. Geradeaus aus der
+# Linksabbiegespur heisst dann eine durchgezogene Linie ueberfahren, Annahme 8 %.
+FEHLSPUR = {'bestand': 0.25, 'rvl': 0.15, 't30_zebra': 0.15, 'geschuetzt': 0.05, 'minikreisel': 0.0,
+            'markierung': 0.08, 'radwege': 0.08, 'zone': 0.15}
 
 # Fussgaenger je Stunde, Schaetzung nach Beobachtung des Nutzers (Oktober 2026).
 # Die Nordquerung ueber die Giesserstrasse Nord ist die meistgenutzte (etwa 100 je Stunde),
@@ -727,15 +786,15 @@ FUSS = [
     ('pNe2w', 25, [('E_in', -40, 'W_out', 40)]),
     ('pKiosk', 22, [('N_out', 60, 'W_out', 3), ('W_out', 3, 'W_in', -3)]),
     ('pKioskBack', 18, [('W_in', -3, 'W_out', 3), ('W_out', 3, 'N_out', 60)]),
-    ('pSued', 30, [('S_in_m', 2, 'S_out_m', 2)]),
+    ('pSued', 30, [('S_in', -1, 'S_out', 1)]),
     ('pEastN', 15, [('S_in_fern', -10, 'N_out', 60)]),
     ('pEastS', 15, [('N_out', 60, 'S_in_fern', -10)]),
 ]
 DIAGONAL = 10    # Personen je Stunde diagonal NO <-> SW (5 je Richtung), Schaetzung
 FUSS_SUMME = {'N': 100, 'W': 50, 'S': 30, 'E': 30}   # Zielwerte, siehe README
 # In der geschuetzten Kreuzung liegen Gehwege erst hinter den Radfurten
-FUSS_GESCH = {('W_out', 3): ('W_out_b', 1), ('W_in', -3): ('gWi', 1), ('S_in_m', 2): ('gSi', 1),
-              ('S_out_m', 2): ('gSo', 1)}
+FUSS_GESCH = {('W_out', 3): ('W_out_b', 1), ('W_in', -3): ('gWi', 1), ('S_in', -1): ('gSi', 1),
+              ('S_out', 1): ('gSo', 1)}
 
 # impatience 0.5: Wartepflichtige akzeptieren nach laengerem Warten kleinere Luecken.
 IMPATIENCE = 0.5
@@ -755,7 +814,7 @@ def stopp_kante(var):
     """Stoppschild Nord. Haltlinie im Bestand noerdlich der Querung (Ortsbeobachtung: Fussgaenger
     queren zwischen Haltlinie und Knoten), in der geschuetzten Kreuzung vor Zebrastreifen und Radfurt
     (zwischen Furt und Knoten ist kein Platz fuer eine eigene Haltlinie)."""
-    if var in ('bestand', 't30_zebra'):
+    if var in ABKNICKEND:
         return 'N_in_b'
     if var == 'geschuetzt':
         return 'N_in_b'
@@ -807,6 +866,10 @@ def nachfrage(var, bus, ende):
         busflow('bus_SW', 'SW', 60, halt)
         busflow('bus_WS', 'WS', 120)
     for pid, q, etappen in FUSS:
+        if var == 'radwege':
+            # Westarm ist hier in zwei Kanten geteilt (Radfahrstreifen auf den letzten 30 m)
+            m_ = {('W_out', 3): ('W_out_b', 1), ('W_in', -3): ('W_in_b', -1), ('W_out', 40): ('W_out', 25)}
+            etappen = [(*m_.get((v, p), (v, p)), *m_.get((n_, np_), (n_, np_))) for v, p, n_, np_ in etappen]
         if var == 'geschuetzt':
             etappen = [(*FUSS_GESCH.get((v, p), (v, p)), *FUSS_GESCH.get((n_, np_), (n_, np_))) for v, p, n_, np_ in etappen]
         walks = ''.join(f'\n        <walk from="{von}" to="{nach}" arrivalPos="{np_}"/>' for von, _, nach, np_ in etappen)
@@ -828,6 +891,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--bus', choices=['SW', 'SN'], default='SW', help='Busroute, SW Regelbetrieb Sued <-> West (Standard), SN Baustellenumleitung')
     ap.add_argument('--ende', type=int, default=4200, help='Ende der Nachfrage in s (600 Einschwingen plus 3600)')
+    ap.add_argument('--alt', action='store_true', help='auch die verworfenen Varianten bauen')
     args = ap.parse_args()
 
     arme = achsen()
@@ -835,13 +899,13 @@ def main():
     if os.path.isdir(PLAIN):
         shutil.rmtree(PLAIN)
     os.makedirs(PLAIN)
-    for var in VARIANTEN:
+    for var in (VARIANTEN if args.alt else VERGLEICH):
         print(f'Variante {var}')
         n = baue_variante(var, arme)
         prefix = os.path.join(PLAIN, var)
         n.schreibe(prefix)
         netconvert(prefix, os.path.join(OUT, f'{var}.net.xml'))
-        if var in ('bestand', 'rvl', 't30_zebra'):
+        if var not in ('geschuetzt', 'minikreisel'):
             weite_kurven(prefix, os.path.join(OUT, f'{var}.net.xml'))
         with open(os.path.join(OUT, f'{var}.rou.xml'), 'w') as f:
             f.write(nachfrage(var, args.bus, args.ende))

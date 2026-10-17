@@ -3,17 +3,18 @@
 Ortsbeobachtung der Initiative: Ein Teil des Kioskstroms quert nicht erst den Nord- und dann den
 Westarm, sondern geht schraeg durch den Knoten. SUMO kann eine solche Querung nicht sauber
 abbilden (eine Querung muss genau einen Arm ueberspannen). Diese Personen werden deshalb hier
-neben SUMO gefuehrt. Sie warten an der Ecke auf eine Luecke, gehen dann gerade hinueber und
-bleiben nicht stehen. Die Fahrzeuge in SUMO reagieren nicht auf sie. Gezaehlt wird, wie oft ein
+neben SUMO gefuehrt. Laut Initiative gehen sie nur, wenn wirklich frei ist: kein Fahrzeug im
+Knoten und keines, das in den naechsten 7 s ankommt. Ist es nach 15 s nicht frei, nehmen sie die
+normalen Querungen (hier: sie verschwinden aus dieser Rechnung). Sie bleiben nicht stehen. Die Fahrzeuge in SUMO reagieren nicht auf sie. Gezaehlt wird, wie oft ein
 Fahrzeug ueber 15 km/h staerker als 3 m/s² bremsen muesste, um vor ihnen zu halten (wie bei den
 uebrigen Fussgaengerkonflikten). Das ist eine Abschaetzung der Gefaehrdung, kein Unfallmodell.
 """
 import math
 import random
 
-LUECKE_START = 20.0     # m, so weit muss das naechste fahrende Fahrzeug vom Knoten weg sein
-LUECKE_MIN = 9.0        # m, nach langem Warten genuegt weniger (Ungeduld)
-UNGEDULD_S = 25.0       # s bis zur kleinsten akzeptierten Luecke
+KNOTEN_R = 14.0        # m um die Knotenmitte, dort darf kein Fahrzeug sein
+ANKUNFT_S = 7.0        # s, kein Fahrzeug darf frueher am Knotenrand ankommen
+AUFGEBEN_S = 15.0      # s, danach normale Querungen
 
 
 def ecken(build):
@@ -56,15 +57,21 @@ class Diagonal:
                     p['zustand'] = 'wartet'
                 else:
                     continue
-            if p['zustand'] == 'fertig':
+            if p['zustand'] in ('fertig', 'normal'):
                 continue
             if p['zustand'] == 'wartet':
                 p['warte'] += dt
-                f = min(p['warte'] / UNGEDULD_S, 1.0)
-                luecke = LUECKE_START + (LUECKE_MIN - LUECKE_START) * f
-                frei = all(math.hypot(x, y) > luecke for x, y, v in fahrzeuge if v > 2.0)
+                frei = True
+                for x, y, v in fahrzeuge:
+                    d = math.hypot(x, y)
+                    if d < KNOTEN_R or (v > 1.0 and (d - KNOTEN_R) / v < ANKUNFT_S):
+                        frei = False
+                        break
                 if frei:
                     p['zustand'] = 'geht'
+                elif p['warte'] > AUFGEBEN_S:
+                    p['zustand'] = 'normal'
+                    continue
             elif p['zustand'] == 'geht':
                 p['s'] += p['v'] * dt
                 if p['s'] >= p['laenge']:

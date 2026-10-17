@@ -30,13 +30,13 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build as B  # noqa: E402
 VARIANTEN = list(B.VERGLEICH)
-KURZ = {'bestand': 'Bestand', 'rvl': 'Rechts vor links\nTempo 30', 'minikreisel': 'Minikreisel\nmit Zebras',
+KURZ = {'bestand': 'Bestand', 'markierung': 'Markierung\nTempo 30', 'zone': 'Tempo-30-Zone\nrechts vor links',
+        'radwege': 'Rote\nRadwege', 'rvl': 'Rechts vor links\nTempo 30', 'minikreisel': 'Minikreisel\nmit Zebras',
         't30_zebra': 'T30, Zebra\nNord + West', 'geschuetzt': 'Geschützt\nInseln, Radfurten'}
-TITEL = {'bestand': 'Bestand', 'rvl': 'Rechts vor links, Tempo 30', 'minikreisel': 'Minikreisel mit Zebrastreifen',
+TITEL = {'bestand': 'Bestand', 'markierung': 'Markierung und Tempo 30', 'zone': 'Tempo-30-Zone, rechts vor links',
+         'radwege': 'Rote Radwege', 'rvl': 'Rechts vor links, Tempo 30', 'minikreisel': 'Minikreisel mit Zebrastreifen',
          't30_zebra': 'Bestand mit Tempo 30 und Zebra Nord und West', 'geschuetzt': 'Geschützte Kreuzung (angepasst)'}
-
-# Farben aus der Referenzpalette (dataviz), Kategorien in fester Reihenfolge
-FARBE = {'bestand': '#2a78d6', 'rvl': '#eb6834', 'geschuetzt': '#1baf7a', 't30_zebra': '#eda100', 'minikreisel': '#8a8a8a'}
+FARBE = {'bestand': '#2a78d6', 'markierung': '#eda100', 'zone': '#eb6834', 'radwege': '#d03b3b', 'rvl': '#8a8a8a', 'geschuetzt': '#1baf7a', 't30_zebra': '#8a8a8a', 'minikreisel': '#8a8a8a'}
 FLAECHE = '#fcfcfb'
 TEXT1, TEXT2, RASTER = '#0b0b0b', '#52514e', '#e4e3df'
 FAHRBAHN, GEHWEG, KNOTEN = '#5b5f66', '#d9d6cf', '#6b6f76'
@@ -91,7 +91,7 @@ def zeichne_netz(ax, var, ausschnitt=45):
         if len(pts) < 2:
             continue
         poly = LineString(pts).buffer(w / 2, cap_style=2, join_style=2)
-        fc = GEHWEG if allow == 'pedestrian' else ('#7d8590' if allow == 'bus' else FAHRBAHN)
+        fc = GEHWEG if allow == 'pedestrian' else ('#7d8590' if allow == 'bus' else ('#c0473a' if allow == 'bicycle' else FAHRBAHN))
         ax.add_patch(Polygon(list(poly.exterior.coords), closed=True, fc=fc, ec='none', zorder=2 if allow == 'pedestrian' else 3))
     for pts in junc:
         if len(pts) >= 3:
@@ -179,7 +179,6 @@ def vergleich():
         ('Schwere Fahrzeugkonflikte je Stunde\n(TTC < 1 s oder PET < 0,5 s)', ('konflikte_fz', 'schwer')),
         ('Konflikte Kfz gegen Rad\nje Stunde', ('konflikte_fz', 'kfz_rad')),
         ('Fußgänger auf Querung, Fahrzeug müsste\nüber 3 m/s² bremsen, je Stunde', ('konflikte_fuss', 'alle')),
-        ('Fußgänger diagonal bedrängt\nje Stunde', ('konflikte_fuss', 'diag')),
         ('Mittlere Wartezeit Fußgänger\nin Sekunden', ('fuss_wartezeit_s', 'alle')),
         ('Mittlerer Zeitverlust Kfz\nalle Zufahrten, in Sekunden', ('zeitverlust_s', 'alle|Kfz')),
         ('Mittlerer Zeitverlust Kfz\nZufahrt Nord, in Sekunden', ('zeitverlust_s', 'N|Kfz')),

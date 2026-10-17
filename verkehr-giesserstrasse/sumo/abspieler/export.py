@@ -91,6 +91,8 @@ def simuliere(var, ordner):
            '--step-length', str(SCHRITT), '--begin', '0', '--end', str(START + DAUER + 20), '--seed', str(SEED),
            '--no-step-log', '--no-warnings', '--time-to-teleport', '300', '--ignore-junction-blocker', '15',
            '--pedestrian.striping.jamtime', '30',
+           # Spurwechsel dauern wie in echt einige Sekunden (seitliches Wandern statt Sprung)
+           '--lanechange.duration', str(R.SPURWECHSEL_S),
            '--device.ssm.probability', '1', '--device.ssm.measures', 'TTC DRAC PET',
            '--device.ssm.thresholds', f'{R.TTC} {R.DRAC} {R.PET}', '--device.ssm.range', '50',
            '--device.ssm.trajectories', 'false', '--device.ssm.write-positions', 'true', '--device.ssm.file', f['ssm'],
@@ -364,6 +366,31 @@ def rahmen(a, teil='m'):
     return r
 
 
+def ecken_tangenten():
+    """Tangentenpunkte der Bordsteinecken im Bestand (wie strassenraum.fahrbahn_bestand)."""
+    arme = B.achsen()
+    info = {}
+    for a, achse in arme.items():
+        R = B.Rahmen(a, achse)
+        info[a] = dict(u=R.u, rechts=R.punkt(0, B.breite(a, 'out')), links=R.punkt(0, -B.breite(a, 'in')))
+    out = {}
+    for name, art in B.ECKEN.items():
+        a, b = name[0], name[1]
+        P = SR._schnitt(info[a]['rechts'], info[a]['u'], info[b]['links'], info[b]['u'])
+        ua, ub = info[a]['u'], info[b]['u']
+        if art[0] == 'rund':
+            bg = SR._ausrundung(P, ua, ub, art[1])
+        else:
+            c, r = art[1], art[2]
+            Aa = (P[0] + ua[0] * c, P[1] + ua[1] * c)
+            Ab = (P[0] + ub[0] * c, P[1] + ub[1] * c)
+            kk = SR._einheit(Ab[0] - Aa[0], Ab[1] - Aa[1])
+            bg = SR._ausrundung(Aa, ua, kk, r) + SR._ausrundung(Ab, (-kk[0], -kk[1]), ub, r)
+        out[name + '_a'], out[name + '_b'] = bg[0], bg[-1]
+        out[name + '_mitte'] = bg[len(bg) // 2]
+    return out
+
+
 def kante_q(a, seite, mit_park=True, teil='m'):
     """Querlage der Bordsteinkante (Seite out positiv, in negativ)."""
     q = sum(w for k, w in B.querschnitt(a, seite, teil) if mit_park or k != 'park')
@@ -388,10 +415,14 @@ def parkreihen(var):
         ('S', 'in', 73.0, 120.0, 'fern'),  # Giesserstrasse Sued Ostseite suedlich der Haltestelle
         ('N', 'in', 31.0, 120.0, ''),      # Giesserstrasse Nord Westseite ab dem Halteverbotsschild
     ]
+    if var == 'radwege':
+        # Radfahrstreifen statt Parkstreifen auf der Westseite der Giesserstrasse Sued
+        r = [x for x in r if x[:2] != ('S', 'out')]
     if var == 'geschuetzt':
         r += [('E', 'in', G['d_p']['E'] + 2.5, 120.0, 'm'), ('E', 'out', 31.0, 120.0, 'm')]
     else:
-        r += [('E', 'in', 1.0, 120.0, 'm'), ('E', 'out', 10.0, 120.0, 'm')]   # Nord bis an die Ecke, Sued ab 10 m
+        nord = 17.0 if var in B.ECK_SPERR else 1.0     # mit Grenzmarkierung erst ab etwa 7 m hinter der Ecke
+        r += [('E', 'in', nord, 120.0, 'm'), ('E', 'out', 10.0, 120.0, 'm')]   # Nord bis an die Ecke, Sued ab 10 m
     return r
 
 
@@ -419,34 +450,91 @@ def parkautos(var):
 
 
 def schilder(var, lanes, cross):
-    """Schilder [x, y, art, zusatz]. Arten: vf (306), vg (205), stop (206), rvl (102), t30 (274),
-    zone (274.1), hv (283), zebra (350). Zusatz bei vf, vg, stop ist die Zufahrt (fuer 1002)."""
+    # Schilder [x, y, art, zusatz, richtung]. Arten: vf (306), vg (205), stop (206), rvl (102),
+    # t30 (274), zone (274.1), hv (283), zebra (350). Zusatz bei vf, vg, stop ist die Zufahrt (fuer
+    # 1002, eigene Zufahrt unten). Richtung ist der SVG-Winkel vom Schild zum ankommenden Fahrer.
     out = []
-    abkn = var in ('bestand', 't30_zebra', 'geschuetzt')
+
+    def sg(a, seite, s_, aussen, art, z='', teil='m', zu_fahrer=None):
+        p = punkt(a, seite, s_, aussen, teil)
+        R = rahmen(a, teil)
+        if zu_fahrer is None:
+            zu_fahrer = 'in' if seite == 'in' else 'out'
+        u = R.u if zu_fahrer == 'in' else (-R.u[0], -R.u[1])
+        out.append([p[0], p[1], art, z, winkel_svg(*u)])
+
+    abkn = var in B.ABKNICKEND or var == 'geschuetzt'
+    mehr = var in ('markierung', 'radwege')       # groessere und zusaetzliche Beschilderung
     if abkn:
-        out.append(list(punkt('S', 'in', 14.0, 3.0)) + ['vf', 'S'])
-        out.append(list(punkt('W', 'in', 22.0, 2.4)) + ['vf', 'W'])
-        out.append(list(punkt('N', 'in', B.MUND['N'] + 4.5, 2.3)) + ['stop', 'N'])
-        out.append(list(punkt('E', 'in', 15.0, 2.4)) + ['vg', 'E'])
+        sg('S', 'in', 14.0, 3.0, 'vf', 'S')
+        sg('W', 'in', 22.0, 2.4, 'vf', 'W')
+        sg('N', 'in', B.MUND['N'] + 4.5, 2.3, 'stop', 'N')
+        sg('E', 'in', 15.0, 2.4, 'vg', 'E')
+        if mehr:
+            # Wiederholung auf der linken Seite der wartepflichtigen Zufahrten und links am Suedarm
+            sg('N', 'out', B.MUND['N'] + 4.5, 2.3, 'stop', 'N', zu_fahrer='in')
+            sg('E', 'out', 15.0, 2.4, 'vg', 'E', zu_fahrer='in')
+            sg('S', 'out', 22.0, 2.4, 'vf', 'S', zu_fahrer='in')
     if var == 'rvl':
         for a in 'SNWE':
-            out.append(list(punkt(a, 'in', 16.0, 2.4)) + ['rvl', ''])
-    if var in ('rvl', 't30_zebra', 'geschuetzt'):
+            sg(a, 'in', 16.0, 2.4, 'rvl')
+    if var == 'zone':
+        for a in 'SNW':
+            sg(a, 'in', 27.0, 2.4, 'zone')
+        sg('E', 'out', 21.0, 2.2, 'zone')
+    elif var in ('rvl', 't30_zebra', 'geschuetzt'):
         for a in 'SNWE':
-            out.append(list(punkt(a, 'in', 27.0, 2.4)) + ['t30', ''])
+            sg(a, 'in', 27.0, 2.4, 't30')
     else:
-        # Tempo-30-Zone Naumburger West beginnt am Knoten (Zeichen 274.1)
-        out.append(list(punkt('W', 'out', 17.0, 2.2)) + ['zone', ''])
-    # absolutes bzw. zeitweises Halteverbot
-    out.append(list(punkt('W', 'in', 38.0, 0.6)) + ['hv', 'Mo–Fr'])
-    out.append(list(punkt('N', 'in', 30.5, 0.6, '')) + ['hv', ''])
-    # Zeichen 350 an den Zebrastreifen
+        # heute: Naumburger West Tempo 30 per Streckenschild (274) ab dem Knoten, Naumburger Ost
+        # Tempo-30-Zone (274.1) kurz hinter dem Knoten auf der Suedseite (Foto der Initiative)
+        sg('W', 'out', 17.0, 2.2, 't30')
+        sg('E', 'out', 21.0, 2.2, 'zone')
+        if var in ('markierung', 'radwege'):
+            # Tempo 30 streckenbezogen (Zeichen 274) auch auf der Giesserstrasse
+            for a in 'SN':
+                sg(a, 'in', 27.0, 2.4, 't30')
+    sg('W', 'in', 38.0, 0.6, 'hv', 'Mo–Fr 6–14 h')
+    sg('N', 'in', 30.5, 0.6, 'hv', '', teil='')
     for c in cross:
         if c['zebra']:
-            # ein Schild je Zebrastreifen, am rechten Ende fuer den ankommenden Verkehr
             p, (ux, uy) = ende_info(c['pts'], True)
-            out.append([p[0] + ux * 2.4, p[1] + uy * 2.4, 'zebra', ''])
-    return [[r2(x), r2(-y), art, z] for x, y, art, z in out]
+            out.append([p[0] + ux * 2.4, p[1] + uy * 2.4, 'zebra', '', winkel_svg(ux, uy)])
+    return [[r2(x), r2(-y), art, z, w] for x, y, art, z, w in out]
+
+
+def radfurten(var):
+    # Formen der internen Bahnen im Hauptknoten, die von einem Radfahrstreifen ausgehen
+    r = ET.parse(os.path.join(NETZE, f'{var}.net.xml')).getroot()
+    rad = {l.get('id') for e in r.findall('edge') if not e.get('function') for l in e.findall('lane') if l.get('allow') == 'bicycle'}
+    intern = {l.get('id'): [tuple(map(float, p.split(','))) for p in l.get('shape').split()]
+              for e in r.findall('edge') if e.get('function') == 'internal' for l in e.findall('lane')}
+    out = []
+    for c in r.findall('connection'):
+        via = c.get('via') or ''
+        # rote Furt nur entlang der Hauptachse: West -> Sued (rechts um die Kioskecke) und
+        # Sued -> Nord geradeaus ueber die Muendung des Ostarms
+        if (c.get('from'), c.get('to')) not in (('W_in_m', 'S_out_m'), ('S_in_m', 'N_out_m')):
+            continue
+        if f"{c.get('from')}_{c.get('fromLane')}" in rad and via in intern and via.startswith(':J'):
+            pts = intern[via]
+            if len(pts) >= 2 and LineString(pts).length > 2:
+                out.append(pts)
+    return out
+
+
+def grenzmarkierung(a, seite, s0, s1, teil='m'):
+    # Zeichen 299 (Grenzmarkierung fuer Halt- und Parkverbote) im Parkstreifen als Zickzack
+    r = rahmen(a, teil)
+    pw = sum(w for k, w in B.querschnitt(a, seite, teil) if k == 'park') or 2.0
+    q_aussen = kante_q(a, seite, True, teil)
+    sg_ = 1 if seite == 'out' else -1
+    qa, qi = q_aussen - sg_ * 0.25, q_aussen - sg_ * (pw - 0.25)
+    pts = []
+    n = max(int((s1 - s0) / 1.4), 2)
+    for i in range(n + 1):
+        pts.append(r.punkt(s0 + (s1 - s0) * i / n, qa if i % 2 else qi))
+    return linie(pts)
 
 
 def karte(var, bauten):
@@ -482,8 +570,8 @@ def karte(var, bauten):
             k['radsym'].append([r2(p.x), r2(-p.y), winkel_svg(q.x - p.x, q.y - p.y)])
 
     # Markierungen: nur der Suedarm hat Leit- und Fahrstreifenlinien
-    leit, trenn, halt, warte, zick, schmal, sperr, texte = [], [], [], [], [], [], [], []
-    kfz = [l for l in lanes if l['allow'] not in ('pedestrian', 'custom1', 'bicycle') and not l['id'].startswith(':')]
+    leit, trenn, halt, warte, zick, schmal, sperr, texte, fest = [], [], [], [], [], [], [], [], []
+    kfz = [l for l in lanes if l['allow'] not in ('pedestrian', 'custom1', 'custom2') and not l['id'].startswith(':')]
     proedge = defaultdict(list)
     for l in kfz:
         proedge[l['edge']].append(l)
@@ -502,23 +590,44 @@ def karte(var, bauten):
                 continue
             if 'bus' in l['allow']:
                 schmal.append(linie(list(off.coords)))     # breite Strichlinie Haltebereich
+            elif 'bicycle' in (l['allow'], nachbar['allow']):
+                fest.append(linie(list(off.coords)))       # Breitstrich am Radfahrstreifen
+            elif var in ('markierung', 'radwege') and e == 'S_in':
+                fest.append(linie(list(off.coords)))       # durchgezogene Fahrstreifenbegrenzung (295)
             else:
                 trenn.append(linie(list(off.coords)))
 
-    abkn = var in ('bestand', 't30_zebra', 'geschuetzt')
+    abkn = var in B.ABKNICKEND or var == 'geschuetzt'
     if abkn:
-        # Bogen der Leitlinie durch den Knoten: abknickende Vorfahrt Sued -> West (Luftbild)
-        rs, rw = rahmen('S'), rahmen('W')
-        sS = 11.0 if var != 'geschuetzt' else SR.geschuetzt()['G']['d_f']['S'] - 1.2
-        P0, P3 = rs.punkt(sS, 0), rw.punkt(12.5 if var != 'geschuetzt' else 9.0, 0)
-        P1 = (P0[0] - rs.u[0] * 6, P0[1] - rs.u[1] * 6)
-        P2 = (P3[0] - rw.u[0] * 6, P3[1] - rw.u[1] * 6)
+        # Leitlinien durch den Knoten (Luftbild). 1) Bogen mit grossem Radius von der Linie
+        # zwischen Linksabbieger und Geradeaus-Spur des Suedarms zur Nordwest-Ecke. Er trennt
+        # die abknickende Vorfahrt Sued -> West vom Geradeausverkehr, nicht die Fahrtrichtungen.
+        # 2) Schraege Linie von der Suedost- zur Nordost-Ecke ueber die Muendung des Ostarms
+        # (rechter Rand der Geradeaus-Fahrt, Nordarm ist nach Osten versetzt).
+        rs, rn = rahmen('S'), rahmen('N')
+        ecke = ecken_tangenten()
+        e_se = ecke['ES_b']          # Suedost-Ecke, Tangentenpunkt auf der Seite des Suedarms
+        e_ne = ecke['NE_a']          # Nordost-Ecke, Tangentenpunkt auf der Seite des Nordarms
+        e_nw = ecke['WN_mitte']      # Nordwest-Ecke, Mitte des Bordsteinbogens
+        if var == 'geschuetzt':
+            sS = SR.geschuetzt()['G']['d_f']['S'] - 1.2
+        else:
+            sS = rs.lokal(e_se)[0]
+        q_trenn = -sum(w for _, w in B.querschnitt('S', 'in', 'm', var)[:-1])
+        P0 = rs.punkt(sS, q_trenn)
+        mx, my = rs.punkt(0, 0)
+        d = math.hypot(mx - e_nw[0], my - e_nw[1])
+        P3 = (e_nw[0] + (mx - e_nw[0]) / d * 0.7, e_nw[1] + (my - e_nw[1]) / d * 0.7)
+        L = math.hypot(P3[0] - P0[0], P3[1] - P0[1])
+        P1 = (P0[0] - rs.u[0] * L * 0.45, P0[1] - rs.u[1] * L * 0.45)
         bogen = []
         for i in range(25):
             t = i / 24
-            bogen.append(((1 - t) ** 3 * P0[0] + 3 * (1 - t) ** 2 * t * P1[0] + 3 * (1 - t) * t * t * P2[0] + t ** 3 * P3[0],
-                          (1 - t) ** 3 * P0[1] + 3 * (1 - t) ** 2 * t * P1[1] + 3 * (1 - t) * t * t * P2[1] + t ** 3 * P3[1]))
+            bogen.append(((1 - t) ** 2 * P0[0] + 2 * (1 - t) * t * P1[0] + t * t * P3[0],
+                          (1 - t) ** 2 * P0[1] + 2 * (1 - t) * t * P1[1] + t * t * P3[1]))
         k['bogen'] = linie(bogen)
+        if var != 'geschuetzt':
+            k['bogen'] += linie([e_se, e_ne])
         # schmale Sperrflaeche links der Linksabbiegespur (Strassenfoto Sued)
         if var != 'geschuetzt':
             f = Polygon([rs.punkt(18.5, -0.45), rs.punkt(25.0, -0.45), rs.punkt(25.0, 0.45), rs.punkt(18.5, 0.45)])
@@ -544,7 +653,8 @@ def karte(var, bauten):
             ls_ = LineString(l['pts'])
             p = ls_.interpolate(ls_.length - 3.2)
             qq = ls_.interpolate(ls_.length - 2.2)
-            texte.append(['STOP', r2(p.x), r2(-p.y), winkel_svg(qq.x - p.x, qq.y - p.y) + 90, 2.0])
+            # Schrift fuer Fahrer aus Norden lesbar: in Nord-oben-Karte 180 Grad gedreht, in Fahrtrichtung gestreckt wie echte Fahrbahnschrift
+            texte.append(['STOP', r2(p.x), r2(-p.y), winkel_svg(qq.x - p.x, qq.y - p.y) + 90, 1.6, 2.2])
         q = querlinie('E_in_m')
         if q:
             warte.append(q)
@@ -581,20 +691,47 @@ def karte(var, bauten):
             hh = [(mitte.x + nx * (w + 2.2) + ux * dx + nx * dq, mitte.y + ny * (w + 2.2) + uy * dx + ny * dq)
                   for dx, dq in ((-2.2, 0), (2.2, 0), (2.2, 1.5), (-2.2, 1.5))]
             k['haeuschen'] = pfad(Polygon(hh))
-    k.update(leit=leit, trenn=trenn, halt=halt, warte=warte, zick=zick, schmal=schmal, sperr=sperr, texte=texte)
+    if var in B.ECK_SPERR:
+        k['grenz'] = [grenzmarkierung('E', 'in', 9.6, 16.6)]
+    if var in ('markierung', 'radwege'):
+        k['deutlich'] = 1          # breitere Haltlinie Nord und Wartelinie Ost
+    if var == 'radwege':
+        rad = [l for l in lanes if l['allow'] == 'bicycle']
+        k['radweg'] = pfad(unary_union([LineString(l['pts']).buffer(l['width'] / 2, cap_style=2, join_style=2) for l in rad]).simplify(0.02))
+        k['radfurt'] = [[linie(f), 1.6] for f in radfurten(var)]
+        k['radsym'] = []
+        for l in rad:
+            ls = LineString(l['pts'])
+            if ls.length < 8:
+                continue
+            for frac in ((0.5,) if ls.length < 30 else (0.25, 0.75)):
+                p = ls.interpolate(frac, normalized=True)
+                q = ls.interpolate(min(frac + 0.02, 1), normalized=True)
+                k['radsym'].append([r2(p.x), r2(-p.y), winkel_svg(q.x - p.x, q.y - p.y)])
+        # Piktogramme auf Nord- und Ostarm (zu schmal fuer Radstreifen) und Naumburger West westwaerts
+        for a, seite, s_ in (('N', 'in', 20.0), ('N', 'out', 20.0), ('E', 'in', 20.0), ('E', 'out', 20.0), ('W', 'out', 20.0)):
+            r = rahmen(a)
+            kw = sum(w for kk, w in B.querschnitt(a, seite, 'm') if kk == 'kfz')
+            pw = sum(w for kk, w in B.querschnitt(a, seite, 'm') if kk == 'park')
+            off = pw + kw * 0.3
+            q0 = kante_q(a, seite, True) - (off if seite == 'out' else -off)
+            p = r.punkt(s_, q0)
+            u = r.u if seite == 'out' else (-r.u[0], -r.u[1])
+            k['radsym'].append([r2(p[0]), r2(-p[1]), winkel_svg(*u)])
+    k.update(leit=leit, trenn=trenn, halt=halt, warte=warte, zick=zick, schmal=schmal, sperr=sperr, texte=texte, fest=fest)
 
     k['zebra'] = [[linie(c['pts']), r2(c['width'])] for c in cross if c['zebra']]
     k['querung'] = [[linie(c['pts']), r2(c['width'])] for c in cross if not c['zebra']]
 
     pfeile = []
     for l in kfz:
-        if l['edge'] == 'S_in' and l['index'] > 0:
+        if l['edge'] == 'S_in' and l['index'] > 0 and l['allow'] != 'bicycle':
             ls = LineString(l['pts'])
             if ls.length < 6:
                 continue
             p = ls.interpolate(ls.length - 4.0)
             q = ls.interpolate(ls.length - 3.0)
-            idx = sorted(x['index'] for x in proedge['S_in'])
+            idx = sorted(x['index'] for x in proedge['S_in'] if x['allow'] != 'bicycle')
             pfeile.append([r2(p.x), r2(-p.y), winkel_svg(q.x - p.x, q.y - p.y), 'L' if l['index'] == idx[-1] else 'GR'])
     k['pfeile'] = pfeile
     k['park'] = parkautos(var)

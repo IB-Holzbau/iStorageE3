@@ -10,7 +10,9 @@
     </flow>
     <flow id="pkw_WS" type="pkw" begin="0" end="4200" period="exp(0.066667)" from="W_in" to="S_out_fern" departLane="best" departSpeed="max">
     </flow>
-    <flow id="pkw_SN" type="pkw" begin="0" end="4200" period="exp(0.030556)" from="S_in_fern" to="N_out" departLane="best" departSpeed="max">
+    <flow id="pkw_SN" type="pkw" begin="0" end="4200" period="exp(0.025972)" from="S_in_fern" to="N_out" departLane="best" departSpeed="max">
+    </flow>
+    <flow id="pkw_SNx" type="pkwx" begin="0" end="4200" period="exp(0.004583)" from="S_in_fern" to="N_out" departLane="best" departSpeed="max">
     </flow>
     <flow id="pkw_NS" type="pkw" begin="0" end="4200" period="exp(0.036111)" from="N_in" to="S_out_fern" departLane="best" departSpeed="max">
     </flow>
@@ -76,8 +78,8 @@
         <walk from="W_in" to="W_out" arrivalPos="3"/>
         <walk from="W_out" to="N_out" arrivalPos="60"/>
     </personFlow>
-    <personFlow id="pSued" type="fuss" begin="0" end="4200" period="exp(0.008333)" departPos="2">
-        <walk from="S_in_m" to="S_out_m" arrivalPos="2"/>
+    <personFlow id="pSued" type="fuss" begin="0" end="4200" period="exp(0.008333)" departPos="-1">
+        <walk from="S_in" to="S_out" arrivalPos="1"/>
     </personFlow>
     <personFlow id="pEastN" type="fuss" begin="0" end="4200" period="exp(0.004167)" departPos="-10">
         <walk from="S_in_fern" to="N_out" arrivalPos="60"/>

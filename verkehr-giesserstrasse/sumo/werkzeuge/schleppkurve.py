@@ -62,12 +62,19 @@ def bahn(lanes, weiter, c):
             break
         via, ziel = nxt
     pts += lanes.get(ziel, [])[1:]
-    (x0, y0), (x1, y1) = pts[0], pts[1]
-    d = math.hypot(x1 - x0, y1 - y0) or 1
-    start = [(x0 - (x1 - x0) / d * 30, y0 - (y1 - y0) / d * 30)]
-    (x0, y0), (x1, y1) = pts[-2], pts[-1]
-    d = math.hypot(x1 - x0, y1 - y0) or 1
-    ende = [(x1 + (x1 - x0) / d * 25, y1 + (y1 - y0) / d * 25)]
+    # Verlaengerung entlang der Armachsen (die Kanten am Knotenrand sind nur Dezimeter lang, ihre
+    # eigene Richtung waere zu ungenau)
+    arme = B.achsen()
+
+    def u(a):
+        (x0, y0), (x1, y1) = arme[a]
+        d = math.hypot(x1 - x0, y1 - y0)
+        return (x1 - x0) / d, (y1 - y0) / d
+    ua, ub = u(c.get('from')[0]), u(c.get('to')[0])
+    x0, y0 = pts[0]
+    start = [(x0 + ua[0] * 30, y0 + ua[1] * 30)]
+    x1, y1 = pts[-1]
+    ende = [(x1 + ub[0] * 25, y1 + ub[1] * 25)]
     return LineString(start + pts + ende)
 
 
@@ -101,7 +108,7 @@ def main():
               'Für jede Fahrbeziehung im Hauptknoten fahren Pkw und die schweren Fahrzeuge, die es dort laut '
               'Nachfrage gibt, die Bahn aus dem SUMO-Netz ab. Angegeben ist die Fläche in m², die ein Fahrzeug '
               'außerhalb der Fahrbahn überstreicht (Gehweg bzw. Insel). Kleine Werte unter 0,3 m² sind Rundungen.\n']
-    for var in B.VARIANTEN:
+    for var in B.VERGLEICH:
         lanes, cons, weiter = lade(var)
         flaechen = {'pkw': [], 'schwer': []}
         zeilen.append(f'\n## {var}\n')

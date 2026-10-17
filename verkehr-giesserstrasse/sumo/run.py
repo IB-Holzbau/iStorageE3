@@ -40,9 +40,10 @@ ROH = os.path.join(ERG, 'roh')
 
 VARIANTEN = list(B.VERGLEICH)
 ALLE = list(B.VARIANTEN)
-TITEL = {'bestand': 'Bestand', 'rvl': 'Rechts vor links, Tempo 30',
-         'minikreisel': 'Minikreisel mit Zebrastreifen (nur Referenz)', 't30_zebra': 'Bestand mit Tempo 30 und Zebra Nord und West',
-         'geschuetzt': 'Geschützte Kreuzung (angepasst)'}
+TITEL = {'bestand': 'Bestand', 'markierung': 'Markierung und Tempo 30', 'zone': 'Tempo-30-Zone, rechts vor links',
+         'radwege': 'Rote Radwege', 'rvl': 'Rechts vor links, Tempo 30 (verworfen)',
+         'minikreisel': 'Minikreisel mit Zebrastreifen (verworfen)', 't30_zebra': 'Tempo 30 und Zebra Nord und West (verworfen)',
+         'geschuetzt': 'Geschützte Kreuzung (verworfen)'}
 ARME = ['S', 'N', 'W', 'E']
 ARMNAME = {'S': 'Süd (Gießerstr.)', 'N': 'Nord (Gießerstr.)', 'W': 'West (Naumburger Str.)', 'E': 'Ost (Naumburger Str.)'}
 ZUFAHRT = {'S': ['S_in_fern', 'S_in_bucht', 'S_in_mitte', 'S_in', 'S_in_f', 'S_in_m'],
@@ -58,6 +59,8 @@ WEG = {'pNw2e': 'Nordseite West nach Ost, quert Nordarm', 'pNe2w': 'Nordseite Os
 
 WARMUP, DAUER = 600, 3600
 SCHRITT = 0.5
+# Dauer eines Spurwechsels in s (kontinuierlicher Spurwechsel in SUMO). Bei 30 bis 40 km/h sind das 25 bis 40 m Fahrweg.
+SPURWECHSEL_S = 3.5
 
 # Grenzwerte
 TTC, DRAC, PET = 1.5, 3.0, 1.0
@@ -88,6 +91,8 @@ def lauf(var, seed):
            '--step-length', str(SCHRITT), '--begin', '0', '--end', str(WARMUP + DAUER + 300), '--seed', str(seed),
            '--no-step-log', '--no-warnings', '--time-to-teleport', '300', '--ignore-junction-blocker', '15',
            '--pedestrian.striping.jamtime', '30',
+           # Spurwechsel dauern wie in echt einige Sekunden (seitliches Wandern statt Sprung)
+           '--lanechange.duration', str(SPURWECHSEL_S),
            '--device.ssm.probability', '1', '--device.ssm.measures', 'TTC DRAC PET',
            '--device.ssm.thresholds', f'{TTC} {DRAC} {PET}', '--device.ssm.range', '50',
            '--device.ssm.trajectories', 'false', '--device.ssm.write-positions', 'true', '--device.ssm.file', f['ssm'],
@@ -409,7 +414,7 @@ def auswerten(var, seed, f):
         nah = [i for i, (t, x, y, w) in enumerate(seq) if im_fenster(t) and math.hypot(x, y) < 35]
         if not nah or not im_fenster(seq[nah[0]][0]):
             continue
-        posen = K.posen(typ, [p[1] for p in seq], [p[2] for p in seq], [p[3] for p in seq])
+        posen = K.posen(typ, [p[1] for p in seq], [p[2] for p in seq], [p[3] for p in seq], SCHRITT)
         bord = ins = False
         for i in nah:
             F = posen[i]
@@ -522,12 +527,10 @@ def bericht(rows, laeufe, bus):
         ('davon Fahrzeug schneller als 30 km/h', ('konflikte_fuss', 'ueber30')),
         ('davon durch Rad', ('konflikte_fuss', 'durch_rad')),
         ('davon durch Fehlspur-Fahrer', ('konflikte_fuss', 'durch_fehlspur')),
-        ('Fußgänger diagonal über den Knoten bedrängt (eigene Kennzahl)', ('konflikte_fuss', 'diag')),
         ('Mittlerer Zeitverlust Kfz in s', ('zeitverlust_s', 'alle|Kfz')),
         ('Mittlerer Zeitverlust Rad in s', ('zeitverlust_s', 'alle|Rad')),
         ('Mittlerer Zeitverlust Bus in s', ('zeitverlust_s', 'alle|Bus')),
         ('Mittlere Wartezeit Fußgänger in s', ('fuss_wartezeit_s', 'alle')),
-        ('Mittlere Wartezeit Diagonalquerer in s', ('fuss_wartezeit_s', 'diag')),
         ('Nordarm: wartende Fahrzeuge im Mittel', ('schlange_fz_mittel', 'N')),
         ('Nordarm: größte Schlange (Fahrzeuge)', ('schlange_fz_max', 'N')),
         ('Nordarm: Anteil der Zeit mit mindestens 1 wartenden Fahrzeug in %', ('anteil_zeit_wartend', 'N')),

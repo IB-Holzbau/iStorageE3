@@ -104,7 +104,17 @@ def main():
                         paare.setdefault((ia, ib), [ta['typ'], tb['typ'], f * D['schritt']])
             frames += treffer
         gesamt += len(paare)
-        print(f'{var}: {frames} Frames mit Ueberlappung, {len(paare)} Paare; Kfz ueber Bordstein {len(bord)}, ueber Insel/Pflaster {len(ins)}')
+        # groesster Knickwinkel je Gelenkfahrzeug gegen die physikalische Grenze
+        knick = {}
+        for t in tr:
+            if t['typ'] in K.KNICK_MAX:
+                m = max(K.knickwinkel(h1, h2) for _, _, h1, h2 in t['frames'])
+                knick[t['typ']] = max(knick.get(t['typ'], 0.0), m)
+        zu_stark = {k: round(v, 1) for k, v in knick.items() if v > K.KNICK_MAX[k] + 0.6}
+        if zu_stark:
+            gesamt += 1
+        print(f'{var}: {frames} Frames mit Ueberlappung, {len(paare)} Paare; Kfz ueber Bordstein {len(bord)}, ueber Insel/Pflaster {len(ins)}; '
+              f'groesster Knick {", ".join(f"{k} {v:.0f} Grad" for k, v in knick.items())}' + (f' UEBER GRENZE {zu_stark}' if zu_stark else ''))
         for (ia, ib), (a, b, t) in list(paare.items())[:8]:
             print(f'   {a} und {b} ab {t:.1f} s')
     return gesamt

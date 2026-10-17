@@ -126,7 +126,6 @@ details ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
         <span><i class="sw" style="background:#2a6fb0;width:28px"></i>Gelenkbus</span>
         <span><i class="sw" style="background:#2e7d32;width:10px"></i>Rad</span>
         <span><i class="sw" style="background:#1b2129;width:9px;border-radius:50%"></i>Fußgänger</span>
-        <span><i class="sw" style="background:#b5179e;width:9px;border-radius:50%"></i>Fußgänger diagonal</span>
         <span><i class="sw" style="background:#8c919a"></i>parkend</span>
       </div>
     </div>
@@ -152,11 +151,11 @@ details ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
           <ul>
             <li>Geometrie aus OpenStreetMap, Spuren, Parken, Schilder und Markierungen nach Luftbild, Straßenfotos und Beobachtung der Initiative.</li>
             <li>Busse der Linien 60 und 60E fahren im Regelbetrieb in beiden Richtungen zwischen Süd und West. Der Bus nach West hält rechts im Haltebereich und muss danach auf die Linksabbiegespur wechseln.</li>
-            <li>Nachfrage für die Spitzenstunde geschätzt, etwa 970 Pkw, 33 Lkw, 200 Räder, 12 Busse. Aus Nord etwa 225 Kfz je Stunde. Fußgänger Nordquerung etwa 100 je Stunde, West 50, Süd und Ost je 30, dazu etwa 10 je Stunde diagonal zwischen Nordost- und Südwestecke.</li>
-            <li>Rund ein Viertel der Geradeausfahrer von Süd nutzt die Linksabbiegespur (orange). Sie fahren hier mittig zwischen den Spuren.</li>
-            <li>Diagonalquerer werden neben SUMO geführt, die Fahrzeuge reagieren nicht auf sie. Gezählt wird, wie oft ein Fahrzeug stark bremsen müsste.</li>
+            <li>Nachfrage für die Spitzenstunde geschätzt, etwa 970 Pkw, 33 Lkw, 200 Räder, 12 Busse. Aus Nord etwa 225 Kfz je Stunde. Fußgänger Nordquerung etwa 100 je Stunde, West 50, Süd und Ost je 30. Querungen liegen so knotennah wie möglich, wie beobachtet.</li>
+            <li>Im Bestand nutzt rund ein Viertel der Geradeausfahrer von Süd die Linksabbiegespur (orange, mittig zwischen den Spuren). Mit durchgezogener Linie sind es angenommen 8 %.</li>
+            <li>Wenige Fußgänger gehen diagonal über den Knoten, aber nur, wenn wirklich frei ist. Sie spielen für den Vergleich keine Rolle.</li>
+            <li>Spurwechsel dauern 3,5 s. Bus und Lkw holen beim Abbiegen aus, ihre Hinterachse läuft auf der Fahrspur, die Vorderachse fährt außen. Der Gelenkbus knickt höchstens 42°.</li>
             <li>Das Modell ist nicht mit einer Zählung abgeglichen. Es zeigt Unterschiede zwischen den Varianten, keine genauen Werte.</li>
-            <li>SUMO-Fußgänger betreten einen Zebrastreifen, ohne auf Autos zu achten. Konflikte an Zebrastreifen sind deshalb eher zu hoch.</li>
             <li>Die Enge im Begegnungsverkehr auf der Naumburger Straße Ost bildet SUMO nicht ab, die Fahrzeuge fahren dort auf zwei schmalen Spuren.</li>
           </ul>
         </details>
@@ -168,15 +167,15 @@ details ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
 const D=/*__DATEN__*/null;
 const NS='http://www.w3.org/2000/svg';
 const VAR=[
-  {id:'bestand',t:'Bestand',k:'heute',x:'Abknickende Vorfahrt von Süd nach West, Stoppschild am Nordarm, Ost wartepflichtig. Tempo 50 auf der Gießerstraße und der Naumburger Straße Ost, Tempo-30-Zone West.'},
-  {id:'rvl',t:'Rechts vor links',k:'Tempo 30',x:'Alle Schilder zur Vorfahrt entfallen, überall gilt rechts vor links und Tempo 30. Querungen bleiben ohne Markierung.'},
-  {id:'t30_zebra',t:'Tempo 30',k:'Zebra Nord und West',x:'Vorfahrt wie heute, aber Tempo 30 überall und Zebrastreifen an der Nord- und Westquerung.'},
-  {id:'geschuetzt',t:'Geschützt',k:'Inseln und Radfurten',x:'Eckinseln anstelle der Parkstreifen, Radwege hinter den Inseln, abgesetzte Radfurten über den Süd- und den Ostarm, Zebrastreifen an allen Armen, Tempo 30. Vorfahrt wie heute. An den Nordecken ist für Radwege kein Platz.'}
+  {id:'bestand',t:'Bestand',k:'heute',x:'Abknickende Vorfahrt von Süd nach West, Stoppschild am Nordarm, Ost wartepflichtig. Tempo 50 auf der Gießerstraße, Tempo 30 auf der Naumburger Straße West (Streckenschild) und Tempo-30-Zone Ost. Auf der Ostseite wird bis an die Ecke geparkt.'},
+  {id:'markierung',t:'Markierung',k:'Tempo 30',x:'Vorfahrt wie heute, aber Tempo 30 auf allen Armen (Zeichen 274, eine Zone ist an einer Vorfahrtstraße nicht zulässig). Klarer Bogen der Vorfahrt, durchgezogene Linie zwischen Links- und Geradeausspur, Grenzmarkierung (Zeichen 299) an der Ostecke statt Parken, breitere Haltlinie Nord und Wartelinie Ost, zusätzliche Vorfahrtschilder. Keine Zebrastreifen.'},
+  {id:'zone',t:'Tempo-30-Zone',k:'rechts vor links',x:'Alle Vorfahrtschilder entfallen, in der Zone gilt rechts vor links und Tempo 30 (Zeichen 274.1). Grenzmarkierung an der Ostecke wie bei Markierung. Keine Zebrastreifen, keine Wartelinien.'},
+  {id:'radwege',t:'Rote Radwege',k:'Radfahrstreifen',x:'Wie Markierung mit Tempo 30, dazu rot eingefärbte Radfahrstreifen auf der Gießerstraße Süd in beiden Richtungen und auf den letzten 30 m der Naumburger Straße West Richtung Knoten, rote Furten durch den Knoten. Nord- und Ostarm sind zu schmal, dort Piktogramme. Dafür entfallen Parkplätze auf der Westseite der Gießerstraße Süd.'}
 ];
-const KONF={k:{c:'#d62828',t:'Kreuzen und Einbiegen'},a:{c:'#f08c00',t:'Auffahren'},f:{c:'#7b2cbf',t:'Fußgänger auf der Querung'},d:{c:'#b5179e',t:'Fußgänger diagonal'}};
+const KONF={k:{c:'#d62828',t:'Kreuzen und Einbiegen'},a:{c:'#f08c00',t:'Auffahren'},f:{c:'#7b2cbf',t:'Fußgänger auf der Querung'},d:{c:'#7b2cbf',t:'Fußgänger'}};
 const CARC=['#4a6fa5','#8c919a','#b0413e','#2f4858','#e8e8e8','#6b8f71','#3d3d3d','#c9a227','#5b7fa6','#7a6c5d'];
 const PARKC=['#8c919a','#9aa0a8','#7d838c','#a6a39b','#6f757e'];
-const SIGNTXT={vf:'Vorfahrtstraße (Zeichen 306) mit abknickender Vorfahrt (Zusatz 1002), dicker Strich zeigt die Hauptrichtung',vg:'Vorfahrt gewähren (205) mit Zusatz abknickende Vorfahrt',stop:'Halt, Vorfahrt gewähren (206) mit Zusatz abknickende Vorfahrt',rvl:'Kreuzung, rechts vor links (102)',t30:'Tempo 30 (274)',zone:'Beginn Tempo-30-Zone (274.1)',hv:'Halteverbot (283), West mit Zusatz Mo–Fr',zebra:'Fußgängerüberweg (350)'};
+const SIGNTXT={vf:'Vorfahrtstraße (Zeichen 306) mit Zusatzzeichen 1002 abknickende Vorfahrt. Dicker Strich zeigt den Verlauf der Vorfahrtstraße, die eigene Zufahrt ist unten.',vg:'Vorfahrt gewähren (205) mit Zusatzzeichen 1002',stop:'Halt, Vorfahrt gewähren (206) mit Zusatzzeichen 1002',rvl:'Kreuzung, rechts vor links (102)',t30:'Zulässige Höchstgeschwindigkeit 30 (274)',zone:'Beginn Tempo-30-Zone (274.1)',hv:'Absolutes Haltverbot (283), West mit Zusatz Mo–Fr 6–14 h',zebra:'Fußgängerüberweg (350)'};
 const $=id=>document.getElementById(id);
 const svg=$('map'), gStatic=$('static'), gPark=$('park'), gAg=$('agents'), gFx=$('fx'), gSigns=$('signs'), gLab=$('labels');
 const [vx,vy,vw,vh]=D.fenster;
@@ -208,47 +207,74 @@ function decode(v){
   return cache[v]={tr,k,n:raw.n,karte:raw.karte};
 }
 // ---------- Schilder
+// Verkehrszeichen nach StVO-Vorlage (vereinfachte Proportionen), Groesse s in Metern der Karte
+const F={rot:'#c1121f',gelb:'#f5b800',blau:'#0a5aa6',gruen:'#0b7a3b',sw:'#141414',w:'#ffffff'};
 function zusatz1002(g,zuf,x0,y0,s){
-  // abknickende Vorfahrt Sued-West aus Sicht der jeweiligen Zufahrt (eigene Zufahrt unten)
+  // Zusatzzeichen 1002: weisses Rechteck mit schwarzem Rand. Dicker Strich = Verlauf der
+  // Vorfahrtstrasse, duenne Striche = untergeordnete Arme, eigene Zufahrt immer unten.
+  // Grundbild Sued: dick von unten nach links (West), duenn nach oben (Nord) und rechts (Ost).
   const rot={S:0,W:-90,N:180,E:90}[zuf]||0;
-  el('rect',{x:x0-s/2,y:y0,width:s,height:s*.78,fill:'#fff',stroke:'#222','stroke-width':s*.05,rx:s*.05},g);
-  const c=el('g',{transform:`translate(${x0} ${y0+s*.39}) rotate(${rot})`},g);
-  const L=s*.3;
-  el('path',{d:`M0 ${-L} V0 H${L}`,stroke:'#222','stroke-width':s*.06,fill:'none'},c);  // Nebenarme Nord und Ost
-  el('path',{d:`M0 ${L} V0 H${-L}`,stroke:'#222','stroke-width':s*.2,fill:'none','stroke-linejoin':'miter'},c); // Hauptrichtung Sued-West
+  const b=s,h=s*.72;
+  el('rect',{x:x0-b/2,y:y0,width:b,height:h,fill:F.w,stroke:F.sw,'stroke-width':s*.035,rx:s*.03},g);
+  const c=el('g',{transform:`translate(${x0} ${y0+h/2}) rotate(${rot})`},g);
+  const L=h*.36;
+  el('path',{d:`M0 ${-L} V0 M0 0 H${L}`,stroke:F.sw,'stroke-width':s*.045,fill:'none','stroke-linecap':'butt'},c);
+  el('path',{d:`M0 ${L} V0 H${-L}`,stroke:F.sw,'stroke-width':s*.13,fill:'none','stroke-linejoin':'miter','stroke-linecap':'butt'},c);
 }
 function schild(g,art,z,s){
-  if(art==='vf'){
-    el('rect',{x:-s*.42,y:-s*.42,width:s*.84,height:s*.84,transform:'rotate(45)',fill:'#fff',stroke:'#222','stroke-width':s*.04},g);
-    el('rect',{x:-s*.3,y:-s*.3,width:s*.6,height:s*.6,transform:'rotate(45)',fill:'#f2b705'},g);
-    zusatz1002(g,z,0,s*.66,s*.82);
-  }else if(art==='vg'||art==='stop'){
-    if(art==='vg')el('polygon',{points:`${-s*.55},${-s*.45} ${s*.55},${-s*.45} 0,${s*.5}`,fill:'#fff',stroke:'#c62828','stroke-width':s*.13,'stroke-linejoin':'round'},g);
-    else{const r=s*.52,a=r*.414;el('polygon',{points:`${-a},${-r} ${a},${-r} ${r},${-a} ${r},${a} ${a},${r} ${-a},${r} ${-r},${a} ${-r},${-a}`,fill:'#c62828',stroke:'#fff','stroke-width':s*.05},g);
-      el('text',{y:s*.13,'font-size':s*.36,'font-weight':700,fill:'#fff','text-anchor':'middle','font-family':'Arial,sans-serif'},g).textContent='STOP';}
-    zusatz1002(g,z,0,s*.62,s*.82);
-  }else if(art==='rvl'){
-    el('polygon',{points:`0,${-s*.5} ${s*.56},${s*.45} ${-s*.56},${s*.45}`,fill:'#fff',stroke:'#c62828','stroke-width':s*.12,'stroke-linejoin':'round'},g);
-    el('path',{d:`M0 ${-s*.15} V${s*.32} M${-s*.18} ${s*.08} H${s*.18}`,stroke:'#222','stroke-width':s*.08},g);
-  }else if(art==='t30'||art==='zone'){
-    if(art==='zone')el('rect',{x:-s*.5,y:-s*.55,width:s,height:s*1.2,rx:s*.06,fill:'#fff',stroke:'#222','stroke-width':s*.04},g);
-    el('circle',{r:s*.4,cy:art==='zone'?-s*.1:0,fill:'#fff',stroke:'#c62828','stroke-width':s*.1},g);
-    el('text',{y:(art==='zone'?-s*.1:0)+s*.14,'font-size':s*.38,'font-weight':700,fill:'#222','text-anchor':'middle','font-family':'Arial,sans-serif'},g).textContent='30';
-    if(art==='zone')el('text',{y:s*.52,'font-size':s*.22,'font-weight':700,fill:'#222','text-anchor':'middle','font-family':'Arial,sans-serif'},g).textContent='ZONE';
-  }else if(art==='hv'){
-    el('circle',{r:s*.42,fill:'#1f5fae',stroke:'#c62828','stroke-width':s*.09},g);
-    el('path',{d:`M${-s*.28} ${-s*.28} L${s*.28} ${s*.28} M${s*.28} ${-s*.28} L${-s*.28} ${s*.28}`,stroke:'#c62828','stroke-width':s*.09},g);
-    if(z){el('rect',{x:-s*.45,y:s*.5,width:s*.9,height:s*.34,fill:'#fff',stroke:'#222','stroke-width':s*.03},g);
-      el('text',{y:s*.75,'font-size':s*.24,'font-weight':700,fill:'#222','text-anchor':'middle','font-family':'Arial,sans-serif'},g).textContent=z;}
-  }else if(art==='zebra'){
-    el('rect',{x:-s*.42,y:-s*.42,width:s*.84,height:s*.84,rx:s*.06,fill:'#1f5fae',stroke:'#fff','stroke-width':s*.04},g);
-    el('polygon',{points:`0,${-s*.32} ${s*.34},${s*.3} ${-s*.34},${s*.3}`,fill:'#fff'},g);
-  }else if(art==='H'){
-    el('circle',{r:s*.42,fill:'#f2c400',stroke:'#2e7d32','stroke-width':s*.07},g);
-    el('text',{y:s*.15,'font-size':s*.42,'font-weight':700,fill:'#2e7d32','text-anchor':'middle','font-family':'Arial,sans-serif'},g).textContent='H';
+  const r=s/2;
+  if(art==='vf'){                     // 306: gelbes Quadrat auf der Spitze, weisser Rand, schmaler schwarzer Aussenrand
+    const a=s*.72;
+    el('rect',{x:-a/2,y:-a/2,width:a,height:a,transform:'rotate(45)',fill:F.w,stroke:F.sw,'stroke-width':s*.02,rx:s*.015},g);
+    el('rect',{x:-a*.36,y:-a*.36,width:a*.72,height:a*.72,transform:'rotate(45)',fill:F.gelb},g);
+    zusatz1002(g,z,0,r+s*.08,s*.86);
+  }else if(art==='vg'){              // 205: auf der Spitze stehendes Dreieck, rot umrandet, innen weiss
+    const tri=k=>`${-r*k},${-r*.62*k} ${r*k},${-r*.62*k} 0,${r*1.1*k-r*.25}`;
+    el('polygon',{points:tri(1),fill:F.rot,stroke:F.w,'stroke-width':s*.025,'stroke-linejoin':'round'},g);
+    el('polygon',{points:`${-r*.66},${-r*.43} ${r*.66},${-r*.43} 0,${r*.55}`,fill:F.w,'stroke-linejoin':'round'},g);
+    zusatz1002(g,z,0,r*.95,s*.86);
+  }else if(art==='stop'){            // 206: rotes Achteck, weisser Rand, Schrift STOP
+    const oct=k=>{const R=r*k,a=R*.4142;return `${-a},${-R} ${a},${-R} ${R},${-a} ${R},${a} ${a},${R} ${-a},${R} ${-R},${a} ${-R},${-a}`;};
+    el('polygon',{points:oct(1),fill:F.w,stroke:'#999','stroke-width':s*.01},g);
+    el('polygon',{points:oct(.92),fill:F.rot},g);
+    el('text',{y:s*.12,'font-size':s*.31,'font-weight':700,fill:F.w,'text-anchor':'middle','font-family':'Arial Narrow,Arial,sans-serif','letter-spacing':'-.02'},g).textContent='STOP';
+    zusatz1002(g,z,0,r+s*.08,s*.86);
+  }else if(art==='rvl'){             // 102: Dreieck auf der Basis, Kreuz mit betonter Hauptlinie
+    el('polygon',{points:`0,${-r} ${r*1.08},${r*.85} ${-r*1.08},${r*.85}`,fill:F.rot,stroke:F.w,'stroke-width':s*.025,'stroke-linejoin':'round'},g);
+    el('polygon',{points:`0,${-r*.6} ${r*.75},${r*.65} ${-r*.75},${r*.65}`,fill:F.w},g);
+    el('path',{d:`M0 ${-r*.3} V${r*.55} M${-r*.32} ${r*.15} H${r*.32}`,stroke:F.sw,'stroke-width':s*.08},g);
+  }else if(art==='t30'||art==='zone'){ // 274 bzw. 274.1
+    const cy=art==='zone'?-s*.12:0,R=art==='zone'?r*.72:r;
+    if(art==='zone')el('rect',{x:-r,y:-r*1.1,width:s,height:s*1.25,rx:s*.05,fill:F.w,stroke:F.sw,'stroke-width':s*.03},g);
+    el('circle',{r:R,cy,fill:F.w,stroke:'#999','stroke-width':s*.01},g);
+    el('circle',{r:R*.89,cy,fill:F.w,stroke:F.rot,'stroke-width':R*.2},g);
+    el('text',{y:cy+R*.33,'font-size':R*.95,'font-weight':700,fill:F.sw,'text-anchor':'middle','font-family':'Arial,sans-serif'},g).textContent='30';
+    if(art==='zone')el('text',{y:r*1.0,'font-size':s*.24,'font-weight':700,fill:F.sw,'text-anchor':'middle','font-family':'Arial,sans-serif'},g).textContent='ZONE';
+  }else if(art==='hv'){              // 283: blau, roter Rand, rotes Kreuz
+    el('circle',{r,fill:F.blau,stroke:F.w,'stroke-width':s*.02},g);
+    el('circle',{r:r*.86,fill:F.blau,stroke:F.rot,'stroke-width':r*.2},g);
+    const d=r*.6;el('path',{d:`M${-d} ${-d} L${d} ${d} M${d} ${-d} L${-d} ${d}`,stroke:F.rot,'stroke-width':r*.2},g);
+    if(z){el('rect',{x:-r,y:r*1.1,width:s,height:s*.36,fill:F.w,stroke:F.sw,'stroke-width':s*.03},g);
+      el('text',{y:r*1.1+s*.25,'font-size':s*(z.length>6?.16:.24),'font-weight':700,fill:F.sw,'text-anchor':'middle','font-family':'Arial,sans-serif'},g).textContent=z;}
+  }else if(art==='zebra'){           // 350
+    el('rect',{x:-r,y:-r,width:s,height:s,rx:s*.05,fill:F.blau,stroke:F.w,'stroke-width':s*.03},g);
+    el('polygon',{points:`0,${-r*.75} ${r*.78},${r*.68} ${-r*.78},${r*.68}`,fill:F.w},g);
+  }else if(art==='H'){               // 224 Haltestelle
+    el('circle',{r,fill:F.gelb,stroke:F.gruen,'stroke-width':r*.16},g);
+    el('text',{y:r*.38,'font-size':r*1.15,'font-weight':700,fill:F.gruen,'text-anchor':'middle','font-family':'Arial,sans-serif'},g).textContent='H';
   }
 }
-const GROESSE={vf:5.2,vg:5,stop:5,rvl:4.4,t30:3.6,zone:3.8,hv:3.2,zebra:2.8};
+// Hoehe ueber dem Mastfuss (Schildmitte), damit das Schild aufrecht ueber seinem Standort steht
+function schildMast(g,art,z,s,dirw){
+  if(dirw!=null){const m=el('g',{transform:`rotate(${dirw})`},g);
+    el('polygon',{points:`.35,-.5 1.7,0 .35,.5`,fill:'#3d4247','fill-opacity':.75},m);}
+  const stiel=s*.55;
+  el('line',{x1:0,y1:0,x2:0,y2:-stiel,stroke:'#6b7077','stroke-width':.22},g);
+  el('circle',{r:.32,fill:'#4a4f55',stroke:'#fff','stroke-width':.08},g);
+  const hoch=(art==='vf'||art==='vg'||art==='stop')?s*1.1:(art==='zone'||(art==='hv'&&z)?s*.75:s*.55);
+  schild(el('g',{transform:`translate(0 ${-stiel-hoch})`},g),art,z,s);
+}
+const GROESSE={vf:4.6,vg:4.4,stop:4.4,rvl:4.2,t30:3.4,zone:3.2,hv:3.0,zebra:2.8};
 // ---------- statische Karte
 function zeichneKarte(k){
   gStatic.replaceChildren();gPark.replaceChildren();gSigns.replaceChildren();
@@ -267,12 +293,14 @@ function zeichneKarte(k){
   for(const d of k.leit)el('path',{d,'stroke-width':.13,'stroke-dasharray':'3 6'},m);
   if(k.bogen)el('path',{d:k.bogen,'stroke-width':.13,'stroke-dasharray':'3 3'},m);
   for(const d of k.trenn)el('path',{d,'stroke-width':.13,'stroke-dasharray':'3 3','stroke-opacity':.9},m);
-  for(const d of k.halt)el('path',{d,'stroke-width':.5},m);
-  for(const d of k.warte)el('path',{d,'stroke-width':.5,'stroke-dasharray':'.5 .25'},m);
+  for(const d of (k.fest||[]))el('path',{d,'stroke-width':.18},m);
+  for(const d of (k.grenz||[]))el('path',{d,'stroke-width':.14,'stroke-linejoin':'miter'},m);
+  for(const d of k.halt)el('path',{d,'stroke-width':k.deutlich?.75:.5},m);
+  for(const d of k.warte)el('path',{d,'stroke-width':k.deutlich?.7:.5,'stroke-dasharray':k.deutlich?'.8 .4':'.5 .25'},m);
   for(const d of (k.schmal||[]))el('path',{d,'stroke-width':.3,'stroke-dasharray':'3 1.5'},m);
   for(const d of k.zick)el('path',{d,'stroke-width':.16,'stroke-linejoin':'miter'},m);
   for(const d of (k.sperr||[]))el('path',{d,'stroke-width':.14},m);
-  for(const [txt,x,y,r,h] of (k.texte||[]))el('text',{x:0,y:0,transform:`translate(${x} ${y}) rotate(${r})`,'font-size':h,'font-weight':700,'text-anchor':'middle','dominant-baseline':'middle','font-family':'Barlow Semi Condensed,Arial Narrow,Arial,sans-serif',fill:'#fff','fill-opacity':.92,'stroke':'none'},m).textContent=txt;
+  for(const [txt,x,y,r,h,st] of (k.texte||[]))el('text',{x:0,y:0,transform:`translate(${x} ${y}) rotate(${r}) scale(1 ${st||1})`,'font-size':h,'font-weight':700,'text-anchor':'middle','dominant-baseline':'middle','font-family':'Barlow Semi Condensed,Arial Narrow,Arial,sans-serif',fill:'#fff','fill-opacity':.92,'stroke':'none'},m).textContent=txt;
   for(const [d,w] of k.zebra)el('path',{d,'stroke-width':w,'stroke-dasharray':'.5 .5','stroke-opacity':.95},m);
   for(const [d,w] of (k.querung||[]))el('path',{d,'stroke-width':w*.85,stroke:'#d8d2c4','stroke-opacity':.22},m);
   for(const [x,y,r,art] of k.pfeile)el('use',{href:`#p-${art}`,x:0,y:0,width:5,height:2,transform:`translate(${x} ${y}) rotate(${r}) translate(-2 -1)`},gStatic);
@@ -286,19 +314,19 @@ function zeichneKarte(k){
   if(k.kiosk){const [x,y]=k.kiosk;
     el('text',{x,y,'font-size':2.2,'font-weight':700,'text-anchor':'middle','font-family':'Barlow Semi Condensed,Arial Narrow,Arial,sans-serif',fill:'#7a5a00'},gLab).textContent='Kiosk';}
   const vorh=new Set();
-  for(const [x,y,art,z] of k.schilder){
+  for(const [x,y,art,z,dirw] of k.schilder){
     const g=el('g',{transform:`translate(${x} ${y})`},gSigns);vorh.add(art);
     el('title',{},g).textContent=SIGNTXT[art]||art;
-    schild(g,art,z,GROESSE[art]||3.5);
+    schildMast(g,art,z,GROESSE[art]||3.5,dirw);
   }
-  if(k.haltestelle){const g=el('g',{transform:`translate(${k.haltestelle[0]} ${k.haltestelle[1]})`},gSigns);schild(g,'H','',3.2);}
+  if(k.haltestelle){const g=el('g',{transform:`translate(${k.haltestelle[0]} ${k.haltestelle[1]})`},gSigns);el('title',{},g).textContent='Haltestelle (224)';schildMast(g,'H','',2.6,null);}
   // Legende der Schilder
   const lg=$('signlegend');lg.replaceChildren();
   for(const art of ['vf','stop','vg','rvl','t30','zone','hv','zebra']){
     if(!vorh.has(art))continue;
     const d=document.createElement('div');d.className='sg';
-    const s=document.createElementNS(NS,'svg');s.setAttribute('viewBox',art==='vf'||art==='vg'||art==='stop'?'-3 -3 6 7.5':(art==='hv'?'-2.6 -2.4 5.2 6':'-2.6 -2.6 5.2 5.2'));
-    schild(el('g',{},s),art,art==='vf'?'S':(art==='stop'?'N':(art==='vg'?'E':(art==='hv'?'Mo–Fr':''))),4);
+    const s=document.createElementNS(NS,'svg');s.setAttribute('viewBox',art==='vf'||art==='vg'||art==='stop'?'-2.6 -2.4 5.2 7.4':(art==='hv'||art==='zone'?'-2.4 -2.4 4.8 6.2':'-2.4 -2.4 4.8 4.8'));
+    schild(el('g',{},s),art,art==='vf'?'S':(art==='stop'?'N':(art==='vg'?'E':(art==='hv'?'Mo–Fr 6–14 h':''))),4);
     d.appendChild(s);const t=document.createElement('span');t.textContent=SIGNTXT[art];d.appendChild(t);lg.appendChild(d);
   }
 }
@@ -312,7 +340,7 @@ function blinker(g,len,w,front){
 }
 function baueAgent(t){
   const g=el('g',{},gAg);const segs=[];let bl=[];
-  if(t.typ==='fuss'||t.typ==='fussd'){const c=el('circle',{r:t.typ==='fussd'?.6:.5,fill:t.typ==='fussd'?'#b5179e':'#1b2129',stroke:'#fff','stroke-width':.18},g);segs.push(c);return {g,segs,bl};}
+  if(t.typ==='fuss'||t.typ==='fussd'){const c=el('circle',{r:.5,fill:'#1b2129',stroke:'#fff','stroke-width':.18},g);segs.push(c);return {g,segs,bl};}
   if(t.typ==='rad'){const s=el('g',{},g);
     el('rect',{x:-1.45,y:-.18,width:1.8,height:.36,rx:.18,fill:'#1d5e24'},s);
     el('circle',{cx:-.5,cy:0,r:.42,fill:'#2e7d32',stroke:'#fff','stroke-width':.1},s);segs.push(s);return {g,segs,bl};}
@@ -406,7 +434,6 @@ function zeigeKennzahlen(v){
     ['davon schwer','schwer',''],
     ['Konflikte Kfz gegen Rad','rad',''],
     ['Fußgänger auf der Querung bedrängt','fuss',''],
-    ['Fußgänger diagonal bedrängt','diag',''],
     ['Konflikte durch Geradeausfahrer aus der Abbiegespur','fehlspur',''],
     ['Nordarm: Anteil der Zeit mit Wartenden','wartendN','%'],
     ['Zeitverlust Kfz am Nordarm','verlustN','s'],
