@@ -1,0 +1,4 @@
+eclipse-sumo>=1.28
+matplotlib
+shapely
+pillow
