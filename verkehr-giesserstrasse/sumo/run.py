@@ -60,7 +60,7 @@ WEG = {'pNw2e': 'Nordseite West nach Ost, quert Nordarm', 'pNe2w': 'Nordseite Os
 WARMUP, DAUER = 600, 3600
 SCHRITT = 0.5
 # Dauer eines Spurwechsels in s (kontinuierlicher Spurwechsel in SUMO). Bei 30 bis 40 km/h sind das 25 bis 40 m Fahrweg.
-SPURWECHSEL_S = 3.5
+SPURWECHSEL_S = 6.0
 
 # Grenzwerte
 TTC, DRAC, PET = 1.5, 3.0, 1.0
@@ -414,7 +414,7 @@ def auswerten(var, seed, f):
         nah = [i for i, (t, x, y, w) in enumerate(seq) if im_fenster(t) and math.hypot(x, y) < 35]
         if not nah or not im_fenster(seq[nah[0]][0]):
             continue
-        posen = K.posen(typ, [p[1] for p in seq], [p[2] for p in seq], [p[3] for p in seq], SCHRITT)
+        posen = K.posen(typ, [p[1] for p in seq], [p[2] for p in seq], [p[3] for p in seq], SCHRITT, K.ausholen_fuer(vid))
         bord = ins = False
         for i in nah:
             F = posen[i]

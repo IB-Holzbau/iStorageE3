@@ -21,6 +21,7 @@ python3 plots.py                    # Vergleichsdiagramm und Netzbilder nach gra
 python3 abspieler/export.py         # Browser-Abspieler grafik/abspieler.html
 python3 werkzeuge/pruefe_abspieler.py   # Überlappungen, Bordstein und Knickwinkel im Abspieler prüfen
 python3 werkzeuge/screenshots.py 60 grafik  # Bilder der Varianten nach 60 s
+python3 werkzeuge/szenenbilder.py /tmp      # Bilder der kritischen Szenen
 ```
 
 Weitere Schalter
@@ -42,6 +43,7 @@ Weitere Schalter
 | `run.py` | Simuliert, wertet aus, schreibt `ergebnisse/kennzahlen.csv` und `ergebnisse/vergleich.md` |
 | `plots.py` | Netzbilder und Vergleichsdiagramm |
 | `abspieler/export.py`, `abspieler/vorlage.html` | Baut den Abspieler |
+| `abspieler/szenen.py` | Sucht die kritischen Szenen in den Rohdaten von `run.py` |
 | `werkzeuge/schleppkurve.py` | Schleppkurven aller Fahrbeziehungen, `ergebnisse/schleppkurven.md` |
 | `werkzeuge/pruefe_abspieler.py` | Prüft die fertige Seite auf sich überlappende Fahrzeuge und Fahrten über Bordstein und Inseln |
 | `werkzeuge/vorfahrt.py` | Prüfhilfe für die Vorfahrtregeln |
@@ -57,7 +59,9 @@ Die Initiative hat im Oktober 2026 Luftbilder (Geoportal Leipzig, Google), Stra�
 | Busse 60 und 60E | Regelbetrieb in beiden Richtungen Süd nach West und West nach Süd. Derzeit wegen Baustelle umgeleitet (Naumburger Straße Sackgasse) | Takt 10 min je Richtung, Umleitung mit `--bus SN` |
 | Haltestelle Süd | Halt auf der rechten Fahrbahnseite mit BUS und Zickzack, durch breite Strichlinie getrennt, am Südende ein Keil als Einfahrt, Wartehäuschen auf dem Ostgehweg. Südlich davon wird am rechten Rand geparkt, der Bus fährt dort auf der Fahrspur und schwenkt erst am Keil ein | Parkstreifen Ostseite ab 70 m, Haltebereich 45 bis 70 m nur für Bus und Rad, dahinter zwei Spuren |
 | Bus Süd nach West nach dem Halt | muss von ganz rechts auf die Linksabbiegespur wechseln | eigene Kennzahl Spurwechsel und Konflikte dabei |
-| Spurwechsel und Abbiegen | Spurwechsel dauern in echt einige Sekunden, Busse knicken beim Anfahren nicht, Bus und Lkw holen in Kurven aus | Spurwechsel in SUMO 3,5 s, im Abspieler über den Fahrweg geglättet, Ausholen und Knickgrenze, siehe Fahrzeugkinematik |
+| Spurwechsel und Abbiegen | Spurwechsel dauern in echt einige Sekunden (Pkw 5 bis 6 s, Bus und Lkw 6 bis 8 s), Busse knicken beim Anfahren nicht, Bus und Lkw holen beim Rechtsabbiegen aus | Spurwechsel in SUMO 6 s, im Abspieler weich über 30 bis 60 m, Ausholen und Knickgrenze, siehe Fahrzeugkinematik |
+| Süd nach Nord | viele fahren zügig geradeaus durch | 200 statt 110 Pkw je Stunde, 20 % schnelle Fahrer (Schätzung) |
+| Blinken | Geradeausfahrer blinken nie, auch nicht beim Spurwechsel, Abbieger meistens | im Abspieler so gezeichnet, siehe Kritische Szenen |
 | Südarm Markierung | zwei Spuren nordwärts mit Pfeilen links bzw. geradeaus und rechts, links daneben eine schmale Sperrfläche. Gestrichelte Leitlinie mit großem Radius von der Linie zwischen Links- und Geradeausspur zur Nordwestecke, sie trennt die abknickende Vorfahrt vom Geradeausverkehr. Zweite schräge Linie von der Südost- zur Nordostecke über die Mündung des Ostarms | gezeichnet |
 | Fehlverhalten Süd | etwa ein Viertel der Geradeausfahrer nach Nord nutzt die Linksabbiegespur oder fährt mittig | 25 % im Bestand über eine nur dafür freigegebene Verbindung (Fahrzeugklasse `taxi`), im Abspieler orange und mittig. Mit durchgezogener Linie (Markierung, Radwege) 8 %, in der Zone 15 % |
 | Nordarm | 8,2 m, Westseite Längsparken mit Begrenzungslinie ab etwa 30 m, davor Halteverbot (Schild). STOP-Feld und Haltlinie | Parkstreifen ab 30 m (Fahrspuren dort 3,1 m), Haltlinie vor der Querung, STOP für Fahrer aus Norden lesbar |
@@ -119,8 +123,9 @@ Die Vorfahrtstraße mit Radfahrstreifen ist bewusst die Basis der Variante `radw
 
 | Gruppe | je Stunde |
 |---|---|
-| Pkw | etwa 970, davon Süd nach West 260 und West nach Süd 240 |
+| Pkw | etwa 1060, davon Süd nach West 260, West nach Süd 240 und Süd nach Nord 200 (nach Beobachtung erhöht, Schätzung) |
 | aus Nord | 224 Kfz (Süd 60 %, West 35 %, Ost 5 %). Gewünscht waren etwa 300, damit ist der Nordarm im Modell aber überlastet (Zeitverlust 80 bis 290 s, wachsende Schlange). Mit 224 wartet in der Hälfte der Zeit mindestens ein Fahrzeug, in einem Viertel der Zeit zwei oder mehr |
+| Schnelle Fahrer | aus Süd und West heute 20 % mit 10 bis 15 km/h über dem Limit, in den Tempo-30-Varianten 10 % mit 5 bis 10 km/h darüber (Schätzung) |
 | Lkw und Sattelzüge | 33 |
 | Gelenkbusse 18 m | 12 (6 je Richtung Süd nach West und West nach Süd) |
 | Rad | 198 |
@@ -128,7 +133,7 @@ Die Vorfahrtstraße mit Radfahrstreifen ist bewusst die Basis der Variante `radw
 
 **Diagonalquerer.** SUMO kann keine Querung schräg über den ganzen Knoten abbilden. Diese Personen führt `diagonal.py` neben SUMO (etwa 10 je Stunde). Nach Angabe der Initiative gehen sie nur, wenn wirklich frei ist: kein Fahrzeug im Knoten und keines, das in den nächsten 7 s ankommt. Sonst nehmen sie nach 15 s die normalen Querungen. Ihre Konflikte stehen nur noch in der CSV, nicht im Vergleich.
 
-**Fahrzeugkinematik im Abspieler.** SUMO liefert die Position der Fahrzeugfront. Spurwechsel dauern in SUMO 3,5 s (`--lanechange.duration`). Beim langsamen Anfahren wären das nur wenige Meter Fahrweg, deshalb wird die Frontbahn im Abspieler zusätzlich als gleitendes Mittel über den Fahrweg geglättet (Bus und Sattelzug ±5 m, Lkw ±4 m, Pkw ±2 m), ein Spurwechsel verteilt sich so über 15 bis 25 m. Die Vorderachse folgt dieser Bahn, die Hinterachse läuft als Schleppkurve nach. Gelenkbus 18 m (Vorderteil mit Radstand 5,9 m, Gelenk 1,6 m hinter der Mittelachse, Nachläufer 5,9 m) und Sattelzug (Zugmaschine 3,7 m, Auflieger 7,8 m) haben zwei Glieder. Bus, Lkw und Sattelzug **holen in Kurven aus**: Ihre Vorderachse fährt um bis zu 2,2 m nach außen (Nachlauf etwa Radstand² / 2R, aus der Krümmung kurz vor und in der Kurve), so läuft das Heck innen nicht über den Bordstein. Der Knickwinkel ist begrenzt (Gelenkbus 42°, Sattelzug 65°), `werkzeuge/pruefe_abspieler.py` prüft das über den ganzen Abspieler. Die Bordstein-Kennzahl in `run.py` nutzt dieselbe Kinematik. SUMO selbst rechnet mit geraden Fahrzeugen.
+**Fahrzeugkinematik im Abspieler.** SUMO liefert die Position der Fahrzeugfront. Spurwechsel dauern in SUMO 6 s (`--lanechange.duration`). An einigen Spurübergängen setzt SUMO Fahrzeuge trotzdem schlagartig um. Im Abspieler wird deshalb auf den Armen (ab 15 m vom Knoten) der Abstand zur Armachse geglättet: Er ändert sich höchstens mit 0,42 m/s (Pkw) bzw. 0,25 m/s (Bus, Lkw, Sattelzug) und höchstens 1 m je 14 m Fahrweg, als symmetrische Rampe. Dazu kommt ein gleitendes Mittel über den Fahrweg (auf Geraden lang, in Kurven kurz). Ein Spurwechsel wird so zu einer sanften S-Kurve über 30 bis 60 m, das Fahrzeug steht dabei leicht schräg. Die Vorderachse folgt dieser Bahn, die Hinterachse läuft als Schleppkurve nach. Gelenkbus 18 m (Vorderteil mit Radstand 5,9 m, Gelenk 1,6 m hinter der Mittelachse, Nachläufer 5,9 m) und Sattelzug (Zugmaschine 3,7 m, Auflieger 7,8 m) haben zwei Glieder. Bus, Lkw und Sattelzug **holen beim Rechtsabbiegen aus** (West nach Süd, Nord nach West): Ihre Hinterachse (beim Gelenkbus die Mittelachse) läuft auf der Fahrspur, die Vorderachse fährt tangential davor einen weiteren Bogen außen, das Heck bleibt innen knapp am Bordstein. Bei Linksabbiegern und Geradeausfahrern ist genug Platz, dort folgt die Vorderachse der Bahn. Der Knickwinkel ist begrenzt (Gelenkbus 42°, Sattelzug 65°). `werkzeuge/pruefe_abspieler.py` prüft über den ganzen Abspieler Überlappungen, Bordstein, Knickwinkel und die Quergeschwindigkeit auf den Armen (Grenze Pkw 0,55 m/s, Bus und Lkw 0,5 m/s, bei schneller Fahrt Neigung 1:12). Gemessen sind höchstens 0,54 m/s (Pkw) und 0,48 m/s (Bus, Lkw), in einem Fall 0,59 m/s für einen Bus. Weil die geglätteten Bahnen seitlich etwas von SUMO abweichen, berühren sich im Abspieler je Variante 4 bis 5 Paare kurz. Die Bordstein-Kennzahl in `run.py` nutzt dieselbe Kinematik. SUMO selbst rechnet mit geraden Fahrzeugen.
 
 ## Kennzahlen
 
@@ -153,28 +158,47 @@ Kernaussagen je Stunde (Mittel aus 10 Läufen, Morgenspitze)
 
 | | Bestand | Markierung und Tempo 30 | Tempo-30-Zone | Rote Radwege |
 |---|---|---|---|---|
-| Fahrzeugkonflikte im Knoten | 58 | 40 | 17 | 46 |
-| davon schwer | 15 | 14 | 2,3 | 16 |
-| davon Kfz gegen Rad | 12 | 7 | 4 | 13 |
-| Fußgänger auf Querung bedrängt | 18 | 17 | 15 | 19 |
-| davon Fahrzeug schneller als 30 km/h | 5,7 | 3,0 | 3,3 | 2,6 |
-| Wartezeit Fußgänger in s | 3,8 | 6,9 | 8,9 | 4,6 |
-| Nordarm Zeitverlust Kfz in s | 35 (D) | 25 (C) | 8 (A) | 25 (C) |
-| Nordarm Anteil der Zeit mit Wartenden | 50 % | 43 % | 7 % | 44 % |
-| Zeitverlust Kfz in s | 14 | 10 | 8 | 10 |
+| Fahrzeugkonflikte im Knoten | 57 | 44 | 22 | 46 |
+| davon schwer | 13 | 16 | 1,9 | 15 |
+| davon Kfz gegen Rad | 9,6 | 9,7 | 4,3 | 14 |
+| Fußgänger auf Querung bedrängt | 25 | 20 | 20 | 20 |
+| davon Fahrzeug schneller als 30 km/h | 11 | 3,0 | 4,6 | 3,8 |
+| Wartezeit Fußgänger in s | 4,2 | 7,3 | 9,7 | 5,7 |
+| Nordarm Zeitverlust Kfz in s | 38 (D) | 28 (C) | 8 (A) | 28 (C) |
+| Nordarm Anteil der Zeit mit Wartenden | 50 % | 45 % | 7 % | 45 % |
+| Zeitverlust Kfz in s | 15 | 11 | 12 | 11 |
 | Stellplätze im Ausschnitt | 88 | 87 | 87 | 74 |
 
 Lesart
 
-- **Tempo-30-Zone mit rechts vor links** schneidet mit Abstand am besten ab. Die Fahrzeugkonflikte sinken auf weniger als ein Drittel, schwere fast ganz weg, Kfz gegen Rad auf ein Drittel, der Nordarm staut sich kaum noch. Fußgänger warten etwas länger, weil sie überall auf Lücken warten.
-- **Markierung und Tempo 30** senkt die Konflikte um rund ein Drittel und halbiert Kfz gegen Rad, die schweren Konflikte bleiben aber fast gleich, weil die abknickende Vorfahrt bleibt. Weniger Fahrzeuge sind an den Querungen schneller als 30 km/h.
-- **Rote Radwege** bringen gegenüber der reinen Markierung im Modell keinen Sicherheitsgewinn, Kfz gegen Rad steigt sogar leicht (13 statt 7). Vermutliche Ursache sind Radfahrende, die vom Radfahrstreifen rechts nach West links abbiegen wollen und dafür über die Geradeausspur wechseln, und Rechtsabbieger West nach Süd über den Radfahrstreifen. Ohne Ampel fehlt der geschützte Aufstellbereich. SUMO bildet das Spurwechseln der Räder grob ab, die Zahl ist eine Tendenz. Dafür kosten die Radwege 14 Stellplätze im Ausschnitt.
-- **Fehlspur.** Mit durchgezogener Linie fast keine Konflikte mehr durch Geradeausfahrer aus der Linksabbiegespur, im Bestand sind es im Modell aber auch nur unter 1 je Stunde.
-- **Bus.** Der Wechsel vom Haltebereich auf die Linksabbiegespur passiert mit jedem Bus nach West (etwa 5 je Stunde), Konflikte dabei bleiben selten (unter 0,5 je Stunde). Mit Ausholen überfährt ein Bus nur noch etwa einmal je Stunde den Bordstein.
+- **Tempo-30-Zone mit rechts vor links** schneidet mit Abstand am besten ab. Die Fahrzeugkonflikte sinken auf weniger als die Hälfte, schwere fast ganz weg, Kfz gegen Rad auf weniger als die Hälfte, der Nordarm staut sich kaum noch. Fußgänger warten länger, weil sie überall auf Lücken warten, dafür fahren an den Querungen viel weniger Fahrzeuge schneller als 30 km/h.
+- **Markierung und Tempo 30** senkt die Fahrzeugkonflikte um gut ein Fünftel und die schnellen Fahrzeuge an den Querungen auf ein Viertel. Schwere Konflikte und Kfz gegen Rad bleiben etwa wie heute, weil die abknickende Vorfahrt und das Stoppschild bleiben.
+- **Rote Radwege** bringen gegenüber der reinen Markierung im Modell keinen Sicherheitsgewinn, Kfz gegen Rad steigt sogar (14 statt 10). Vermutliche Ursache sind Radfahrende, die vom Radfahrstreifen rechts nach West links abbiegen wollen und dafür über die Geradeausspur wechseln, und Rechtsabbieger West nach Süd über den Radfahrstreifen. Ohne Ampel fehlt der geschützte Aufstellbereich. SUMO bildet das Einordnen der Räder grob ab, die Zahl ist eine Tendenz. Dafür kosten die Radwege 14 Stellplätze im Ausschnitt.
+- **Fehlspur.** Mit durchgezogener Linie fast keine Konflikte mehr durch Geradeausfahrer aus der Linksabbiegespur, im Bestand im Modell etwa einer je Stunde.
+- **Bus.** Der Wechsel vom Haltebereich auf die Linksabbiegespur passiert mit jedem Bus nach West (etwa 5 je Stunde), Konflikte dabei bleiben selten. Mit Ausholen beim Rechtsabbiegen überfahren Bus, Lkw und Sattelzug den Bordstein kaum noch (unter 0,5 Fahrten je Stunde).
+
+## Kritische Szenen
+
+Im Abspieler gibt es neben dem freien Abspielen den Modus **Kritische Szenen**. Jede Szene ist eine echte Stelle aus dem ersten der zehn Läufe je Variante (`ergebnisse/roh/<variante>_01`, Startwert 1, 0,5 s Schrittweite), gesucht mit einem festen Filter (`abspieler/szenen.py`). Es wird nichts nachgestellt. Die Szene läuft mit halber Geschwindigkeit, hält am kritischen Moment 2,5 s an und zeigt einen Untertitel in einfacher Sprache. Beteiligte sind gelb markiert, Pfeile zeigen die Fahrtrichtung. Wartende Fußgänger und langsame Fahrer zeigen einen schwenkenden Sichtkegel und Sichtlinien zu fahrenden Fahrzeugen bis 45 m, grün wenn frei, rot gestrichelt wenn Häuser, Schaltkasten, Parker oder andere Fahrzeuge die Sicht verdecken (2D-Strahltest). Über „So wäre es mit“ lässt sich je Szene die passende Stelle in einer anderen Variante zeigen, darunter steht die zugehörige Kennzahl je Variante.
+
+| Nr | Szene | Filter |
+|---|---|---|
+| 1 | Nordquerung, von Süden kommt es schnell | Person auf der Nordquerung, Fahrzeug aus Süd über 6 m/s müsste am stärksten bremsen |
+| 2 | Rad biegt nach Nord ab und steht im Verkehr | Rad West nach Nord steht am längsten im Knoten, viel Verkehr ringsum |
+| 3 | Nord gegen Ost, wer darf zuerst? | Konflikt zwischen Fahrzeugen aus Nord und Ost (auch langsam), sonst engste gleichzeitige Begegnung |
+| 4 | Engstelle Ost, Begegnung zwischen Parkern | engste Begegnung zweier Fahrzeuge in Gegenrichtung auf dem Ostarm, schwere Fahrzeuge bevorzugt |
+| 5 | Stopp Nord, Vorfahrt genommen | engster Konflikt zwischen einem Fahrzeug aus Nord und Rad bzw. Auto auf der Vorfahrt Süd und West |
+| 6 | Ohne Blinker geradeaus aus der Abbiegespur | Geradeausfahrer in der Linksabbiegespur nahe der Nordquerung, mit Fußgänger dort |
+| 7 | Bus wechselt nach dem Halt quer auf die Abbiegespur | Spurwechsel eines Busses nach West mit dem meisten Verkehr ringsum |
+| 8 | Sicht vom Kiosk über die Naumburger Straße | Person wartet an der Westquerung auf der Kioskseite, viele Fahrzeuge in Sicht |
+
+Alle acht Szenen kommen in allen vier Varianten vor. `python3 werkzeuge/szenenbilder.py <ordner> [variante]` macht Bilder am kritischen Moment.
+
+**Blinken (Ortsbeobachtung, Schätzung).** Geradeausfahrer (Süd nach Nord, Nord nach Süd, West nach Ost, Ost nach West) blinken nie, auch nicht beim Spurwechsel am Südarm oder wenn sie in der Linksabbiegespur fahren. Abbieger, auch auf der abknickenden Vorfahrt, blinken zu etwa 88 %, auch beim Einordnen. Busse blinken immer. Das ist nur im Abspieler dargestellt. In SUMO selbst wirkt das Blinken nicht, wartende Fahrer und Fußgänger kennen dort die Absicht der anderen. Die Unsicherheit durch fehlende Blinker ist deshalb in den Kennzahlen nicht enthalten, sie zeigt sich nur in Szene 6.
 
 ## Überlappungen von Fahrzeugen
 
-SUMO kann Fahrzeuge im Knoten übereinanderschieben, wenn die Vorfahrtlogik eine Lage nicht erkennt. Das ist ein Modellfehler, kein Unfall, und wird je Lauf gezählt. Bestand und Markierung unter 1 je Stunde, Zone 1,6, Radwege 4,7 (dort meist Einbieger West nach Süd und Nord nach Süd, die gleichzeitig in die Fahrspur neben dem Radfahrstreifen einfädeln). `werkzeuge/pruefe_abspieler.py` findet im Abspieler je Variante 0 bis 4 kurze Berührungen, meist ein ausschwenkendes Heck neben einem Pkw.
+SUMO kann Fahrzeuge im Knoten übereinanderschieben, wenn die Vorfahrtlogik eine Lage nicht erkennt. Das ist ein Modellfehler, kein Unfall, und wird je Lauf gezählt. Bestand und Markierung unter 1 je Stunde, Zone 1,0, Radwege 6,9 (dort meist Einbieger West nach Süd und Nord nach Süd, die gleichzeitig in die Fahrspur neben dem Radfahrstreifen einfädeln). `werkzeuge/pruefe_abspieler.py` findet im Abspieler je Variante 0 bis 4 kurze Berührungen, meist ein ausschwenkendes Heck neben einem Pkw.
 
 ## Grenzen
 
@@ -190,4 +214,4 @@ SUMO kann Fahrzeuge im Knoten übereinanderschieben, wenn die Vorfahrtlogik eine
 
 1. Zählung in der Spitzenstunde (Knotenstromzählung, gern per Video) und die Nachfrage in `build.py` ersetzen, auch für den Nachmittag mit Parkern auf der Naumburger West.
 2. Unfalldaten der Polizei mit den Konfliktschwerpunkten vergleichen.
-3. Kritische Szenen im Abspieler hervorheben, mit Sichtbereich der Fußgänger.
+3. Wirkung fehlender Blinker auf Wartende als Sensitivität rechnen (in SUMO nur über eine eigene Entscheidungslogik möglich).

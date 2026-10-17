@@ -761,7 +761,9 @@ def netconvert(prefix, net):
 # im Modell ueberlastet (Zeitverlust 80 bis 290 s, Schlange waechst). Gewaehlt sind 224 Kfz je
 # Stunde in derselben Aufteilung: die Haelfte der Zeit wartet mindestens ein Fahrzeug, ein Viertel
 # der Zeit zwei oder mehr, stabil (Schaetzung, siehe README).
-KFZ = {'SW': 260, 'WS': 240, 'SN': 110, 'NS': 130, 'NW': 78, 'WN': 60, 'NE': 10,
+# Sued nach Nord nach Ortsbeobachtung erhoeht: viele fahren zuegig geradeaus durch (Schaetzung 200
+# statt 110 Pkw je Stunde in der Morgenspitze).
+KFZ = {'SW': 260, 'WS': 240, 'SN': 200, 'NS': 130, 'NW': 78, 'WN': 60, 'NE': 10,
        'SE': 20, 'WE': 20, 'EW': 22, 'ES': 10, 'EN': 12}
 LKW = {'SW': 8, 'WS': 8, 'NS': 4, 'SN': 3, 'NW': 2, 'WN': 2}
 SATTEL = {'SW': 3, 'WS': 3}
@@ -799,7 +801,13 @@ FUSS_GESCH = {('W_out', 3): ('W_out_b', 1), ('W_in', -3): ('gWi', 1), ('S_in', -
 # impatience 0.5: Wartepflichtige akzeptieren nach laengerem Warten kleinere Luecken.
 IMPATIENCE = 0.5
 
+# Schnelle Fahrer (Ortsbeobachtung, Schaetzung): aus Sued und West faehrt ein Teil deutlich zu
+# schnell, bei Tempo 50 etwa 20 % mit 10 bis 15 km/h darueber, bei Tempo 30 etwa 10 % mit 5 bis
+# 10 km/h darueber.
+SCHNELL = {50: (0.20, 'normc(1.25,0.04,1.18,1.32)'), 30: (0.10, 'normc(1.25,0.05,1.15,1.35)')}
+
 VTYPES = '''    <vType id="pkw" impatience="{imp}" vClass="passenger" length="4.5" width="1.85" accel="2.6" decel="4.5" sigma="0.5" speedFactor="normc(1,0.1,0.8,1.3)"/>
+    <vType id="pkwf" impatience="{imp}" vClass="passenger" length="4.5" width="1.85" accel="2.8" decel="4.5" sigma="0.4" speedFactor="{schnell}"/>
     <vType id="pkwx" impatience="{imp}" vClass="taxi" length="4.5" width="1.85" accel="2.6" decel="4.5" sigma="0.5" speedFactor="normc(1,0.1,0.8,1.3)"/>
     <vType id="lkw" impatience="{imp}" vClass="truck" length="10.0" width="2.5" accel="1.3" decel="4.0" sigma="0.5" maxSpeed="12.5" speedFactor="normc(1,0.05,0.8,1.1)"/>
     <vType id="sattel" impatience="{imp}" vClass="truck" length="16.5" width="2.55" accel="1.0" decel="4.0" sigma="0.5" maxSpeed="11.7" guiShape="truck/semitrailer"/>
@@ -823,7 +831,9 @@ def stopp_kante(var):
 
 def nachfrage(var, bus, ende):
     stopp = stopp_kante(var)
-    z = ['<routes>', VTYPES.replace('{imp}', str(IMPATIENCE))]
+    lim = 50 if var == 'bestand' else 30
+    anteil_schnell, faktor = SCHNELL[lim]
+    z = ['<routes>', VTYPES.replace('{imp}', str(IMPATIENCE)).replace('{schnell}', faktor)]
     flows = []
 
     def flow(fid, typ, rel, q):
@@ -837,12 +847,16 @@ def nachfrage(var, bus, ende):
                          f'from="{KANTE[o][0]}" to="{KANTE[d][1]}" departLane="best" departSpeed="max">{stop}\n    </flow>'))
 
     for rel, q in KFZ.items():
+        fs = anteil_schnell if rel[0] in 'SW' else 0.0
         if rel == 'SN':
             fx = FEHLSPUR[var]
-            flow('pkw_SN', 'pkw', rel, q * (1 - fx))
+            flow('pkw_SN', 'pkw', rel, q * (1 - fx) * (1 - fs))
+            flow('pkw_SN.f', 'pkwf', rel, q * (1 - fx) * fs)
             flow('pkw_SNx', 'pkwx', rel, q * fx)
         else:
-            flow(f'pkw_{rel}', 'pkw', rel, q)
+            flow(f'pkw_{rel}', 'pkw', rel, q * (1 - fs))
+            if fs:
+                flow(f'pkw_{rel}.f', 'pkwf', rel, q * fs)
     for rel, q in LKW.items():
         flow(f'lkw_{rel}', 'lkw', rel, q)
     for rel, q in SATTEL.items():

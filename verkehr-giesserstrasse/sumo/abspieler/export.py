@@ -111,6 +111,117 @@ def fehlspur_versatz(lane):
     return e in ('S_in', 'S_in_f', 'S_in_m') or lane.startswith(':J')
 
 
+# Blinkverhalten (Ortsbeobachtung der Initiative, Schaetzung): Geradeausfahrer (Sued nach Nord,
+# Nord nach Sued, West nach Ost, Ost nach West) blinken nie, auch nicht beim Spurwechsel am Suedarm
+# oder in der Linksabbiegespur. Abbieger, auch auf der abknickenden Vorfahrt, blinken zu etwa 88 %,
+# dann auch beim Einordnen. Busse blinken immer.
+GERADEAUS = {'SN', 'NS', 'WE', 'EW'}
+OHNE_BLINKER_ABBIEGER = 0.12
+
+
+def _anteil(vid, salz):
+    h = 0
+    for ch in vid + salz:
+        h = (h * 131 + ord(ch)) % 1000003
+    return (h % 1000) / 1000
+
+
+def blinker_regeln(vid, typ, ab, blink, dt):
+    rel = vid.split('_')[1].split('.')[0][:2] if '_' in vid else ''
+    if typ != 'bus' and (rel in GERADEAUS or _anteil(vid, 'ab') < OHNE_BLINKER_ABBIEGER):
+        return [0] * len(blink)
+    blink = list(blink)
+    # Einordnen: Spurwechsel aus SUMO (Spurindex aendert sich zwischen normalen Kanten)
+    letzte = None
+    for i, p in enumerate(ab):
+        spur = p[4] or ''
+        if not spur or spur.startswith(':'):
+            continue
+        idx = int(spur.rsplit('_', 1)[1])
+        if letzte is not None and idx != letzte:
+            seite = 1 if idx > letzte else 2          # hoeherer Index liegt links
+            for k in range(max(0, i - int(3 / dt)), min(len(blink), i + int(2 / dt))):
+                if not blink[k]:
+                    blink[k] = seite
+        letzte = idx
+    return blink
+
+
+def kodiere(roh, dt, fenster=True):
+    """Kodiert Bahnen fuer den Abspieler. roh ist id -> [(frame, x, y, winkel, spur)], Frames unter 0
+    sind Vorlauf fuer die Schleppkurve. Fahrzeuge mit Lenkgeometrie, Fussgaenger als Punkte."""
+    out, ids = [], []
+    for vid, seq in roh.items():
+        if vid.startswith(('p:', 'd:')):
+            typ = 'fuss' if vid.startswith('p:') else 'fussd'
+        else:
+            typ = R.typ_von(vid)
+            if '_SNx' in vid:
+                typ = 'pkwx'
+        # Luecken teilen die Spur in Abschnitte
+        abschnitte, akt = [], [seq[0]]
+        for a, b in zip(seq, seq[1:]):
+            if b[0] != a[0] + 1:
+                abschnitte.append(akt)
+                akt = []
+            akt.append(b)
+        abschnitte.append(akt)
+        for ab in abschnitte:
+            if fenster and not any(in_fenster(x, y) for _, x, y, _, _ in ab):
+                continue
+            xs = [p[1] for p in ab]
+            ys = [p[2] for p in ab]
+            ws = [p[3] for p in ab]
+            if typ in ('fuss', 'fussd'):
+                frames = [(x, y) for x, y in zip(xs, ys)]
+                poses = None
+            else:
+                ktyp = 'pkw' if typ == 'pkwx' else typ
+                if typ == 'pkwx':
+                    # sichtbar mittig zwischen den Spuren: Versatz nach rechts auf dem Suedarm,
+                    # weich ein- und ausgeblendet (hoechstens 0,4 m/s quer)
+                    off = 0.0
+                    for i, p in enumerate(ab):
+                        ziel = FEHLSPUR_VERSATZ if fehlspur_versatz(p[4]) else 0.0
+                        off += max(-0.4 * dt, min(0.4 * dt, ziel - off))
+                        a = math.radians(ws[i])
+                        xs[i] += math.cos(a) * off
+                        ys[i] -= math.sin(a) * off
+                poses = K.posen(ktyp, xs, ys, ws, dt, K.ausholen_fuer(vid))
+                blink = K.blinker(ws, xs, ys, int(7 / dt)) if ktyp != 'rad' else [0] * len(xs)
+                if ktyp != 'rad':
+                    blink = blinker_regeln(vid, ktyp, ab, blink, dt)
+            # nur Frames ab Fensterbeginn
+            k0 = next((i for i, p in enumerate(ab) if p[0] >= 0), None)
+            if k0 is None:
+                continue
+            f0 = ab[k0][0]
+            d = [TYPEN.index(typ), f0, len(ab) - k0]
+            prev = None
+            for i in range(k0, len(ab)):
+                if poses is None:
+                    vals = [round(xs[i] * 10), round(-ys[i] * 10)]
+                    cur = vals
+                    d += vals if prev is None else [vals[0] - prev[0], vals[1] - prev[1]]
+                    prev = cur
+                    continue
+                Fx, Fy, h1, h2 = poses[i]
+                vals = [round(Fx * 10), round(-Fy * 10), round(h1) % 360]
+                if h2 is not None:
+                    vals.append(round(h2) % 360)
+                if prev is None:
+                    d += vals
+                else:
+                    dv = [vals[0] - prev[0], vals[1] - prev[1]] + [((v - p + 180) % 360) - 180 for v, p in zip(vals[2:], prev[2:])]
+                    d += dv
+                d.append(blink[i])
+                prev = vals
+            out.append(d)
+            ids.append(vid)
+
+    return out, ids
+
+
 def bahnen_und_konflikte(var, f):
     lanelen, querung, form, nach = R.netzinfo(var)
     n_frames = int(round(DAUER / SCHRITT))
@@ -167,69 +278,7 @@ def bahnen_und_konflikte(var, f):
                         fuss_konf.append([round(t - START, 1), r2(px), r2(-py), art, 1 if sp > 30 / 3.6 else 0])
         ts.clear()
 
-    out = []
-    kinem = {}
-    for vid, seq in roh.items():
-        if vid.startswith(('p:', 'd:')):
-            typ = 'fuss' if vid.startswith('p:') else 'fussd'
-        else:
-            typ = R.typ_von(vid)
-            if '_SNx' in vid:
-                typ = 'pkwx'
-        # Luecken teilen die Spur in Abschnitte
-        abschnitte, akt = [], [seq[0]]
-        for a, b in zip(seq, seq[1:]):
-            if b[0] != a[0] + 1:
-                abschnitte.append(akt)
-                akt = []
-            akt.append(b)
-        abschnitte.append(akt)
-        for ab in abschnitte:
-            if not any(in_fenster(x, y) for _, x, y, _, _ in ab):
-                continue
-            xs = [p[1] for p in ab]
-            ys = [p[2] for p in ab]
-            ws = [p[3] for p in ab]
-            if typ in ('fuss', 'fussd'):
-                frames = [(x, y) for x, y in zip(xs, ys)]
-                poses = None
-            else:
-                ktyp = 'pkw' if typ == 'pkwx' else typ
-                if typ == 'pkwx':
-                    # sichtbar mittig zwischen den Spuren: Versatz nach rechts auf dem Suedarm
-                    for i, p in enumerate(ab):
-                        if fehlspur_versatz(p[4]):
-                            a = math.radians(ws[i])
-                            xs[i] += math.cos(a) * FEHLSPUR_VERSATZ
-                            ys[i] -= math.sin(a) * FEHLSPUR_VERSATZ
-                poses = K.posen(ktyp, xs, ys, ws)
-                blink = K.blinker(ws, xs, ys, int(7 / SCHRITT)) if ktyp != 'rad' else [0] * len(xs)
-            # nur Frames ab Fensterbeginn
-            k0 = next((i for i, p in enumerate(ab) if p[0] >= 0), None)
-            if k0 is None:
-                continue
-            f0 = ab[k0][0]
-            d = [TYPEN.index(typ), f0, len(ab) - k0]
-            prev = None
-            for i in range(k0, len(ab)):
-                if poses is None:
-                    vals = [round(xs[i] * 10), round(-ys[i] * 10)]
-                    cur = vals
-                    d += vals if prev is None else [vals[0] - prev[0], vals[1] - prev[1]]
-                    prev = cur
-                    continue
-                Fx, Fy, h1, h2 = poses[i]
-                vals = [round(Fx * 10), round(-Fy * 10), round(h1) % 360]
-                if h2 is not None:
-                    vals.append(round(h2) % 360)
-                if prev is None:
-                    d += vals
-                else:
-                    dv = [vals[0] - prev[0], vals[1] - prev[1]] + [((v - p + 180) % 360) - 180 for v, p in zip(vals[2:], prev[2:])]
-                    d += dv
-                d.append(blink[i])
-                prev = vals
-            out.append(d)
+    out, _ = kodiere(roh, SCHRITT)
 
     # Fahrzeugkonflikte aus SSM, Filter wie run.py
     konf = []
@@ -803,6 +852,21 @@ def main():
             v['karte'] = karte(var, bauten)
             daten['varianten'][var] = v
             print(f"   {len(v['tracks'])} Bahnen, {len(v['konflikte'])} Konflikte")
+    # Kritische Szenen aus den Rohdaten von run.py (Lauf 1 je Variante)
+    import szenen as SZ
+    lanes, cross = lies_netz('bestand')
+    mitte = {c['edge'][2]: LineString(c['pts']).interpolate(0.5, normalized=True) for c in cross if c['edge'] in (':MN_c0', ':MW_c0')}
+    mn, mw = (mitte['N'].x, mitte['N'].y), (mitte['W'].x, mitte['W'].y)
+    print('Szenen')
+    daten['szenen'] = SZ.baue(VARIANTEN, sys.modules[__name__], mn, mw)
+    # Hindernisse fuer die Sichtlinien: Gebaeude (vereinfacht) und Schaltkasten, SVG-Koordinaten
+    nah = box(-60, -60, 60, 60)
+    daten['hindernisse'] = [[[r2(x), r2(-y)] for x, y in g.exterior.coords]
+                            for b in bauten for g in getattr(b.intersection(nah).simplify(0.3), 'geoms', [b.intersection(nah).simplify(0.3)])
+                            if g.geom_type == 'Polygon' and not g.is_empty]
+    rw = rahmen('W')
+    qk = kante_q('W', 'in') - 0.9
+    daten['kasten'] = [[r2(x), r2(-y)] for x, y in (rw.punkt(15.6, qk), rw.punkt(17.4, qk), rw.punkt(17.4, qk - 0.7), rw.punkt(15.6, qk - 0.7))]
     js = json.dumps(daten, separators=(',', ':'), ensure_ascii=False)
     html = open(VORLAGE, encoding='utf-8').read().replace('/*__DATEN__*/null', js)
     os.makedirs(os.path.dirname(ZIEL), exist_ok=True)

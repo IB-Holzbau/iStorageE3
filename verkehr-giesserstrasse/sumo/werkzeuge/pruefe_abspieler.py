@@ -26,6 +26,9 @@ import strassenraum as SR   # noqa: E402
 
 DATEI = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, 'grafik', 'abspieler.html')
 SCHRUMPF = 0.05
+# Grenzen fuer die Quergeschwindigkeit beim Spurwechsel in m/s (Wunsch der Initiative)
+QUER_MAX = {'pkw': 0.55, 'lkw': 0.5, 'bus': 0.5, 'sattel': 0.5}
+NEIGUNG_MAX = 1 / 12
 STRIDE = {'pkw': 4, 'pkwx': 4, 'lkw': 4, 'rad': 4, 'bus': 5, 'sattel': 5, 'fuss': 2, 'fussd': 2}
 
 
@@ -111,10 +114,31 @@ def main():
                 m = max(K.knickwinkel(h1, h2) for _, _, h1, h2 in t['frames'])
                 knick[t['typ']] = max(knick.get(t['typ'], 0.0), m)
         zu_stark = {k: round(v, 1) for k, v in knick.items() if v > K.KNICK_MAX[k] + 0.6}
+        # groesste Quergeschwindigkeit auf geraden Abschnitten (Spurwechsel), gegen die Grenze
+        dt = D['schritt']
+        quer = {}
+        for t in tr:
+            fr = t['frames']
+            for i in range(5, len(fr) - 5):
+                (x0, y0, a0, _), (x1, y1, a1, _) = fr[i - 1], fr[i]
+                v = math.hypot(x1 - x0, y1 - y0) / dt
+                # nur auf den Armen (Spurwechsel), im Knoten ist die Schraegfahrt Teil der Bahn
+                if v < 1.0 or math.hypot(x1, y1) < 20 or abs(((fr[i + 5][2] - fr[i - 5][2]) + 180) % 360 - 180) > 6:
+                    continue
+                u = K.richtung(a1)
+                q = abs((x1 - x0) * u[1] - (y1 - y0) * u[0]) / dt
+                # bei schneller Fahrt gilt die Grenze als Neigung 1:12 (Spurwechsel ueber gut 40 m)
+                q_rel = q - max(0.0, NEIGUNG_MAX * v - QUER_MAX.get(t['typ'], 9))
+                quer[t['typ']] = max(quer.get(t['typ'], 0.0), q_rel)
+        zu_quer = {k: round(v, 2) for k, v in quer.items() if k in QUER_MAX and v > QUER_MAX[k]}
+        if zu_quer:
+            gesamt += 1
         if zu_stark:
             gesamt += 1
         print(f'{var}: {frames} Frames mit Ueberlappung, {len(paare)} Paare; Kfz ueber Bordstein {len(bord)}, ueber Insel/Pflaster {len(ins)}; '
-              f'groesster Knick {", ".join(f"{k} {v:.0f} Grad" for k, v in knick.items())}' + (f' UEBER GRENZE {zu_stark}' if zu_stark else ''))
+              f'groesster Knick {", ".join(f"{k} {v:.0f} Grad" for k, v in knick.items())}' + (f' UEBER GRENZE {zu_stark}' if zu_stark else '')
+              + '; groesste Quergeschwindigkeit ' + ', '.join(f'{k} {v:.2f} m/s' for k, v in sorted(quer.items()))
+              + (f' UEBER GRENZE {zu_quer}' if zu_quer else ''))
         for (ia, ib), (a, b, t) in list(paare.items())[:8]:
             print(f'   {a} und {b} ab {t:.1f} s')
     return gesamt

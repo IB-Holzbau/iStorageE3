@@ -76,6 +76,25 @@ details ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
 .signs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
 .signs .sg{display:grid;grid-template-columns:52px minmax(0,1fr);gap:8px;align-items:center;font-size:13px;line-height:1.25}
 .signs svg{width:52px;height:56px}
+
+.modes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.modes button,.szliste button,.szvgl button{font:inherit;font-family:var(--display);font-weight:600;font-size:15px;border:1px solid var(--line);background:var(--chip);color:var(--fg);border-radius:8px;padding:8px 10px;cursor:pointer;min-height:44px;text-align:left}
+.modes button[aria-pressed="true"],.szliste button[aria-pressed="true"],.szvgl button[aria-pressed="true"]{border-color:var(--signal);box-shadow:inset 0 0 0 2px var(--signal);background:var(--panel)}
+.szliste{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+@media (max-width:520px){.szliste{grid-template-columns:minmax(0,1fr)}}
+.szliste button{display:grid;grid-template-columns:28px minmax(0,1fr);gap:8px;align-items:center;font-size:14px;line-height:1.2}
+.szliste button b{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#d62828;color:#fff;font-size:14px}
+.szvgl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+@media (max-width:520px){.szvgl{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.szvgl button{font-size:13.5px;min-height:40px}
+.szvgl button:disabled{opacity:.55;cursor:default}
+.untertitel{position:absolute;left:10px;right:10px;bottom:10px;background:rgba(20,24,29,.9);color:#fff;font-size:15px;line-height:1.4;padding:10px 12px;border-radius:8px;display:none}
+.untertitel b{color:#ffd166;font-family:var(--display);font-size:16px}
+.untertitel.an{display:block}
+.untertitel.jetzt{box-shadow:0 0 0 3px #d62828}
+.sichtleg{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--muted)}
+.sichtleg i{display:inline-block;width:22px;height:0;border-top:3px solid #2e9d4f;vertical-align:middle;margin-right:6px}
+.sichtleg i.rot{border-top:3px dashed #d62828}
 </style>
 </head>
 <body>
@@ -87,6 +106,7 @@ details ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
   </header>
   <section class="stage">
     <div class="mapcol">
+      <div class="modes" role="group" aria-label="Ansicht"><button id="m-frei" aria-pressed="true">Frei abspielen</button><button id="m-sz" aria-pressed="false">Kritische Szenen</button></div>
       <div class="tabs" role="tablist" aria-label="Variante" id="tabs"></div>
       <div class="mapbox">
         <svg id="map" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Draufsicht der Kreuzung mit fahrenden Fahrzeugen und Fußgängern">
@@ -98,6 +118,7 @@ details ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
               <path d="M-4.5 -.18 H-1 V-.5 L0 0 L-1 .5 V.18 H-4.5 Z" fill="#fff" fill-opacity=".85"/>
               <path d="M-2.8 .18 Q-2.2 .18 -2.2 .7 V.9 H-2.55 L-1.9 1.55 L-1.25 .9 H-1.6 V.7 Q-1.6 -.18 -2.8 -.18 Z" fill="#fff" fill-opacity=".85"/>
             </symbol>
+            <marker id="pfeilspitze" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 0 L10 5 L0 10 Z" fill="#ffd166"/></marker>
             <symbol id="p-rad" viewBox="-1 -1 2 2" overflow="visible">
               <g fill="none" stroke="#fff" stroke-width=".12" stroke-opacity=".9"><circle cx="-.45" cy=".15" r=".32"/><circle cx=".45" cy=".15" r=".32"/><path d="M-.45 .15 L-.1 -.3 L.3 -.3 L.45 .15 M-.1 -.3 L.05 .15 L.45 .15"/></g>
             </symbol>
@@ -107,17 +128,28 @@ details ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
           <g id="static"></g>
           <g id="park"></g>
           <g id="agents"></g>
+          <g id="sicht"></g>
           <g id="fx"></g>
           <g id="signs"></g>
           <g id="labels"></g>
         </svg>
         <div class="clock" id="clock">0:00</div>
         <div class="badge" id="badge">Konflikte 0</div>
+        <div class="untertitel" id="untertitel" aria-live="polite"></div>
       </div>
       <div class="player">
         <button class="primary" id="play" aria-label="Abspielen">▶ Start</button>
         <div class="speed" role="group" aria-label="Tempo" id="speed"></div>
         <input type="range" id="zeit" min="0" max="300" step="0.1" value="0" aria-label="Zeitleiste">
+      </div>
+      <div class="card" id="szkarte" hidden>
+        <h2>Kritische Szenen</h2>
+        <p>Echte Stellen aus den SUMO-Läufen. Antippen spielt die Szene langsam ab und hält am kritischen Moment kurz an.</p>
+        <div class="szliste" id="szliste"></div>
+        <h2 style="font-size:17px">So wäre es mit</h2>
+        <div class="szvgl" id="szvgl" role="group" aria-label="Variante für diese Szene"></div>
+        <p class="note" id="sznote"></p>
+        <div class="sichtleg"><span><i></i>Fußgänger oder Fahrer sieht das Fahrzeug</span><span><i class="rot"></i>verdeckt durch Parker, Schaltkasten, Haus oder Fahrzeug</span></div>
       </div>
       <div class="legend" aria-label="Legende">
         <span><i class="sw" style="background:#4a6fa5"></i>Pkw</span>
@@ -189,9 +221,13 @@ for(const [txt,x,y,rot] of D.namen){
 // ---------- Bahnen dekodieren
 const STRIDE={pkw:4,pkwx:4,lkw:4,rad:4,bus:5,sattel:5,fuss:2,fussd:2};
 const cache={};
+function rohDaten(key){
+  if(key.startsWith('sz:')){const [,nr,v]=key.split(':');return D.szenen.clips[nr][v];}
+  return D.varianten[key];
+}
 function decode(v){
   if(cache[v])return cache[v];
-  const raw=D.varianten[v];const tr=[];
+  const raw=rohDaten(v);const tr=[];
   for(const d of raw.tracks){
     const typ=D.typen[d[0]],n=d[2],st=STRIDE[typ];
     const xs=new Float32Array(n),ys=new Float32Array(n),a1=new Float32Array(n),a2=new Float32Array(n),bl=new Uint8Array(n);
@@ -204,7 +240,7 @@ function decode(v){
     tr.push({typ,f0:d[1],n,xs,ys,a1,a2,bl,idx:tr.length});
   }
   const k=raw.konflikte.map(c=>({t:c[0],x:c[1],y:c[2],k:c[3],s:c[4]}));
-  return cache[v]={tr,k,n:raw.n,karte:raw.karte};
+  return cache[v]={tr,k,n:raw.n,karte:raw.karte,dt:raw.schritt||D.schritt,te:raw.te,fokus:raw.fokus||[],ort:raw.ort,text:raw.text,zeit:raw.zeit};
 }
 // ---------- Schilder
 // Verkehrszeichen nach StVO-Vorlage (vereinfachte Proportionen), Groesse s in Metern der Karte
@@ -373,10 +409,14 @@ function dir(a){const r=a*Math.PI/180;return [Math.sin(r),-Math.cos(r)];}
 function lerpA(a,b,f){let d=((b-a+540)%360)-180;return a+d*f;}
 function place(node,x,y,a){node.setAttribute('transform',`translate(${x.toFixed(2)} ${y.toFixed(2)}) rotate(${(a-90).toFixed(1)})`);}
 // ---------- Zustand
-let cur='bestand',T=0,playing=false,tempo=2,last=null,aktiv=new Map();
-const DT=D.schritt, DUR=D.dauer;
+let cur='bestand',ds='bestand',T=0,playing=false,tempo=2,last=null,aktiv=new Map();
+let modus='frei',szNr=1,szVar='bestand',halt=0,gehalten=false;
+const gSicht=$('sicht');
+function DTc(){return decode(ds).dt;}
+function DURc(){const V=decode(ds);return (V.n-1)*V.dt;}
+function leereAgenten(){for(const a of aktiv.values())a.g.remove();aktiv.clear();gFx.replaceChildren();gSicht.replaceChildren();}
 function setVariante(v){
-  cur=v;for(const a of aktiv.values())a.g.remove();aktiv.clear();gFx.replaceChildren();
+  cur=v;ds=v;leereAgenten();
   const V=decode(v);zeichneKarte(V.karte);
   for(const b of $('tabs').children)b.setAttribute('aria-selected',b.dataset.v===v?'true':'false');
   const meta=VAR.find(x=>x.id===v);$('vtitel').textContent=meta.t+(meta.k&&v!=='bestand'?', '+meta.k:'');$('vtext').textContent=meta.x;
@@ -384,7 +424,7 @@ function setVariante(v){
   try{localStorage.setItem('giesser-variante',v);}catch(e){}
 }
 function render(){
-  const V=decode(cur);const f=Math.min(T/DT,V.n-1.001);const i=Math.floor(f),fr=f-i;
+  const V=decode(ds);const f=Math.min(T/V.dt,V.n-1.001);const i=Math.floor(f),fr=f-i;const lage=[];
   const seen=new Set();const blinkAn=Math.floor(T*2.6)%2===0;
   for(const t of V.tr){
     const k=i-t.f0;if(k<0||k>=t.n)continue;
@@ -392,8 +432,10 @@ function render(){
     let a=aktiv.get(t.idx);if(!a){a=baueAgent(t);aktiv.set(t.idx,a);}
     seen.add(t.idx);
     const x=t.xs[k]+(t.xs[k2]-t.xs[k])*ff,y=t.ys[k]+(t.ys[k2]-t.ys[k])*ff;
-    if(t.typ==='fuss'||t.typ==='fussd'){a.segs[0].setAttribute('cx',x.toFixed(2));a.segs[0].setAttribute('cy',y.toFixed(2));continue;}
+    const spd=k2>k?Math.hypot(t.xs[k2]-t.xs[k],t.ys[k2]-t.ys[k])/V.dt:0;
+    if(t.typ==='fuss'||t.typ==='fussd'){a.segs[0].setAttribute('cx',x.toFixed(2));a.segs[0].setAttribute('cy',y.toFixed(2));lage.push({t,x,y,h:null,spd,k});continue;}
     const h1=lerpA(t.a1[k],t.a1[k2],ff);
+    lage.push({t,x,y,h:h1,h2:t.a2[k],spd,k});
     place(a.segs[0],x,y,h1);
     const z=G[t.typ==='pkwx'?'pkw':t.typ];
     if(a.segs.length>1){
@@ -405,7 +447,8 @@ function render(){
     for(const c of a.bl){const s=+c.getAttribute('data-s');c.setAttribute('visibility',b&&blinkAn&&((b===1&&s<0)||(b===2&&s>0))?'visible':'hidden');}
   }
   for(const [id,a] of aktiv)if(!seen.has(id)){a.g.remove();aktiv.delete(id);}
-  gFx.replaceChildren();
+  gFx.replaceChildren();gSicht.replaceChildren();
+  if(modus==='sz')zeichneSzene(V,lage);
   const cnt={k:0,a:0,f:0,d:0};
   for(const c of V.k){
     if(c.t<=T)cnt[c.k]++;
@@ -413,16 +456,79 @@ function render(){
     const p=age/2.2;
     el('circle',{class:'fxring',cx:c.x,cy:c.y,r:(1.2+p*4.5).toFixed(2),fill:KONF[c.k].c,'fill-opacity':(.28*(1-p)).toFixed(2),stroke:KONF[c.k].c,'stroke-width':(c.s?.7:.4),'stroke-opacity':(1-p).toFixed(2)},gFx);
   }
-  const m=Math.floor(T/60),s=Math.floor(T%60);
+  const tz=modus==='sz'?T+(V.zeit||0)-(V.te||0):T;
+  const m=Math.floor(tz/60),s=Math.floor(tz%60);
   $('clock').textContent=`${m}:${String(s).padStart(2,'0')}`;
   const tot=cnt.k+cnt.a+cnt.f+cnt.d;$('badge').textContent=`Konflikte ${tot}`;
   $('live').replaceChildren(...Object.entries(KONF).map(([key,o])=>{const r=document.createElement('div');r.className='row';
     r.innerHTML=`<span class="ring" style="color:${o.c}"></span><span>${o.t}</span><b>${cnt[key]}</b>`;return r;}));
-  $('zeit').value=T.toFixed(1);
+  $('zeit').value=T.toFixed(1);$('zeit').max=DURc();
+}
+// ---------- Szenen: Hinweise und Sicht
+function hindernisse(V){
+  const polys=[];
+  for(const p of D.hindernisse)polys.push(p);
+  polys.push(D.kasten);
+  for(const [x,y,r] of decode(szVar).karte.park){const a=r*Math.PI/180,c=Math.cos(a),s=Math.sin(a);
+    polys.push([[-2.2,-.88],[2.2,-.88],[2.2,.88],[-2.2,.88]].map(([u,v])=>[x+u*c-v*s,y+u*s+v*c]));}
+  return polys;
+}
+function fzPoly(L){
+  const z=G[L.t.typ==='pkwx'?'pkw':L.t.typ];if(!z)return null;const u=dir(L.h),n=[-u[1],u[0]],w=(z.w||1.8)/2;
+  const vorn=(z.front||z.fo||.5),hint=z.art?(z.wb+z.back):(z.wb+z.ro);
+  const A=[L.x+u[0]*vorn,L.y+u[1]*vorn],B=[L.x-u[0]*hint,L.y-u[1]*hint];
+  return [[A[0]+n[0]*w,A[1]+n[1]*w],[A[0]-n[0]*w,A[1]-n[1]*w],[B[0]-n[0]*w,B[1]-n[1]*w],[B[0]+n[0]*w,B[1]+n[1]*w]];
+}
+function schneidet(ax,ay,bx,by,poly){
+  const minx=Math.min(ax,bx),maxx=Math.max(ax,bx),miny=Math.min(ay,by),maxy=Math.max(ay,by);
+  let pminx=1e9,pmaxx=-1e9,pminy=1e9,pmaxy=-1e9;for(const [x,y] of poly){if(x<pminx)pminx=x;if(x>pmaxx)pmaxx=x;if(y<pminy)pminy=y;if(y>pmaxy)pmaxy=y;}
+  if(pmaxx<minx||pminx>maxx||pmaxy<miny||pminy>maxy)return false;
+  for(let i=0;i<poly.length;i++){const [cx,cy]=poly[i],[dx,dy]=poly[(i+1)%poly.length];
+    const d=(bx-ax)*(dy-cy)-(by-ay)*(dx-cx);if(Math.abs(d)<1e-9)continue;
+    const ua=((dx-cx)*(ay-cy)-(dy-cy)*(ax-cx))/d,ub=((bx-ax)*(ay-cy)-(by-ay)*(ax-cx))/d;
+    if(ua>0.02&&ua<0.98&&ub>=0&&ub<=1)return true;}
+  return false;
+}
+function zeichneSzene(V,lage){
+  const nahe=Math.abs(T-V.te)<1.6;
+  if(V.ort){const p=(T*1.2)%1;
+    el('circle',{cx:V.ort[0],cy:V.ort[1],r:(2.5+p*4).toFixed(2),fill:'none',stroke:'#d62828','stroke-width':nahe?.8:.45,'stroke-opacity':(nahe?1:.7)*(1-p)},gFx);}
+  const polys=hindernisse(V);
+  const fokus=lage.filter(L=>V.fokus.includes(L.t.idx));
+  const fz=lage.filter(L=>L.h!==null&&L.t.typ!=='rad'||L.t.typ==='rad');
+  for(const L of fokus){
+    // Markierung des beteiligten Verkehrsteilnehmers
+    el('circle',{cx:L.x,cy:L.y,r:L.h===null?1.4:2.2,fill:'none',stroke:'#ffd166','stroke-width':.35},gFx);
+    if(L.h!==null&&L.spd>1){const u=dir(L.h);
+      el('path',{d:`M${L.x+u[0]*1.5} ${L.y+u[1]*1.5} L${L.x+u[0]*6} ${L.y+u[1]*6}`,stroke:'#ffd166','stroke-width':.45,'marker-end':'url(#pfeilspitze)'},gFx);}
+    // Sicht: Fussgaenger immer, Fahrer nur wenn er langsam ist (wartet am Stopp oder an der Wartelinie)
+    const fuss=L.h===null;if(!fuss&&L.spd>2.5)continue;
+    let basis;
+    if(fuss){const t=L.t,k2=Math.min(L.k+Math.round(6/V.dt),t.n-1);const dx=t.xs[k2]-t.xs[L.k],dy=t.ys[k2]-t.ys[L.k];
+      basis=Math.hypot(dx,dy)>1?Math.atan2(dy,dx):(V.ort?Math.atan2(V.ort[1]-L.y,V.ort[0]-L.x):0);}
+    else{const u=dir(L.h);basis=Math.atan2(u[1],u[0]);}
+    const warten=L.spd<0.4;const schwenk=warten?(fuss?1.35:1.0)*Math.sin(T*2*Math.PI/3.2):0;
+    const mitte=basis+schwenk,halb=fuss?0.55:0.75,R0=24;
+    const pts=[[L.x,L.y]];for(let a=-halb;a<=halb+1e-6;a+=halb/6)pts.push([L.x+Math.cos(mitte+a)*R0,L.y+Math.sin(mitte+a)*R0]);
+    el('polygon',{points:pts.map(p=>p.map(v=>v.toFixed(2)).join(',')).join(' '),fill:'#ffd166','fill-opacity':.16,stroke:'#ffd166','stroke-opacity':.5,'stroke-width':.15},gSicht);
+    const andere=lage.filter(o=>o!==L&&o.h!==null).map(o=>({o,p:fzPoly(o)}));
+    for(const {o} of andere){
+      if(o.spd<1)continue;const d=Math.hypot(o.x-L.x,o.y-L.y);if(d>45||d<1.5)continue;
+      let zu=false;for(const p of polys){if(schneidet(L.x,L.y,o.x,o.y,p)){zu=true;break;}}
+      if(!zu)for(const {o:o2,p} of andere){if(o2===o||!p)continue;if(schneidet(L.x,L.y,o.x,o.y,p)){zu=true;break;}}
+      el('line',{x1:L.x,y1:L.y,x2:o.x,y2:o.y,stroke:zu?'#d62828':'#2e9d4f','stroke-width':zu?.22:.28,'stroke-dasharray':zu?'.8 .6':'','stroke-opacity':.9},gSicht);
+    }
+  }
+  const u=$('untertitel');u.classList.toggle('jetzt',nahe);
 }
 function frame(ts){
   if(!playing){last=null;return;}
-  if(last!=null){T+=Math.min((ts-last)/1000,.1)*tempo;if(T>=DUR)T=0;}
+  if(last!=null){const dts=Math.min((ts-last)/1000,.1);
+    if(modus==='sz'){const V=decode(ds);
+      if(halt>0){halt-=dts;}
+      else{const T0=T;T+=dts*tempo;if(!gehalten&&T0<V.te&&T>=V.te){T=V.te;halt=2.5;gehalten=true;}}
+      if(T>=DURc()){T=Math.max(0,V.te-8);gehalten=false;}}
+    else{T+=dts*tempo;if(T>=DURc())T=0;}}
   last=ts;render();requestAnimationFrame(frame);
 }
 function setPlay(p){playing=p;$('play').textContent=p?'❚❚ Pause':'▶ Start';$('play').setAttribute('aria-label',p?'Pause':'Abspielen');if(p)requestAnimationFrame(frame);}
@@ -459,11 +565,39 @@ for(const v of VAR){const b=document.createElement('button');b.role='tab';b.data
 for(const s of [1,2,4]){const b=document.createElement('button');b.textContent=s+'×';b.setAttribute('aria-pressed',s===tempo?'true':'false');
   b.addEventListener('click',()=>{tempo=s;for(const x of $('speed').children)x.setAttribute('aria-pressed',x===b?'true':'false');});$('speed').appendChild(b);}
 $('play').addEventListener('click',()=>setPlay(!playing));
-$('zeit').max=DUR;
 $('zeit').addEventListener('input',e=>{T=parseFloat(e.target.value);render();});
+const VKURZ={bestand:'Heute',markierung:'Markierung',zone:'Tempo-30-Zone',radwege:'Rote Radwege'};
+function setModus(m){
+  modus=m;$('m-frei').setAttribute('aria-pressed',m==='frei');$('m-sz').setAttribute('aria-pressed',m==='sz');
+  $('szkarte').hidden=m!=='sz';$('tabs').hidden=m==='sz';$('untertitel').classList.toggle('an',m==='sz');
+  if(m==='sz')ladeSzene(szNr,'bestand');else{tempo=2;setVariante(cur);}
+}
+function ladeSzene(nr,v){
+  const clips=D.szenen.clips[nr]||{};
+  if(!clips[v]){v=Object.keys(clips)[0];}
+  szNr=nr;szVar=v||'bestand';
+  for(const b of $('szliste').children)b.setAttribute('aria-pressed',+b.dataset.nr===nr);
+  const meta=D.szenen.liste.find(x=>x.nr===nr);
+  $('szvgl').replaceChildren(...Object.keys(VKURZ).map(k=>{const b=document.createElement('button');b.textContent=VKURZ[k];
+    b.setAttribute('aria-pressed',k===szVar);const da=!!clips[k];b.disabled=!da;
+    b.title=da?'':'In dieser Variante kommt die Szene im berechneten Lauf nicht vor';
+    b.addEventListener('click',()=>ladeSzene(nr,k));return b;}));
+  const fehlt=Object.keys(VKURZ).filter(k=>!clips[k]);
+  let note='';
+  if(meta.kennzahl){const [key,lbl]=meta.kennzahl;note=`${lbl} je Stunde: `+Object.keys(VKURZ).map(k=>`${VKURZ[k]} ${String(D.kennzahlen[k][key]??'–').replace('.',',')}`).join(', ')+'.';}
+  if(fehlt.length)note+=` Nicht gefunden in ${fehlt.map(k=>VKURZ[k]).join(', ')}.`;
+  $('sznote').textContent=note.trim();
+  if(!v){$('untertitel').innerHTML=`<b>${nr}</b> Diese Szene kommt in keiner Variante vor.`;return;}
+  leereAgenten();cur=szVar;ds=`sz:${nr}:${szVar}`;zeichneKarte(decode(szVar).karte);
+  const V=decode(ds);$('untertitel').innerHTML=`<b>${nr} ${meta.titel}</b><br>${V.text}`+(szVar!=='bestand'?` <i>(${VKURZ[szVar]})</i>`:'');
+  T=Math.max(0,V.te-8);halt=0;gehalten=false;tempo=0.5;render();setPlay(true);
+}
+for(const sz of D.szenen.liste){const b=document.createElement('button');b.dataset.nr=sz.nr;b.innerHTML=`<b>${sz.nr}</b><span>${sz.titel}</span>`;
+  b.setAttribute('aria-pressed','false');b.addEventListener('click',()=>ladeSzene(sz.nr,szVar));$('szliste').appendChild(b);}
+$('m-frei').addEventListener('click',()=>setModus('frei'));$('m-sz').addEventListener('click',()=>setModus('sz'));
 let start='bestand';try{const s=localStorage.getItem('giesser-variante');if(s&&D.varianten[s])start=s;}catch(e){}
 setVariante(start);
-window.__abspieler={setVariante,setT:t=>{T=t;render();},play:setPlay,state:()=>({cur,T,agents:aktiv.size})};
+window.__abspieler={daten:()=>D,setVariante,setModus,ladeSzene,setT:t=>{T=t;halt=0;render();},play:setPlay,state:()=>({cur,ds,T,modus,agents:aktiv.size})};
 if(!matchMedia('(prefers-reduced-motion: reduce)').matches)setPlay(true);
 </script>
 </body>

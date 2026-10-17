@@ -86,7 +86,7 @@ KNICK_MAX = {'bus': 42.0, 'sattel': 65.0}
 AUSHOLEN = {'bus', 'lkw', 'sattel'}
 
 
-def _tangente(bahn, s, h=0.75):
+def _tangente(bahn, s, h=1.5):
     a, b = bahn.punkt(s - h), bahn.punkt(s + h)
     return SR_einheit(b[0] - a[0], b[1] - a[1])
 
@@ -109,28 +109,124 @@ def _begrenze(u1, u2, grenze):
 # Groesste seitliche Geschwindigkeit der dargestellten Front in m/s. SUMO setzt Fahrzeuge an
 # Uebergaengen zwischen Fahrspuren (z.B. am Ende des Haltebereichs) teils seitlich um; das wird
 # hier auf ein weiches seitliches Wandern begrenzt (Spurwechsel ueber einige Sekunden).
-V_SEITE = {'bus': 0.8, 'sattel': 0.8, 'lkw': 0.9, 'pkw': 1.2, 'rad': 1.0}
+V_SEITE = {'bus': 0.25, 'sattel': 0.25, 'lkw': 0.25, 'pkw': 0.42, 'rad': 0.6}
 NEIGUNG = {'bus': 0.13, 'sattel': 0.13, 'lkw': 0.16, 'pkw': 0.25, 'rad': 0.35}
 
 
-# Halbe Fensterlaenge in Metern fuer die Glaettung der Bahn entlang des Fahrwegs
-GLATT_M = {'bus': 5.0, 'sattel': 5.0, 'lkw': 4.0, 'pkw': 2.0, 'rad': 1.0}
+# Halbe Fensterlaenge in Metern fuer die Glaettung der Bahn entlang des Fahrwegs. Auf geraden
+# Abschnitten lang (Spurwechsel werden zu einer sanften S-Kurve ueber 30 bis 60 m), in Kurven kurz,
+# damit Abbiegebahnen erhalten bleiben. Kurve heisst, die Fahrtrichtung aendert sich im Umkreis
+# von 10 m um mehr als 20 Grad.
+GLATT_GERADE = {'bus': 16.0, 'sattel': 16.0, 'lkw': 14.0, 'pkw': 10.0, 'rad': 4.0}
+GLATT_KURVE = {'bus': 2.0, 'sattel': 2.0, 'lkw': 2.0, 'pkw': 1.5, 'rad': 1.0}
+
+
+SPRUNG_MS = 0.6     # quer schneller als das (bezogen auf den letzten SUMO-Winkel) gilt als Sprung
+
+
+def sprung_weg(typ, xs, ys, winkel, dt):
+    """SUMO setzt Fahrzeuge an manchen Spuruebergaengen schlagartig seitlich um. Solche Spruenge
+    (quer zur bisherigen Fahrtrichtung schneller als 1 m/s) werden hier als Versatz aufgefangen
+    und dann mit hoechstens V_SEITE m/s abgebaut, so wird daraus ein weicher Spurwechsel."""
+    vmax = V_SEITE.get(typ, 0.5) * dt
+    ox, oy = [xs[0]], [ys[0]]
+    offx = offy = 0.0
+    for i in range(1, len(xs)):
+        u = richtung(winkel[i - 1])
+        dx, dy = xs[i] - xs[i - 1], ys[i] - ys[i - 1]
+        quer = dx * u[1] - dy * u[0]
+        if abs(quer) > SPRUNG_MS * dt:
+            offx -= u[1] * quer
+            offy += u[0] * quer
+        d = math.hypot(offx, offy)
+        if d > 0:
+            f = max(d - vmax, 0.0) / d
+            offx, offy = offx * f, offy * f
+        ox.append(xs[i] + offx)
+        oy.append(ys[i] + offy)
+    return ox, oy
+
+
+_ARME = None
+
+
+def _arme():
+    global _ARME
+    if _ARME is None:
+        import build
+        _ARME = {}
+        for a, ((x0, y0), (x1, y1)) in build.achsen().items():
+            d = math.hypot(x1 - x0, y1 - y0)
+            _ARME[a] = ((x0, y0), ((x1 - x0) / d, (y1 - y0) / d))
+    return _ARME
+
+
+NEIGUNG_QUER = 1 / 14     # hoechstens so viel Querversatz je Meter Fahrweg auf den Armen
+
+
+def querversatz_weich(typ, xs, ys, dt):
+    """Auf den Armen (mehr als 15 m vom Knoten) wird der Abstand zur Armachse so geglaettet, dass
+    er sich hoechstens mit V_SEITE m/s und NEIGUNG_QUER je Meter aendert, als symmetrische Rampe
+    (Mittel aus Vorwaerts- und Rueckwaertsfilter). Spurwechsel und Spruenge werden so zu langen,
+    sanften Uebergaengen. Im Knoten bleibt die SUMO-Bahn."""
+    arme = _arme()
+    n = len(xs)
+    lage = []
+    for x, y in zip(xs, ys):
+        best = None
+        for a, (p0, u) in arme.items():
+            sv = (x - p0[0]) * u[0] + (y - p0[1]) * u[1]
+            q = (x - p0[0]) * u[1] - (y - p0[1]) * u[0]
+            if sv > 15 and abs(q) < 10 and (best is None or sv > best[1]):
+                best = (a, sv, q)
+        lage.append(best)
+    vmax = V_SEITE.get(typ, 0.5) * dt
+
+    def filt(idx):
+        out = {}
+        prev = None
+        for i in idx:
+            L = lage[i]
+            if L is None:
+                prev = None
+                continue
+            if prev is None or prev[0] != L[0]:
+                out[i] = L[2]
+            else:
+                ds = abs(L[1] - prev[1])
+                g = min(vmax, NEIGUNG_QUER * ds) + 1e-4
+                out[i] = prev[2] + max(-g, min(g, L[2] - prev[2]))
+            prev = (L[0], L[1], out[i])
+        return out
+    vf = filt(range(n))
+    vb = filt(range(n - 1, -1, -1))
+    ox, oy = list(xs), list(ys)
+    for i in range(n):
+        L = lage[i]
+        if L is None:
+            continue
+        q = (vf[i] + vb[i]) / 2
+        p0, u = arme[L[0]]
+        # weicher Uebergang zwischen 15 und 20 m zur SUMO-Bahn im Knoten
+        w = min(1.0, (L[1] - 15) / 5)
+        q = L[2] + (q - L[2]) * w
+        ox[i] = p0[0] + u[0] * L[1] + u[1] * q
+        oy[i] = p0[1] + u[1] * L[1] - u[0] * q
+    return ox, oy
 
 
 def glaetten(typ, xs, ys, winkel, dt):
-    """Glaettet die SUMO-Frontbahn als gleitendes Mittel entlang des Fahrwegs (nicht der Zeit).
-    Ein Spurwechsel, den SUMO beim langsamen Anfahren auf wenigen Metern macht, verteilt sich so
-    ueber 10 bis 20 m, Kurven mit 8 bis 10 m Radius bleiben fast unveraendert. Im Stand bleibt
-    der Punkt stehen. Gibt Positionen und Winkel (aus der geglaetteten Bahn) zurueck."""
+    """Glaettet die SUMO-Frontbahn als gleitendes Mittel entlang des Fahrwegs (nicht der Zeit),
+    mit langem Fenster auf Geraden und kurzem in Kurven. Im Stand bleibt der Punkt stehen. Gibt
+    Positionen und Winkel (aus der geglaetteten Bahn) zurueck."""
+    xs, ys = querversatz_weich(typ, xs, ys, dt)
     n = len(xs)
-    h = GLATT_M.get(typ, 2.0)
     cum = [0.0]
     for i in range(1, n):
         cum.append(cum[-1] + math.hypot(xs[i] - xs[i - 1], ys[i] - ys[i - 1]))
-    # gleichmaessig abgetastete Bahn (alle 0,25 m), am Anfang und Ende gerade verlaengert
     step = 0.25
     m = int(cum[-1] / step) + 1
-    gx, gy = [], []
+    gx, gy, gw = [], [], []
     j = 0
     for k in range(m):
         sv = k * step
@@ -143,18 +239,51 @@ def glaetten(typ, xs, ys, winkel, dt):
         else:
             gx.append(xs[j])
             gy.append(ys[j])
+        gw.append(winkel[j])
+    # Kurvenerkennung je Abtastpunkt aus der Geometrie: Richtung der Sehne 10 m zurueck gegen die
+    # Sehne 10 m voraus. Ein seitlicher Versatz (Spurwechsel, Spuruebergang) ergibt nur wenige Grad,
+    # ein Abbiegen viel mehr.
+    # Die Sehnen lassen 5 m um den Punkt aus, damit ein seitlicher Sprung (SUMO setzt Fahrzeuge an
+    # Spuruebergaengen teils schlagartig um) nicht als Kurve zaehlt.
+    r, lu = int(15 / step), int(5 / step)
+    kurve = [False] * m
+    for k in range(m):
+        a0, a1 = max(k - r, 0), min(k + r, m - 1)
+        b0, b1 = max(k - lu, 0), min(k + lu, m - 1)
+        if b0 - a0 < lu or a1 - b1 < lu:
+            continue
+        w0 = math.atan2(gy[b0] - gy[a0], gx[b0] - gx[a0])
+        w1 = math.atan2(gy[a1] - gy[b1], gx[a1] - gx[b1])
+        kurve[k] = abs((math.degrees(w1 - w0) + 180) % 360 - 180) > 25
+    hg, hk = int(GLATT_GERADE.get(typ, 8.0) / step), int(GLATT_KURVE.get(typ, 1.5) / step)
+    # Fensterbreite je Punkt: im Abstand zur naechsten Kurve weich von kurz nach lang
+    abst = [10 ** 9] * m
+    letzte = -10 ** 9
+    for k in range(m):
+        if kurve[k]:
+            letzte = k
+        abst[k] = k - letzte
+    letzte = 10 ** 9
+    for k in range(m - 1, -1, -1):
+        if kurve[k]:
+            letzte = k
+        abst[k] = min(abst[k], letzte - k)
+    wk = [hk if kurve[k] else min(hg, hk + abst[k]) for k in range(m)]
+    W = hg
     u0 = richtung(winkel[0])
     u1 = richtung(winkel[-1])
-    w = int(h / step)
-    # Praefixsummen mit gerader Verlaengerung
-    ext_x = [gx[0] - u0[0] * step * (w - k) for k in range(w)] + gx + [gx[-1] + u1[0] * step * (k + 1) for k in range(w)]
-    ext_y = [gy[0] - u0[1] * step * (w - k) for k in range(w)] + gy + [gy[-1] + u1[1] * step * (k + 1) for k in range(w)]
+    ext_x = [gx[0] - u0[0] * step * (W - k) for k in range(W)] + gx + [gx[-1] + u1[0] * step * (k + 1) for k in range(W)]
+    ext_y = [gy[0] - u0[1] * step * (W - k) for k in range(W)] + gy + [gy[-1] + u1[1] * step * (k + 1) for k in range(W)]
     px, py = [0.0], [0.0]
     for a, b in zip(ext_x, ext_y):
         px.append(px[-1] + a)
         py.append(py[-1] + b)
-    sx = [(px[k + 2 * w + 1] - px[k]) / (2 * w + 1) for k in range(m)]
-    sy = [(py[k + 2 * w + 1] - py[k]) / (2 * w + 1) for k in range(m)]
+    sx, sy = [], []
+    for k in range(m):
+        w = wk[k]
+        lo, hi = k + W - w, k + W + w + 1
+        sx.append((px[hi] - px[lo]) / (2 * w + 1))
+        sy.append((py[hi] - py[lo]) / (2 * w + 1))
     ox, oy, ws = [], [], []
     for i in range(n):
         k = min(int(round(cum[i] / step)), m - 1)
@@ -230,7 +359,20 @@ def _ausholen(typ, Fs):
     return out
 
 
-def posen(typ, xs, ys, winkel, dt=0.2):
+# Rechtsabbieger holen aus (Vorderachse aussen, Heck innen am Bordstein). Bei Linksabbiegern und
+# Geradeausfahrern ist genug Platz, dort folgt die Vorderachse der Bahn.
+RECHTS = {'WS', 'NW', 'EN', 'SE'}
+
+
+def ausholen_fuer(vid):
+    try:
+        rel = vid.split('_')[1].split('.')[0][:2]
+    except IndexError:
+        return False
+    return vid.split('_')[0] in AUSHOLEN and rel in RECHTS
+
+
+def posen(typ, xs, ys, winkel, dt=0.2, ausholen=None):
     """Lage je Zeitschritt: Liste von (Fx, Fy, h1, h2). F ist die Vorderachse, h1 und h2 sind die
     Richtungen der Glieder (h2 None bei starren Fahrzeugen). Eingabe ist die SUMO-Frontposition.
 
@@ -244,12 +386,11 @@ def posen(typ, xs, ys, winkel, dt=0.2):
     for x, y, w in zip(xs, ys, winkel):
         u = richtung(w)
         Fs.append((x - u[0] * vorn, y - u[1] * vorn))
-    if typ in AUSHOLEN:
-        Fs = _ausholen(typ, Fs)
     u0 = richtung(winkel[0])
     F0 = Fs[0]
     bahn = Bahn(F0, u0)
     out = []
+    aushol = (typ in AUSHOLEN) if ausholen is None else (ausholen and typ in AUSHOLEN)
     if not g['art']:
         R = (F0[0] - u0[0] * g['wb'], F0[1] - u0[1] * g['wb'])
         h = u0
@@ -259,6 +400,13 @@ def posen(typ, xs, ys, winkel, dt=0.2):
                 for p in bahn_neu(bahn):
                     R, h = _nachziehen(p, R, g['wb'])
             P = bahn.pts[-1]
+            if aushol:
+                # Hinterachse auf der (geglaetteten) Bahn, Vorderachse tangential davor: in Kurven
+                # faehrt die Vorderachse aussen, das Heck bleibt innen auf der Spur
+                sR = bahn.s - g['wb']
+                R = bahn.punkt(sR)
+                h = _tangente(bahn, sR)
+                P = (R[0] + h[0] * g['wb'], R[1] + h[1] * g['wb'])
             out.append((P[0], P[1], winkel_von(*h), None))
         return out
     wb, hitch, L = g['wb'], g['hitch'], g['L']
@@ -270,21 +418,18 @@ def posen(typ, xs, ys, winkel, dt=0.2):
         if i:
             _unterteilt(bahn, F)
             for p in bahn_neu(bahn):
-                A, u1 = _nachziehen(p, A, wb)
-                if g['k1']:
-                    Ap = bahn.punkt(bahn.s_teil - wb)
-                    A = (A[0] + (Ap[0] - A[0]) * g['k1'], A[1] + (Ap[1] - A[1]) * g['k1'])
+                if aushol:
+                    sA = bahn.s_teil - wb
+                    A = bahn.punkt(sA)
+                    u1 = _tangente(bahn, sA)
+                else:
                     A, u1 = _nachziehen(p, A, wb)
                 H = (A[0] + u1[0] * hitch, A[1] + u1[1] * hitch)
                 T, u2 = _nachziehen(H, T, L)
-                if g['k2']:
-                    Tp = bahn.punkt(bahn.s_teil - (wb - hitch + L))
-                    T = (T[0] + (Tp[0] - T[0]) * g['k2'], T[1] + (Tp[1] - T[1]) * g['k2'])
-                    T, u2 = _nachziehen(H, T, L)
                 u2, gekappt = _begrenze(u1, u2, grenze)
                 if gekappt:
                     T = (H[0] - u2[0] * L, H[1] - u2[1] * L)
-        P = bahn.pts[-1]
+        P = (A[0] + u1[0] * wb, A[1] + u1[1] * wb) if aushol else bahn.pts[-1]
         out.append((P[0], P[1], winkel_von(*u1), winkel_von(*u2)))
     return out
 

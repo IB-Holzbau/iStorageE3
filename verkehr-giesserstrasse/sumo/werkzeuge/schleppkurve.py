@@ -78,7 +78,7 @@ def bahn(lanes, weiter, c):
     return LineString(start + pts + ende)
 
 
-def ueberstrichen(typ, linie):
+def ueberstrichen(typ, linie, ausholen=False):
     n = int(linie.length / 0.25)
     xs, ys, ws = [], [], []
     for i in range(n + 1):
@@ -88,7 +88,7 @@ def ueberstrichen(typ, linie):
         xs.append(p.x)
         ys.append(p.y)
         ws.append(K.winkel_von(q.x - r.x, q.y - r.y))
-    pos = K.posen(typ, xs, ys, ws)
+    pos = K.posen(typ, xs, ys, ws, 0.2, ausholen)
     polys = []
     for (x, y), F in zip(zip(xs, ys), pos):
         if math.hypot(x, y) > 40:
