@@ -1,0 +1,89 @@
+<title>Verkehrsmodell Gießerstraße</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Layout: Karte links als Bühne, Leitstand rechts; auf dem Handy untereinander */
+:root{
+  --bg:#e9ecef; --panel:#ffffff; --fg:#1b2129; --muted:#5b6672; --line:#cfd6dd;
+  --signal:#f2b705; --signal-ink:#7a5a00; --warn:#c62828; --ok:#2e7d32;
+  --chip:#f2f4f6;
+  --display:"Barlow Semi Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"Barlow","Helvetica Neue",Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12161b; --panel:#1b2128; --fg:#e7ebef; --muted:#9aa6b2; --line:#2d3640;
+  --signal:#f2b705; --signal-ink:#f2c84b; --warn:#ef5350; --ok:#66bb6a; --chip:#232b34; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12161b; --panel:#1b2128; --fg:#e7ebef; --muted:#9aa6b2; --line:#2d3640;
+  --signal:#f2b705; --signal-ink:#f2c84b; --warn:#ef5350; --ok:#66bb6a; --chip:#232b34; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:1180px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:18px}
+header{display:grid;gap:6px}
+.eyebrow{font-family:var(--display);font-weight:600;letter-spacing:.08em;text-transform:uppercase;font-size:13px;color:var(--signal-ink)}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(28px,4.5vw,42px);line-height:1.05;margin:0;text-wrap:balance}
+.lead{margin:0;max-width:68ch;color:var(--muted)}
+.stage{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:860px){.stage{grid-template-columns:minmax(0,1fr)}}
+.mapbox{background:#f4f1ea;border:1px solid var(--line);border-radius:10px;overflow:hidden;position:relative}
+.mapbox svg{display:block;width:100%;height:auto}
+.clock{position:absolute;top:10px;left:10px;background:rgba(20,24,29,.86);color:#fff;font-family:var(--display);font-weight:600;font-size:15px;padding:5px 10px;border-radius:6px;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.side{display:grid;gap:14px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:grid;gap:12px;min-width:0}
+.card h2{font-family:var(--display);font-weight:700;font-size:19px;margin:0}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button,.seg label{font:inherit;font-family:var(--display);font-weight:600;font-size:15px;border:1px solid var(--line);background:var(--chip);color:var(--fg);border-radius:8px;padding:7px 12px;cursor:pointer}
+button:focus-visible,input:focus-visible+span,.seg input:focus-visible+label{outline:3px solid var(--signal);outline-offset:2px}
+button.primary{background:var(--fg);color:var(--panel);border-color:var(--fg)}
+.seg{display:inline-flex;gap:4px}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg input:checked+label{background:var(--signal);color:#1b1500;border-color:var(--signal)}
+.range{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center}
+.range output{font-variant-numeric:tabular-nums;font-weight:600;min-width:3.5em;text-align:right}
+input[type=range]{width:100%;accent-color:var(--signal)}
+.measures{display:grid;gap:8px}
+.measure{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start;cursor:pointer}
+.measure input{width:18px;height:18px;margin-top:2px;accent-color:var(--ok)}
+.measure b{font-weight:600}
+.measure small{display:block;color:var(--muted);font-size:13px}
+.stats{display:grid;gap:6px}
+.stat{display:grid;grid-template-columns:14px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+.stat:last-child{border-bottom:0}
+.dot{width:12px;height:12px;border-radius:50%}
+.stat .n{font-family:var(--display);font-weight:700;font-size:20px;font-variant-numeric:tabular-nums;text-align:right;min-width:2.2em}
+.stat .h{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums;text-align:right;min-width:5.6em}
+.stat .lbl{min-width:0}
+.stat .lbl small{display:block;color:var(--muted);font-size:12.5px;line-height:1.3}
+.total{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.total .big{font-family:var(--display);font-weight:700;font-size:34px;font-variant-numeric:tabular-nums;line-height:1}
+.total .cmp{font-size:13px;color:var(--muted)}
+.log{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:13.5px;max-height:9.5em;overflow:auto}
+.log li{display:grid;grid-template-columns:3.4em 12px 1fr;gap:8px;align-items:center}
+.log time{font-variant-numeric:tabular-nums;color:var(--muted)}
+details{font-size:14px;color:var(--muted)}
+details summary{cursor:pointer;color:var(--fg);font-weight:600}
+details ul{margin:8px 0 0;padding-left:18px;display:grid;gap:3px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{display:inline-block;width:18px;height:10px;border-radius:3px}
+@media (prefers-reduced-motion: reduce){.pulse{display:none}}
+</style>
+<style>
+@media (min-width:861px){.mapbox{position:sticky;top:max(12px,env(safe-area-inset-top,0px))}}
+.group{display:grid;gap:8px}
+.group h3{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--signal-ink);margin:6px 0 0}
+.layouts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.layouts input{position:absolute;opacity:0;pointer-events:none}
+.layouts label{display:grid;gap:2px;border:1px solid var(--line);background:var(--chip);border-radius:8px;padding:8px 10px;cursor:pointer;font-size:13px;color:var(--muted);line-height:1.25}
+.layouts label b{font-family:var(--display);font-weight:700;font-size:15px;color:var(--fg)}
+.layouts input:checked+label{border-color:var(--signal);box-shadow:inset 0 0 0 2px var(--signal)}
+.layouts input:focus-visible+label{outline:3px solid var(--signal);outline-offset:2px}
+@media (max-width:420px){.layouts{grid-template-columns:minmax(0,1fr)}}
+.presets{display:flex;flex-wrap:wrap;gap:6px}
+.presets button{font-size:14px;padding:6px 10px}
+.measure.off{opacity:.45;cursor:not-allowed}
+.measure.off small::after{content:" Nicht möglich bei dieser Grundform.";}
+.cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 16px}
+@media (max-width:520px){.cols{grid-template-columns:minmax(0,1fr)}}
+</style>

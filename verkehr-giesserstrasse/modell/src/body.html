@@ -1,0 +1,142 @@
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Einmündung Gießerstraße / Naumburger Straße · Leipzig-Plagwitz</div>
+    <h1>Verkehrsmodell Gießerstraße</h1>
+    <p class="lead">Ein vereinfachtes Modell lässt Autos, Gelenkbusse, Radfahrende und Fußgänger nach den beobachteten Wegen und typischen Fehlern über die Kreuzung laufen. Jede farbige Markierung ist eine Gefahrensituation, also eine Gefahrenbremsung oder ein Beinahe-Zusammenstoß. Grundform, Markierungen und Umbauten lassen sich umschalten und vergleichen.</p>
+  </header>
+
+  <div class="stage">
+    <div class="mapbox">
+      {{MAP}}
+      <div class="clock" id="clock">07:45</div>
+    </div>
+
+    <div class="side">
+      <section class="card" aria-labelledby="h-ctrl">
+        <h2 id="h-ctrl">Simulation</h2>
+        <div class="controls">
+          <button class="primary" id="play" type="button">Pause</button>
+          <div class="seg" role="radiogroup" aria-label="Geschwindigkeit">
+            <input type="radio" name="spd" id="spd1" value="1"><label for="spd1">1×</label>
+            <input type="radio" name="spd" id="spd3" value="3" checked><label for="spd3">3×</label>
+            <input type="radio" name="spd" id="spd8" value="8"><label for="spd8">8×</label>
+          </div>
+          <button id="reset" type="button">Zähler zurücksetzen</button>
+        </div>
+        <div class="range">
+          <label for="vol">Verkehrsmenge</label>
+          <input type="range" id="vol" min="50" max="150" step="10" value="100">
+          <output id="volOut" for="vol">100 %</output>
+        </div>
+        <label class="measure"><input type="checkbox" id="showHeat" checked><span><b>Gefahrenkarte anzeigen</b><small>Erfasste Gefahrenstellen bleiben als Punkte stehen.</small></span></label>
+      </section>
+
+      <section class="card" aria-labelledby="h-var">
+        <h2 id="h-var">Varianten</h2>
+        <div class="presets">
+          <button type="button" data-preset="bestand">Heutiger Zustand</button>
+          <button type="button" data-preset="kreisel">Minikreisel</button>
+          <button type="button" data-preset="rad">Radstreifen und Gehwegnasen</button>
+          <button type="button" data-preset="rvl">Rechts vor links mit Plateau</button>
+          <button type="button" data-preset="mark">Nur Markierung</button>
+        </div>
+        <div class="group">
+          <h3>Grundform</h3>
+          <div class="layouts" role="radiogroup" aria-label="Grundform">
+            <input type="radio" name="layout" id="lyB" value="bestand" checked><label for="lyB"><b>Abknickende Vorfahrt</b>Heutige Regelung</label>
+            <input type="radio" name="layout" id="lyR" value="rvl"><label for="lyR"><b>Rechts vor links</b>Vorfahrt aufgehoben</label>
+            <input type="radio" name="layout" id="lyK" value="kreisel"><label for="lyK"><b>Minikreisel</b>Mitte für Busse überfahrbar</label>
+          </div>
+        </div>
+        <div class="group">
+          <h3>Markierung</h3>
+          <div class="cols">
+            <label class="measure" id="w-t30"><input type="checkbox" id="m-t30"><span><b>Tempo 30</b><small>Schild und große 30 auf der Fahrbahn.</small></span></label>
+            <label class="measure" id="w-zebra"><input type="checkbox" id="m-zebra"><span><b>Zebrastreifen</b><small>An den Querungen Nord, West und Ost.</small></span></label>
+            <label class="measure" id="w-lane"><input type="checkbox" id="m-lane"><span><b>Geradeausspur markiert</b><small>Frische Pfeile und Leitlinie ab der Haltestelle.</small></span></label>
+            <label class="measure" id="w-shark"><input type="checkbox" id="m-shark"><span><b>Haifischzähne</b><small>Deutliche Wartelinien im Norden und Osten.</small></span></label>
+            <label class="measure" id="w-furt"><input type="checkbox" id="m-furt"><span><b>Rote Radfurt</b><small>Radverkehr auf der Vorfahrt sichtbar machen.</small></span></label>
+            <label class="measure" id="w-radstr"><input type="checkbox" id="m-radstr"><span><b>Radfahrstreifen Süd</b><small>Eine Kfz-Spur statt zwei, Radstreifen rechts.</small></span></label>
+            <label class="measure" id="w-aras"><input type="checkbox" id="m-aras"><span><b>Radaufstellfläche</b><small>Rad wartet sichtbar vor den Autos.</small></span></label>
+            <label class="measure" id="w-indirekt"><input type="checkbox" id="m-indirekt"><span><b>Indirekt links abbiegen</b><small>Rad von West nach Nord über eine Aufstellfläche.</small></span></label>
+          </div>
+        </div>
+        <div class="group">
+          <h3>Umbau</h3>
+          <div class="cols">
+            <label class="measure" id="w-nasen"><input type="checkbox" id="m-nasen"><span><b>Gehwegnasen</b><small>Kürzere Querung Nord und West, bessere Sicht.</small></span></label>
+            <label class="measure" id="w-kap"><input type="checkbox" id="m-kap"><span><b>Buskap</b><small>Bus hält auf der Fahrbahn, kein Ausfädeln.</small></span></label>
+            <label class="measure" id="w-plateau"><input type="checkbox" id="m-plateau"><span><b>Plateau</b><small>Aufgepflasterte Kreuzung, etwa 25 km/h.</small></span></label>
+            <label class="measure" id="w-park"><input type="checkbox" id="m-park"><span><b>Halteverbot und Poller Ost</b><small>Die Engstelle entfällt.</small></span></label>
+            <label class="measure" id="w-ampel"><input type="checkbox" id="m-ampel"><span><b>Bedarfsampel Nord</b><small>Fußgänger fordern Grün an.</small></span></label>
+          </div>
+        </div>
+        <div class="group">
+          <h3>Verkehrsführung</h3>
+          <div class="cols">
+            <label class="measure" id="w-rule"><input type="checkbox" id="m-rule"><span><b>Stoppschild Ost</b><small>Klare Regel zwischen Nord und Ost.</small></span></label>
+            <label class="measure" id="w-sperre"><input type="checkbox" id="m-sperre"><span><b>Ostseite für Autos sperren</b><small>Poller mit Durchlass für Rad und Fuß.</small></span></label>
+          </div>
+        </div>
+        <p style="margin:0;color:var(--muted);font-size:13px">Beim Umschalten beginnt die Zählung neu, damit die Werte vergleichbar bleiben.</p>
+      </section>
+
+      <section class="card" aria-labelledby="h-stat">
+        <div class="total">
+          <div><h2 id="h-stat">Gefahrensituationen</h2><span class="cmp" id="simtime">nach 0 Minuten Modellzeit</span></div>
+          <div style="text-align:right"><div class="big" id="total">0</div><span class="cmp" id="perhour">– pro Stunde</span></div>
+        </div>
+        <div class="stats" id="stats"></div>
+      </section>
+
+      <section class="card" aria-labelledby="h-beh">
+        <h2 id="h-beh">Fahrverhalten</h2>
+        <label class="measure"><input type="checkbox" id="b-on" checked><span><b>Fehlverhalten einrechnen</b><small>Ohne diese Option halten sich alle an Tempo und Vorfahrt.</small></span></label>
+        <div class="range">
+          <label for="b-fast">Fahren zu schnell</label>
+          <input type="range" id="b-fast" min="0" max="50" step="5" value="20">
+          <output id="o-fast" for="b-fast">20 %</output>
+        </div>
+        <div class="range">
+          <label for="b-mis">Verstehen die Vorfahrt nicht</label>
+          <input type="range" id="b-mis" min="0" max="50" step="5" value="25">
+          <output id="o-mis" for="b-mis">25 %</output>
+        </div>
+        <p style="margin:0;color:var(--muted);font-size:13px">Zu schnell heißt rund 15 km/h über dem Limit und dichteres Auffahren. Wer die Vorfahrt nicht versteht, fährt je nach Grundform falsch an: im Norden ohne Blick auf Radfahrende, im Osten ohne rechts vor links, im Kreisel ohne auf den Kreisverkehr zu achten. Dieselbe Gruppe bleibt aus Süden oft in der Linksabbiegespur und fährt geradeaus.</p>
+      </section>
+
+      <section class="card" aria-labelledby="h-log">
+        <h2 id="h-log">Zuletzt erfasst</h2>
+        <ul class="log" id="log"><li><time>–</time><span></span><span>Noch keine Gefahrensituation erfasst.</span></li></ul>
+        <div class="legend">
+          <span><i class="sw" style="background:#8c919a"></i>Auto</span>
+          <span><i class="sw" style="background:#c62828"></i>Auto geradeaus aus Abbiegespur</span>
+          <span><i class="sw" style="background:#e85d04"></i>zu schnell</span>
+          <span><i class="sw" style="background:#1f6fb2"></i>Gelenkbus</span>
+          <span><i class="sw" style="background:#2e6b4f"></i>Lkw</span>
+          <span><i class="sw" style="background:#b23a2e"></i>Sattelzug</span>
+          <span><i class="sw" style="background:#2a9d8f"></i>Rad</span>
+          <span><i class="sw" style="background:#6a1b9a;border-radius:50%;width:10px"></i>Fußgänger</span>
+          <span><i class="sw" style="background:#ffab00;border-radius:50%;width:10px"></i>Blinker</span>
+          <span><i class="sw" style="background:#f2d14c"></i>Blickfeld beim Warten</span>
+        </div>
+      </section>
+
+      <details>
+        <summary>Modellannahmen</summary>
+        <ul>
+          <li>Verkehrsmengen sind Schätzungen für eine Spitzenstunde und keine Zählung. Der Hauptstrom folgt der Vorfahrt Süd und West, dazu kommt viel Verkehr von und nach Norden, Osten ist schwach belegt.</li>
+          <li>Busse sind Gelenkbusse von rund 18 Metern, dazu kommen Lkw von 10 Metern und Sattelzüge von 16,5 Metern. Bei Gelenkbus und Sattelzug läuft der hintere Teil in der Kurve nach innen nach, wie in der Wirklichkeit. Im Minikreisel überfahren Busse und Lkw die flache Mittelinsel.</li>
+          <li>Ist die Gegenrichtung frei, schneiden Autos die Kurven und lösen sich von der Spurmitte. Auf der Vorfahrt von Süd nach West fahren sie zügig, oft über 30 km/h. Fahrzeuge dürfen sich nicht überlappen, wer in einen anderen hineinfahren würde, bleibt stehen.</li>
+          <li>Fahrzeuge halten in der Schlange rund 2 Meter Abstand und im Fließverkehr etwa 1,2 Sekunden, Lkw und Busse etwas mehr. Wer zu schnell fährt, fährt dichter auf.</li>
+          <li>Viele Fußgänger kommen aus Norden zum Kiosk an der Südwestecke und queren dafür im Norden und Westen. Die Querung im Süden ist kaum genutzt und nicht modelliert.</li>
+          <li>Fahrer reagieren nach knapp einer Sekunde auf Fußgänger und Radfahrende, die plötzlich in ihren Weg kommen, bei roter Radfurt oder Radaufstellfläche schneller. Fußgänger schätzen schnelle Autos langsamer ein, als sie sind.</li>
+          <li>Wirkungen der Maßnahmen sind vereinfacht. Haifischzähne und rote Furt halbieren das Fehlverhalten an den betroffenen Stellen, Gehwegnasen verkürzen die Querung und verbessern die Sicht.</li>
+          <li>Als Gefahrensituation zählt eine nötige Bremsung stärker als 5,5 m/s² wegen eines anderen Verkehrsteilnehmers oder ein Abstand unter etwa einem halben Meter. Gezählt wird nur, wenn ein Beteiligter schneller als 20 km/h fährt, bei Fuß- und Radverkehr schneller als 14 km/h. Langsame Begegnungen, etwa im Kreisel, gehen selten schwer aus und zählen deshalb nicht.</li>
+          <li>Die Zahlen zeigen Muster und Größenordnungen. Für belastbare Aussagen braucht es eine Verkehrszählung und die Unfalldaten der Polizei.</li>
+        </ul>
+      </details>
+    </div>
+  </div>
+</div>
