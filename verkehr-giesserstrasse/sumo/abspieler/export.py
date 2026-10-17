@@ -300,25 +300,103 @@ def winkel_svg(ux, uy):
     return round(math.degrees(math.atan2(-uy, ux)), 1)
 
 
+# ---------------------------------------------------------------- Strassenraum (eigene Konstruktion)
+import build as B        # noqa: E402  (Achsen, Querschnitte, Eckausbildung)
+
+
+def _einheit(x, y):
+    d = math.hypot(x, y) or 1.0
+    return x / d, y / d
+
+
+def _schnitt(p, u, q, v):
+    """Schnittpunkt der Geraden p + t*u und q + s*v."""
+    det = u[0] * (-v[1]) - u[1] * (-v[0])
+    t = ((q[0] - p[0]) * (-v[1]) - (q[1] - p[1]) * (-v[0])) / det
+    return (p[0] + u[0] * t, p[1] + u[1] * t)
+
+
+def _ausrundung(V, a, b, r, n=10):
+    """Rundet die Blockecke V mit den Kantenrichtungen a und b (Einheitsvektoren, vom
+    Eckpunkt weg) mit Radius r. Gibt die Bogenpunkte von der a-Seite zur b-Seite zurueck."""
+    cosw = max(-1.0, min(1.0, a[0] * b[0] + a[1] * b[1]))
+    w = math.acos(cosw)
+    t = r / math.tan(w / 2)
+    h = _einheit(a[0] + b[0], a[1] + b[1])
+    m = r / math.sin(w / 2)
+    C = (V[0] + h[0] * m, V[1] + h[1] * m)
+    Ta = (V[0] + a[0] * t, V[1] + a[1] * t)
+    Tb = (V[0] + b[0] * t, V[1] + b[1] * t)
+    wa = math.atan2(Ta[1] - C[1], Ta[0] - C[0])
+    wb = math.atan2(Tb[1] - C[1], Tb[0] - C[0])
+    d = (wb - wa + math.pi) % (2 * math.pi) - math.pi      # kurzer Bogen
+    return [(C[0] + r * math.cos(wa + d * i / n), C[1] + r * math.sin(wa + d * i / n)) for i in range(n + 1)]
+
+
+def strassenraum():
+    """Fahrbahnflaeche als Shapely-Polygon: vier gerade Arme konstanter Breite und die
+    Bordsteinecken nach Beobachtung (Nordecken ein Radius, Suedecken abgeschraegt)."""
+    xy, nachbarn, _ = B.lade_osm()
+    achsen = {a: B.arm_polylinie(xy, nachbarn, name, ri) for a, (name, ri) in B.ARME.items()}
+    info = {}
+    teile = []
+    for a, achse in achsen.items():
+        g = B.grenzlinie(a, achse)
+        u = _einheit(g[1][0] - g[0][0], g[1][1] - g[0][1])
+        rgt = (u[1], -u[0])
+        wr, wl = B.breite(a, 'out'), B.breite(a, 'in')
+        p0 = g[0]
+        rechts = (p0[0] + rgt[0] * wr, p0[1] + rgt[1] * wr)
+        links = (p0[0] - rgt[0] * wl, p0[1] - rgt[1] * wl)
+        info[a] = dict(u=u, rechts=rechts, links=links)
+        s0, s1 = -3.0, B.ARM_LEN      # nur knapp ueber die Mitte, sonst ragt der breite Suedarm in den Nordarm
+        teile.append(Polygon([(rechts[0] + u[0] * s0, rechts[1] + u[1] * s0), (rechts[0] + u[0] * s1, rechts[1] + u[1] * s1),
+                              (links[0] + u[0] * s1, links[1] + u[1] * s1), (links[0] + u[0] * s0, links[1] + u[1] * s0)]))
+    for name, art in B.ECKEN.items():
+        a, b = name[0], name[1]
+        P = _schnitt(info[a]['rechts'], info[a]['u'], info[b]['links'], info[b]['u'])
+        ua, ub = info[a]['u'], info[b]['u']
+        if art[0] == 'rund':
+            bogen = _ausrundung(P, ua, ub, art[1])
+        else:
+            c, r = art[1], art[2]
+            Aa = (P[0] + ua[0] * c, P[1] + ua[1] * c)
+            Ab = (P[0] + ub[0] * c, P[1] + ub[1] * c)
+            k = _einheit(Ab[0] - Aa[0], Ab[1] - Aa[1])
+            bogen = _ausrundung(Aa, ua, k, r) + _ausrundung(Ab, (-k[0], -k[1]), ub, r)
+        teile.append(Polygon([P] + bogen).buffer(0))
+    return unary_union(teile).buffer(0.01).buffer(-0.01)
+
+
+def _schraffur(poly, abstand=1.0, winkel=45):
+    """Diagonale Linien innerhalb einer Flaeche (Sperrflaeche)."""
+    x0, y0, x1, y1 = poly.bounds
+    L = (x1 - x0) + (y1 - y0)
+    ux, uy = math.cos(math.radians(winkel)), math.sin(math.radians(winkel))
+    out = []
+    k = -L
+    while k < L:
+        cx, cy = (x0 + x1) / 2 + k * -uy, (y0 + y1) / 2 + k * ux
+        seg = LineString([(cx - ux * L, cy - uy * L), (cx + ux * L, cy + uy * L)]).intersection(poly)
+        for g in getattr(seg, 'geoms', [seg]):
+            if g.geom_type == 'LineString' and g.length > 0.2:
+                out.append(linie(list(g.coords)))
+        k += abstand
+    return out
+
+
+
 def karte(var, bauten):
     lanes, junctions, walk, cross = lies_netz(var)
     sicht = box(FENSTER[0] - 5, FENSTER[1] - 5, FENSTER[2] + 5, FENSTER[3] + 5)
 
-    fahr = [flaeche(l) for l in lanes if not ist_fuss(l) and l['width'] > 0]
-    fahr += [Polygon(p) .buffer(0) for _, p in junctions]
-    fahr += [flaeche(c) for c in cross]
-    geh = [flaeche(l) for l in lanes if ist_fuss(l) and not l['id'].startswith(':')]
-    # Gehflaechen der Zwischenknoten liegen in SUMO teils quer ueber der Fahrbahn, deshalb die
-    # Fahrspuren (auch die inneren Spuren im Knoten) davon abziehen
-    spuren = unary_union([flaeche(l) for l in lanes if not ist_fuss(l) and l['width'] > 0])
-    geh += [Polygon(w['pts']).buffer(0).difference(spuren) for w in walk if len(w['pts']) >= 3]
-    gehweg = unary_union(geh).buffer(0.15).buffer(-0.15).intersection(sicht)
-    # Knotenflaechen der Zwischenknoten (Bucht, Spuraufweitung) ragen sonst ueber den Gehweg hinaus
-    haupt = [Polygon(p).buffer(0) for jid, p in junctions if jid == 'J' or jid.startswith('R')]
-    korridor = unary_union([flaeche(l) for l in lanes if not l["id"].startswith(":")] + geh + haupt).buffer(8.0).buffer(-8.0)
-    fahrbahn = unary_union(fahr).buffer(0.2).buffer(-0.2).difference(gehweg).intersection(korridor).intersection(sicht)
+    fahrbahn = strassenraum()
+    # Gehweg: Band von 4,5 m entlang der Bordsteine bis an die Bebauung
+    gehweg = fahrbahn.buffer(4.5, join_style=2, mitre_limit=2.0).difference(fahrbahn)
+    gehweg = gehweg.difference(unary_union(bauten)).intersection(sicht)
+    fahrbahn = fahrbahn.intersection(sicht)
     k = {
-        'fahrbahn': pfad(fahrbahn.simplify(0.03)),
+        'fahrbahn': pfad(fahrbahn.simplify(0.02)),
         'gehweg': pfad(gehweg.simplify(0.03)),
     }
 
@@ -330,28 +408,39 @@ def karte(var, bauten):
         k['inselring'] = r2(rmin + ring[0]['width'] / 2)
 
     # Markierungen
-    leit, trenn, halt, warte, zick = [], [], [], [], []
+    leit, trenn, halt, warte, zick, schmal, sperr, texte = [], [], [], [], [], [], [], []
     kfz = [l for l in lanes if not ist_fuss(l) and not ist_park(l) and not l['id'].startswith(':')]
     proedge = defaultdict(list)
     for l in kfz:
         proedge[l['edge']].append(l)
     for e, ls in proedge.items():
         ls.sort(key=lambda l: l['index'])
-        links = ls[-1]
         if e.startswith('ring_'):
             continue
+        links = ls[-1]
         # Leitlinie Mitte: linker Rand der linken Spur der Zufahrt (nur _in, sonst doppelt)
-        if '_in' in e and len(links['pts']) >= 2:
+        if '_in' in e and len(links['pts']) >= 2 and not links['allow'] == 'custom2':
             ls_ = LineString(links['pts']).offset_curve(links['width'] / 2)
             if not ls_.is_empty and ls_.length > 1:
                 leit.append(linie(list(ls_.coords)))
-        if len(ls) > 1 and e != 'S_in_bucht':
-            for l in ls[:-1]:
-                if l['allow'] == 'bus':
-                    continue
-                ls_ = LineString(l['pts']).offset_curve(l['width'] / 2)
-                if not ls_.is_empty and ls_.length > 1:
-                    trenn.append(linie(list(ls_.coords)))
+        for l, nachbar in zip(ls[:-1], ls[1:]):
+            ls_ = LineString(l['pts']).offset_curve(l['width'] / 2)
+            if ls_.is_empty or ls_.length <= 1:
+                continue
+            if l['allow'] == 'custom2' or nachbar['allow'] == 'custom2':
+                continue
+            if 'bus' in l['allow']:
+                schmal.append(linie(list(ls_.coords)))     # Begrenzung Haltestellenstreifen
+            else:
+                trenn.append(linie(list(ls_.coords)))      # Leitlinie zwischen Fahrstreifen
+    # Sperrflaeche (Minikreisel, rechte Spur am Suedarm)
+    for l in lanes:
+        if l['allow'] == 'custom2' and not l['id'].startswith(':'):
+            f = flaeche(l, -0.15)
+            if not f.is_empty:
+                sperr += _schraffur(f, 1.2, 60)
+                sperr.append(pfad(f))
+
     # Halt- und Wartelinien am Knotenrand
     def querlinie(edge):
         ls = sorted(proedge.get(edge, []), key=lambda l: l['index'])
@@ -363,28 +452,31 @@ def karte(var, bauten):
             nx, ny = uy, -ux       # rechts
             w = l['width'] / 2
             teile.append(((p[0] + nx * w - ux * 0.3, p[1] + ny * w - uy * 0.3), (p[0] - nx * w - ux * 0.3, p[1] - ny * w - uy * 0.3)))
-        a = teile[0][0]
-        b = teile[-1][1]
-        return linie([a, b])
+        return linie([teile[0][0], teile[-1][1]])
     if var in ('bestand', 't30_zebra'):
         q = querlinie('N_in_m')
         if q:
             halt.append(q)
-        for e in ('E_in_m',):
-            q = querlinie(e)
-            if q:
-                warte.append(q)
+        # Schriftzug STOP auf der Fahrbahn des Nordarms
+        l = proedge.get('N_in', [None])[0]
+        if l:
+            ls_ = LineString(l['pts'])
+            p = ls_.interpolate(ls_.length - 3.0)
+            qq = ls_.interpolate(ls_.length - 2.0)
+            texte.append(['STOP', r2(p.x), r2(-p.y), winkel_svg(qq.x - p.x, qq.y - p.y) + 90, 2.0])
+        q = querlinie('E_in_m')
+        if q:
+            warte.append(q)
     if var == 'minikreisel':
         for a in 'SNWE':
             q = querlinie(f'{a}_in_m')
             if q:
                 warte.append(q)
-    # Busbucht: Zickzack entlang der Busspur
+    # Haltestelle auf der Fahrbahn: Zickzack ueber den rechten Streifen und Schriftzug BUS
     for l in lanes:
-        if l['allow'] == 'bus':
+        if l['edge'] == 'S_in_bucht' and 'bus' in l['allow']:
             ls = LineString(l['pts'])
-            ls = substring(ls, ls.length * 0.12, ls.length * 0.9)   # ohne die Verziehungen an den Enden
-            n = max(int(ls.length / 2.2), 2)
+            n = max(int(ls.length / 2.4), 2)
             pts = []
             for i in range(n + 1):
                 p = ls.interpolate(i / n, normalized=True)
@@ -392,13 +484,18 @@ def karte(var, bauten):
                 ux, uy = q.x - p.x, q.y - p.y
                 d = math.hypot(ux, uy) or 1
                 nx, ny = -uy / d, ux / d
-                s = (1 if i % 2 else -1) * 0.75
-                pts.append((p.x + nx * s, p.y + ny * s))
+                sg = (1 if i % 2 else -1) * (l['width'] / 2 - 0.35)
+                pts.append((p.x + nx * sg, p.y + ny * sg))
             zick.append(linie(pts))
-            hp, (ux, uy) = ende_info(l['pts'])
+            # Schriftzug laengs der Spur, wie im Luftbild (von Nord nach Sued lesbar)
+            p = ls.interpolate(0.5, normalized=True)
+            q = ls.interpolate(0.51, normalized=True)
+            texte.append(['BUS', r2(p.x), r2(-p.y), winkel_svg(q.x - p.x, q.y - p.y) + 180, 2.6])
+            p, (ux, uy) = ende_info(l['pts'])
             mitte = ls.interpolate(0.5, normalized=True)
-            k['haltestelle'] = [r2(mitte.x + uy * 3.6), r2(-(mitte.y - ux * 3.6))]
-    k.update(leit=leit, trenn=trenn, halt=halt, warte=warte, zick=zick)
+            ab = l['width'] / 2 + 1.3
+            k['haltestelle'] = [r2(mitte.x + uy * ab), r2(-(mitte.y - ux * ab))]
+    k.update(leit=leit, trenn=trenn, halt=halt, warte=warte, zick=zick, schmal=schmal, sperr=sperr, texte=texte)
 
     # Zebrastreifen
     k['zebra'] = []
@@ -409,10 +506,10 @@ def karte(var, bauten):
     # Richtungspfeile Suedarm (zwei Spuren vor dem Knoten)
     pfeile = []
     for l in kfz:
-        if l['edge'] == 'S_in_m' and l['index'] > 0 and var != 'minikreisel':
+        if l['edge'] == 'S_in' and l['index'] > 0 and var != 'minikreisel':
             ls = LineString(l['pts'])
-            p = ls.interpolate(ls.length - 1.5)
-            q = ls.interpolate(ls.length - 0.5)
+            p = ls.interpolate(ls.length - 4.0)
+            q = ls.interpolate(ls.length - 3.0)
             pfeile.append([r2(p.x), r2(-p.y), winkel_svg(q.x - p.x, q.y - p.y), 'L' if l['index'] == 2 else 'GR'])
     k['pfeile'] = pfeile
 

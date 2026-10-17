@@ -42,13 +42,24 @@ Weitere Schalter
 
 ## Modellaufbau
 
-**Geometrie.** Lage und Richtung der vier Arme stammen aus OpenStreetMap (Knoten 60015219). Jeder Arm ist 120 m lang. Der Südarm endet im OSM-Ausschnitt nach 90 m und wird gerade verlängert. Fahrstreifen 3,5 m, Ost nur 2,75 m je Richtung. Parkstreifen laut OSM (Ost beidseitig, West Südseite, Süd Westseite ab etwa 45 m, Nord Westseite ab etwa 16 m) sind als 2 m breite Spur ohne Verkehr enthalten. Sie legen nur Bordstein und Querungslänge fest. Die Engstelle Ost ist so geometrisch sichtbar, seitliche Konflikte im Begegnungsverkehr bildet SUMO aber nicht ab.
+**Geometrie.** Lage und Richtung der vier Arme stammen aus OpenStreetMap (Knoten 60015219). Jeder Arm ist eine Gerade von 120 m, ausgerichtet auf den Punkt 60 m vom Knoten entfernt. Die Breiten sind über die ganze Länge konstant und mit dem Luftbild des Geoportals Leipzig (Maßstab 20 m) und den OSM-Werten abgeglichen. Parkstreifen sind Spuren ohne Verkehr, sie legen den Bordstein fest.
 
-**Südarm.** Busbucht 45 bis 70 m vor dem Knoten mit der Haltestelle Naumburger Straße (LVB 0505, Halt 20 s). Auf den letzten 25 m zwei Fahrstreifen, links für Linksabbieger nach West, rechts geradeaus und rechts.
+| Arm | Fahrbahn | Querschnitt von West nach Ost bzw. Süd nach Nord |
+|---|---|---|
+| Gießerstraße Süd | 13,0 m | Parken 2,2, südwärts 3,6, nordwärts 3,6, rechter Streifen 3,6 |
+| Gießerstraße Nord | 8,2 m | je Richtung 4,1, kein Parkstreifen |
+| Naumburger West | 9,5 m | Parken Südseite 2,0, ostwärts 3,75, westwärts 3,75 |
+| Naumburger Ost | 9,5 m | Parken 2,0, ostwärts 2,75, westwärts 2,75, Parken 2,0 |
+
+Die Mittelmarkierung liegt so, dass die Fahrbahn symmetrisch um die OSM-Achse liegt. Beim Südarm sitzt sie deshalb 0,7 m westlich der Achse.
+
+**Bordsteinecken.** Die beiden Nordecken sind mit einem Radius von 5 m ausgerundet. Die beiden Südecken sind wie die Hausecken abgeschrägt, 3,5 m schräges Stück mit zwei Radien von 1,2 m. Die Darstellung im Abspieler baut diese Ecken selbst (`strassenraum()` in `abspieler/export.py`), SUMO rundet den Knoten mit einem einheitlichen Radius von 3 m. Die Fahrwege im Knoten liegen innerhalb der gezeichneten Fahrbahn.
+
+**Südarm.** Keine Busbucht. Der rechte Streifen nordwärts ist zwischen 25 und 120 m vor dem Knoten Haltestellenstreifen nur für Bus und Rad, mit Zickzack und Schriftzug BUS auf der Fahrbahn. Die Haltestelle Naumburger Straße (LVB 0505, Halt 20 s) liegt 45 bis 70 m vor dem Knoten. Auf den letzten 25 m wird der Streifen zur Spur geradeaus und rechts, links daneben der Linksabbieger nach West.
 
 **Vorfahrt im Bestand.** Abknickende Vorfahrt Süd nach West. Nord hat ein Stoppschild (jedes Fahrzeug hält 1 s an der Haltlinie), Ost ist wartepflichtig. Zwischen Nord und Ost gilt rechts vor links, Ost wartet also auf Nord. Wer aus West geradeaus nach Ost fährt, verlässt die Vorfahrtstraße und wartet auf den Strom Süd nach West. Die Regeln sind in `build.py` als Kantenprioritäten und Verbote hinterlegt und mit `werkzeuge/vorfahrt.py` geprüft.
 
-**Querungen.** An allen vier Armen gibt es Querungen ohne Markierung am Knotenrand. Fußgänger warten dort auf eine Lücke.
+**Querungen.** An allen vier Armen gibt es Querungen ohne Markierung direkt am Knotenrand, je auf einem eigenen kleinen Knoten 15 bis 18 m vor der Mitte. Fußgänger warten dort auf eine Lücke. Am Nordarm stehen Haltlinie und Schriftzug STOP am Knotenrand, ein Fahrzeug an der Haltlinie steht also mit dem Heck auf der Querung, wie vor Ort.
 
 **Varianten**
 
@@ -56,8 +67,8 @@ Weitere Schalter
 |---|---|
 | `bestand` | wie oben, Tempo laut OSM (Süd und Nord 50, West 30, Ost ohne Schild also 50) |
 | `rvl` | Rechts vor links an allen Armen, Tempo 30 überall, Querungen weiter ohne Markierung |
-| `minikreisel` | Kreisfahrbahn 4,5 m breit, etwa 16 m Außendurchmesser, einstreifige Zufahrten, Zebrastreifen an allen Armen etwa 13 m vor der Mitte, Tempo 30 auf den Armen |
-| `t30_zebra` | Bestand mit Tempo 30 überall und Zebrastreifen am Nord- und Westarm, um eine Wagenlänge vom Knoten abgesetzt |
+| `minikreisel` | Kreisfahrbahn 4,0 m breit, etwa 16 m Außendurchmesser (bei 14 m schneiden sich die Fahrzeugumrisse im engen Ring sichtbar), einstreifige Zufahrten (am Südarm rechts Sperrfläche), Zebrastreifen an allen Armen 15 bis 18 m vor der Mitte, Tempo 30 auf den Armen |
+| `t30_zebra` | Bestand mit Tempo 30 überall und Zebrastreifen am Nord- und Westarm an der Stelle der heutigen Querung |
 
 **Nachfrage.** Spitzenstunde aus dem Browsermodell (`../modell/src/sim.js`, `DEMAND`). Pkw, Lkw, Sattelzüge und Räder kommen zufällig (Poisson), die Busse fahren im 10-Minuten-Takt je Richtung.
 
@@ -90,28 +101,31 @@ Die vollständigen Tabellen stehen in [`ergebnisse/vergleich.md`](ergebnisse/ver
 
 ![Vergleich](grafik/vergleich.png)
 
-Kernaussagen aus 10 Läufen je Variante (Mittelwert je Stunde, Stand mit Bus Süd nach West und neuen Fußgängerzahlen)
+Kernaussagen aus 10 Läufen je Variante (Mittelwert je Stunde, Stand mit Geometrie nach Luftbild, Querungen am Knotenrand und Bus Süd nach West)
 
 | | Bestand | Rechts vor links | Minikreisel | Tempo 30 und Zebra |
 |---|---|---|---|---|
-| Fahrzeugkonflikte gesamt | 91 | 32 | 19 | 79 |
-| davon Kreuzen und Einbiegen | 62 | 23 | 0 | 61 |
-| Schwere Fahrzeugkonflikte | 21 | 2 | 0 | 27 |
-| Fußgänger auf der Querung bedrängt | 13 | 12 | 17 | 21 |
-| Wartezeit Fußgänger in s | 6,5 | 8,1 | 0,0 | 2,1 |
-| Zeitverlust Kfz in s | 13 | 8 | 10 | 11 |
-| Zufahrt Nord, Zeitverlust Kfz in s und Stufe | 25, C | 8, A | 12, B | 18, B |
+| Fahrzeugkonflikte gesamt | 75 | 26 | 26 | 75 |
+| davon Kreuzen und Einbiegen | 50 | 13 | 9 | 52 |
+| Schwere Fahrzeugkonflikte | 17 | 1 | 1 | 23 |
+| Fußgänger auf der Querung bedrängt | 19 | 19 | 18 | 22 |
+| Wartezeit Fußgänger in s | 6,4 | 5,4 | 0,1 | 2,6 |
+| Zeitverlust Kfz in s | 11 | 8 | 11 | 11 |
+| Zufahrt Nord, Zeitverlust Kfz in s und Stufe | 20, B | 8, A | 12, B | 21, C |
+| Überlappungen im Modell | 0,7 | 0,6 | 0,1 | 0,7 |
 
 Lesart
 
 - Im Bestand entstehen die meisten Konflikte zwischen Fahrzeugen. Ursache sind die Lückensuche am Nordarm und die Abbieger von der abknickenden Vorfahrt.
-- Rechts vor links mit Tempo 30 und der Minikreisel senken die Fahrzeugkonflikte deutlich, der Minikreisel bei den kreuzenden Strömen auf null. Im Kreisel bleiben Auffahrkonflikte an den Einfahrten.
+- Rechts vor links mit Tempo 30 und der Minikreisel senken die Fahrzeugkonflikte auf rund ein Drittel, schwere Konflikte fast auf null. Im Kreisel bleiben vor allem Auffahrkonflikte an den Einfahrten.
 - Zebrastreifen senken die Wartezeit der Fußgänger fast auf null. Die Zahl der bedrängten Fußgänger steigt im Modell an den Zebrastreifen, weil SUMO-Fußgänger dort ohne Blick auf den Verkehr losgehen und Fahrzeuge dann kräftig bremsen. Real ist das eher zu hoch angesetzt.
 - Tempo 30 mit Zebrastreifen bei sonst gleicher Vorfahrt ändert an den Fahrzeugkonflikten wenig.
 
 ## Abspieler
 
-`abspieler/export.py` lässt SUMO je Variante mit Startwert 1 und 0,2 s Schrittweite laufen und zeichnet fünf Minuten nach zehn Minuten Einschwingzeit auf. Positionen werden in Dezimetern als Differenzen gespeichert, der Browser rechnet zwischen den Schritten weich weiter. Fahrzeuge werden aus der Bahn ihrer Front gezeichnet, das Heck folgt der Spur (Schleppkurve), Gelenkbus und Sattelzug knicken am Gelenk. Die Karte entsteht aus dem SUMO-Netz (Fahrbahn, Gehwege, Querungen), den Gebäuden aus `map.osm` und den Parkstreifen. Schilder und Markierungen sind je Variante gesetzt. Die Ringe zeigen dieselben Konflikte wie die Auswertung, nur aus diesem einen Fünf-Minuten-Ausschnitt. In fünf Minuten sind das nur wenige, die Stundenwerte in der Seitenleiste stammen aus den zehn ganzen Läufen.
+`abspieler/export.py` lässt SUMO je Variante mit Startwert 1 und 0,2 s Schrittweite laufen und zeichnet fünf Minuten nach zehn Minuten Einschwingzeit auf. Positionen werden in Dezimetern als Differenzen gespeichert, der Browser rechnet zwischen den Schritten weich weiter. Fahrzeuge werden aus der Bahn ihrer Front gezeichnet, das Heck folgt der Spur (Schleppkurve), Gelenkbus und Sattelzug knicken am Gelenk. Fahrbahn, Bordsteinecken und Gehwege werden aus den Achsen und Querschnitten selbst konstruiert, Markierungen, Zebrastreifen und Parkstreifen kommen aus dem SUMO-Netz, die Gebäude aus `map.osm`. Schilder und Markierungen sind je Variante gesetzt. Die Ringe zeigen dieselben Konflikte wie die Auswertung, nur aus diesem einen Fünf-Minuten-Ausschnitt. In fünf Minuten sind das nur wenige, die Stundenwerte in der Seitenleiste stammen aus den zehn ganzen Läufen.
+
+`werkzeuge/pruefe_abspieler.py` liest die Bahnen aus der fertigen Seite, setzt die Fahrzeuge wie der Browser und prüft jeden zweiten Frame alle Umrisse gegeneinander. Stand jetzt gibt es in Bestand, Minikreisel und Tempo 30 mit Zebra keine Überlappung. In der Variante rechts vor links berührt einmal ein Sattelauflieger beim engen Abbiegen ein wartendes Auto um wenige Zentimeter. SUMO führt den Auflieger exakt auf der Spur der Zugmaschine, die echte Schleppkurve nach innen fehlt.
 
 ## Abweichungen zwischen OSM und Beobachtung
 
@@ -121,10 +135,22 @@ Lesart
 | Tempo Ost | kein Schild, also innerorts 50 | Tempo 30 | 50, laut Recherche wurde Tempo 30 für den Ostteil 2024 abgelehnt |
 | Vorfahrtschilder, Stoppschild | nicht erfasst | abknickende Vorfahrt Süd und West, Stopp Nord | nach Beobachtung |
 | Linksabbiegestreifen Süd | `lane_markings=no` | Linksabbieger und Geradeaus getrennt | zwei Streifen auf 25 m |
-| Haltestelle 0505 | Bussteig an der Ostseite des Südarms, 50 bis 70 m vor dem Knoten | Busbucht | Bucht 45 bis 70 m |
+| Haltestelle 0505 | Bussteig an der Ostseite des Südarms, 50 bis 70 m vor dem Knoten | Halt am Fahrbahnrand, BUS und Zickzack auf der Fahrbahn (Luftbild) | Haltestellenstreifen 45 bis 70 m |
 | Kiosk Südwestecke | an der Südwestecke vermutlich das Café „Lebensmittel A. Prinz“, weiter südlich der Spätkauf „Spätition“ | Kiosk | Ziel der Fußwege etwa 15 m westlich der Ecke |
 
 Vor einer Veröffentlichung sollte jemand vor Ort prüfen, welche Schilder stehen, ob die Linksabbiegespur markiert ist und wo die Busse wirklich abbiegen.
+
+## Überlappungen von Fahrzeugen
+
+SUMO kann Fahrzeuge im Knoten übereinanderschieben, wenn die Vorfahrtlogik eine Lage nicht erkennt. Das ist ein Modellfehler, kein Unfall. Jeder Lauf zählt solche Fälle jetzt mit (`--collision.check-junctions`, Kennzahl `ueberlappungen`).
+
+Im ersten Stand gab es im Bestand etwa 20 bis 40 Überlappungen je halbe Stunde, im Abspieler sichtbar als zwei übereinanderliegende Autos. Ursachen und Abhilfe
+
+1. Die Querungen lagen im Hauptknoten. Ein Rechtsabbieger von Nord nach West, der für Fußgänger auf der Westquerung wartet, stand dabei auf der Bahn der Linksabbieger von Süd nach West. Beide Bahnen laufen erst am Knotenende zusammen, SUMO sieht den Wartenden deshalb nicht als Vordermann. Abhilfe ist je Querung ein eigener kleiner Knoten am Knotenrand. Das senkt die Überlappungen im Bestand auf etwa eine je Stunde.
+2. Im Minikreisel hatten die Zufahrten einen Knick zum Ringknoten. Dadurch war der Querungsknoten verzerrt, Fahrzeuge fuhren über Fußgänger auf dem Zebrastreifen. Die Zufahrten beginnen jetzt gerade am Ring.
+3. Die Wartepositionen im Knoten rechnet netconvert jetzt für 3,2 m breite Fahrzeuge (`--internal-junctions.vehicle-width`), damit auch Lkw und Busse beim Warten neben der Bahn des Vorfahrtverkehrs stehen.
+
+Übrig bleiben seltene Fälle mit langen Fahrzeugen (Lkw von Nord nach Süd, Linksabbieger Süd nach West). Die Zahl steht je Variante in `ergebnisse/vergleich.md`.
 
 ## Grenzen
 

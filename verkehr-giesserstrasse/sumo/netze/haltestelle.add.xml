@@ -1,4 +1,4 @@
 <additional>
-    <!-- Haltestelle Naumburger Strasse (LVB ref 0505), Busbucht am Suedarm Richtung Norden -->
+    <!-- Haltestelle Naumburger Strasse (LVB ref 0505), Halt auf dem rechten Streifen der Fahrbahn am Suedarm Richtung Norden -->
     <busStop id="hst_naumburger" name="Naumburger Straße" lane="S_in_bucht_1" startPos="2" endPos="-2"/>
 </additional>

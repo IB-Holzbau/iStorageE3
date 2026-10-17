@@ -241,7 +241,10 @@ function zeichneKarte(k){
   for(const d of k.trenn)el('path',{d,'stroke-width':.13,'stroke-dasharray':'3 3','stroke-opacity':.9},m);
   for(const d of k.halt)el('path',{d,'stroke-width':.5},m);
   for(const d of k.warte)el('path',{d,'stroke-width':.5,'stroke-dasharray':'.5 .25'},m);
-  for(const d of k.zick)el('path',{d,'stroke-width':.13,'stroke':'#f2c400','stroke-linejoin':'miter'},m);
+  for(const d of (k.schmal||[]))el('path',{d,'stroke-width':.12,'stroke-dasharray':'1.5 1.5'},m);
+  for(const d of k.zick)el('path',{d,'stroke-width':.16,'stroke-linejoin':'miter'},m);
+  for(const d of (k.sperr||[]))el('path',{d,'stroke-width':.14},m);
+  for(const [txt,x,y,r,h] of (k.texte||[]))el('text',{x:0,y:0,transform:`translate(${x} ${y}) rotate(${r})`,'font-size':h,'font-weight':700,'text-anchor':'middle','dominant-baseline':'middle','font-family':'Barlow Semi Condensed,Arial Narrow,Arial,sans-serif',fill:'#fff','fill-opacity':.92,'stroke':'none','transform-origin':'0 0'},m).textContent=txt;
   for(const [d,w] of k.zebra)el('path',{d,'stroke-width':w,'stroke-dasharray':'.5 .5','stroke-opacity':.95},m);
   for(const [x,y,r,art] of k.pfeile)el('use',{href:`#p-${art}`,x:0,y:0,width:5,height:2,transform:`translate(${x} ${y}) rotate(${r}) translate(-2 -1)`},gStatic);
   for(const [x,y,r,c] of k.park){
@@ -331,8 +334,8 @@ function render(){
       const joint=punkt(t,s-fo.j),back=punkt(t,s-fo.L);
       seg(a.segs[0],[x,y],joint);seg(a.segs[1],t.typ==='bus'?joint:punkt(t,s-2.8),back);
     }else{
-      // Heck folgt der Bahn der Front, bei Stillstand Richtung aus dem Winkel
-      const back=punkt(t,s-Math.max(fo.L*.7,1));
+      // Heck liegt auf der eigenen Bahn eine Fahrzeuglaenge zurueck, bei Stillstand Richtung aus dem Winkel
+      const back=punkt(t,s-Math.max(fo.L,1));
       if(Math.hypot(x-back[0],y-back[1])<.3){const an=t.as[k]*Math.PI/180;seg(a.segs[0],[x,y],[x-Math.sin(an),y+Math.cos(an)]);}
       else seg(a.segs[0],[x,y],back);
     }

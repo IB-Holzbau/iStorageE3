@@ -68,7 +68,7 @@ def sumo_bin():
 def lauf(var, seed):
     d = os.path.join(ROH, f'{var}_{seed:02d}')
     os.makedirs(d, exist_ok=True)
-    f = {k: os.path.join(d, f'{k}.xml') for k in ('trip', 'ssm', 'fcd', 'stat')}
+    f = {k: os.path.join(d, f'{k}.xml') for k in ('trip', 'ssm', 'fcd', 'stat', 'koll')}
     cmd = [sumo_bin(), '-n', os.path.join(NETZE, f'{var}.net.xml'), '-r', os.path.join(NETZE, f'{var}.rou.xml'),
            '-a', os.path.join(NETZE, 'haltestelle.add.xml'),
            '--step-length', str(SCHRITT), '--begin', '0', '--end', str(WARMUP + DAUER + 300), '--seed', str(seed),
@@ -78,7 +78,11 @@ def lauf(var, seed):
            '--device.ssm.thresholds', f'{TTC} {DRAC} {PET}', '--device.ssm.range', '50',
            '--device.ssm.trajectories', 'false', '--device.ssm.file', f['ssm'],
            '--fcd-output', f['fcd'], '--fcd-output.attributes', 'x,y,speed,lane,pos,angle,edge',
-           '--tripinfo-output', f['trip'], '--statistic-output', f['stat']]
+           '--tripinfo-output', f['trip'], '--statistic-output', f['stat'],
+           # Zusammenstoesse nur melden, nicht aufloesen. Sie zeigen Fehler im Modell (sich
+           # ueberlappende Fahrzeuge) und werden je Lauf gezaehlt.
+           '--collision.check-junctions', 'true', '--collision.action', 'warn', '--collision.mingap-factor', '0',
+           '--collision-output', f['koll']]
     subprocess.run(cmd, check=True, capture_output=True)
     return auswerten(var, seed, f)
 
@@ -263,7 +267,7 @@ def auswerten(var, seed, f):
             e, li = lane.rsplit('_', 1)
             if e not in kette:
                 continue
-            if lane == 'S_in_bucht_1':      # Bus in der Bucht
+            if e in ('S_in_fern', 'S_in_bucht', 'S_in_mitte') and li == '1':   # Haltestellenstreifen (Bus, Rad)
                 continue
             arm, rest = kette[e]
             dist = lanelen[lane] - float(v.get('pos')) + rest
@@ -317,6 +321,9 @@ def auswerten(var, seed, f):
     werte.append(('teleports', 'alle', int(tp.get('total'))))
     pt = s.find('personTeleports')
     werte.append(('fuss_teleports', 'alle', int(pt.get('total'))))
+    koll = [c for c in ET.parse(f['koll']).getroot().findall('collision') if im_fenster(float(c.get('time')))]
+    paare = {(c.get('collider'), c.get('victim')) for c in koll}
+    werte.append(('ueberlappungen', 'alle', len(paare)))
     sf = s.find('safety')
     werte.append(('notbremsungen', 'alle', int(sf.get('emergencyBraking'))))
     return [(var, seed, k, g, round(w, 3)) for k, g, w in werte]
@@ -399,6 +406,7 @@ def bericht(rows, laeufe, bus):
         ('Mittlere Wartezeit Fußgänger in s', ('fuss_wartezeit_s', 'alle')),
         ('Mittlerer Zeitverlust Fußgänger in s', ('fuss_zeitverlust_s', 'alle')),
         ('Teleports (Verklemmungen im Modell)', ('teleports', 'alle')),
+        ('Überlappungen im Modell (SUMO-Zusammenstöße, Modellfehler)', ('ueberlappungen', 'alle')),
         ('Überschneidungen im Knoteninneren (SSM-Typ 111, nicht mitgezählt)', ('konflikte_fz', 'ueberschneidung')),
     ]
     for name, key in zeilen:

@@ -27,8 +27,11 @@ VARIANTEN = ['bestand', 'rvl', 'minikreisel', 't30_zebra']
 
 J_OSM = '60015219'          # Knoten Giesserstrasse / Naumburger Strasse
 ARM_LEN = 120.0             # Laenge jedes Arms in Metern
-MUND = 16.0             # Abstand Knotenmitte bis Mundknoten (Zebra im Kreisel, Ende der Haltlinienkante)
-KREISEL_R = 3.5             # Innenrand der Kreisfahrbahn, mit 4,5 m Fahrbahn rund 16 m Aussendurchmesser
+# Abstand Knotenmitte bis Querungsknoten (Fussgaengerquerung, Zebra), je Arm so, dass zwischen
+# Knoten und Querung rund 3 m Platz bleiben
+MUND = {'N': 15.0, 'S': 16.0, 'W': 18.0, 'E': 17.0}
+KREISEL_R = 4.0             # Innenrand der Kreisfahrbahn (ueberfahrbare Mitte), mit 4,0 m Fahrbahn rund 16 m Aussendurchmesser
+KREISEL_B = 4.0
 
 V50, V30, V20 = 13.89, 8.33, 5.56
 
@@ -43,23 +46,50 @@ ARME = {
 # Tempo laut OSM. Ost hat kein Schild, also innerorts 50 (Annahme).
 TEMPO_OSM = {'S': V50, 'N': V50, 'W': V30, 'E': V50}
 
-# Fahrstreifenbreite ohne Parkstreifen (aus OSM width minus Parken, gerundet)
-BREITE = {'S': 3.5, 'N': 3.5, 'W': 3.5, 'E': 2.75}
+# Querschnitte je Arm, konstant ueber die ganze Laenge (Abgleich mit OSM width und Luftbild
+# Geoportal Leipzig, Massstab 20 m). Jede Liste geht von rechts nach links in Fahrtrichtung,
+# ohne Gehweg. 'kfz' Fahrspur, 'park' Parkstreifen (keine Fahrten), 'bus' Haltestellenstreifen
+# (nur Bus und Rad), 'sperr' Sperrflaeche (nur Minikreisel).
+#   Gießerstraße Süd 13,0 m: West Parken 2,2 + südwärts 3,6 | nordwärts 3,6 + Haltestellenstreifen
+#                            bzw. Rechtsspur 3,6. Vor dem Knoten Linksabbieger und geradeaus/rechts.
+#   Gießerstraße Nord 8,2 m: je Richtung 4,1, kein Parkstreifen.
+#   Naumburger West 9,5 m:   Südseite Parken 2,0 + ostwärts 3,75 | westwärts 3,75.
+#   Naumburger Ost 9,5 m:    beidseitig Parken 2,0 + je Richtung 2,75.
 GEHWEG = 2.5
-PARKEN = 2.0
-# Parkstreifen laut OSM (parking:*), als Spur ohne Verkehr (custom1). Sie bestimmen nur die Lage
-# des Bordsteins und der Querungen, gefahren wird darauf nicht. Schluessel (Arm, Richtung), Wert
-# die Abschnitte (siehe teile unten).
-PARKSTREIFEN = {
-    ('E', 'in'): {'m', ''}, ('E', 'out'): {'m', ''},     # Naumburger Ost, beidseitig
-    ('W', 'in'): {'m', ''},                              # Naumburger West, Suedseite
-    ('S', 'out'): {'bucht', 'fern'},                     # Giesserstrasse Sued, Westseite ab etwa 35 m
-    ('N', 'in'): {''},                                   # Giesserstrasse Nord, Westseite ab etwa 25 m
+QUERSCHNITT = {
+    # (Arm, Richtung): {Abschnitt: Spuren}, Abschnitt '*' gilt fuer alle uebrigen
+    ('S', 'out'): {'*': [('park', 2.2), ('kfz', 3.6)]},
+    ('S', 'in'): {'m': [('kfz', 3.6), ('kfz', 3.6)], '': [('kfz', 3.6), ('kfz', 3.6)],
+                  '*': [('bus', 3.6), ('kfz', 3.6)]},
+    ('N', 'out'): {'*': [('kfz', 4.1)]},
+    ('N', 'in'): {'*': [('kfz', 4.1)]},
+    ('W', 'out'): {'*': [('kfz', 3.75)]},
+    ('W', 'in'): {'*': [('park', 2.0), ('kfz', 3.75)]},
+    ('E', 'out'): {'*': [('park', 2.0), ('kfz', 2.75)]},
+    ('E', 'in'): {'*': [('park', 2.0), ('kfz', 2.75)]},
 }
+# Eckausbildung der Bordsteine (Beobachtung Luftbild): Nordecken ein Radius, Suedecken
+# abgeschraegt mit zwei kleinen Radien. Wird von der Darstellung genutzt (abspieler/export.py).
+ECKEN = {'NE': ('rund', 5.0), 'WN': ('rund', 5.0), 'ES': ('schraeg', 3.5, 1.2), 'SW': ('schraeg', 3.5, 1.2)}
+KNOTEN_RADIUS = 3.0
 
-# Abschnitte am Suedarm (Abstand zur Knotenmitte). Bucht laut OSM-Haltestelle
-# ref 0505 etwa 45 bis 70 m suedlich, Linksabbiegestreifen auf den letzten 25 m
-# (Beobachtung, in OSM lane_markings=no).
+
+def querschnitt(a, richtung, teil, kreisel=False):
+    q = QUERSCHNITT[(a, richtung)]
+    spuren = list(q.get(teil, q['*']))
+    if kreisel and a == 'S' and richtung == 'in' and teil in ('m', ''):
+        # Minikreisel: nur eine Zufahrtspur, rechts Sperrflaeche
+        spuren = [('sperr', 3.6), ('kfz', 3.6)]
+    return spuren
+
+
+def breite(a, richtung):
+    return sum(w for _, w in querschnitt(a, richtung, 'fern' if a == 'S' else ''))
+
+
+# Abschnitte am Suedarm (Abstand zur Knotenmitte). Haltestelle laut OSM ref 0505 etwa
+# 45 bis 70 m suedlich auf dem rechten Streifen der Fahrbahn (keine Bucht), davor die
+# Grenzmarkierung. Linksabbiegestreifen auf den letzten 25 m.
 S_BUCHT = (45.0, 70.0)
 S_ABBIEGER = 25.0
 
@@ -117,7 +147,23 @@ def arm_polylinie(xy, nachbarn, name, richtung):
         d = math.hypot(x2 - x1, y2 - y1)
         rest = ARM_LEN - laenge(pts)
         pts.append((x2 + (x2 - x1) / d * rest, y2 + (y2 - y1) / d * rest))
-    return schneide(pts, 0, ARM_LEN)
+    pts = schneide(pts, 0, ARM_LEN)
+    # gerade Achse: Richtung vom Knoten zu dem Punkt 60 m weiter (glaettet kleine Knicke in OSM)
+    q = punkt_bei(pts, 60.0)
+    d = math.hypot(q[0] - pts[0][0], q[1] - pts[0][1])
+    ux, uy = (q[0] - pts[0][0]) / d, (q[1] - pts[0][1]) / d
+    return [pts[0], (pts[0][0] + ux * ARM_LEN, pts[0][1] + uy * ARM_LEN)]
+
+
+def grenzlinie(a, achse):
+    """Mittelmarkierung zwischen Hin- und Rueckrichtung. Sie liegt so, dass die Fahrbahn
+    symmetrisch um die OSM-Achse liegt (beim Suedarm 0,7 m westlich der Achse)."""
+    (x0, y0), (x1, y1) = achse
+    d = math.hypot(x1 - x0, y1 - y0)
+    ux, uy = (x1 - x0) / d, (y1 - y0) / d
+    rx, ry = uy, -ux                     # rechts der Richtung nach aussen
+    k = (breite(a, 'in') - breite(a, 'out')) / 2
+    return [(x0 + rx * k, y0 + ry * k), (x1 + rx * k, y1 + ry * k)]
 
 
 def laenge(pts):
@@ -164,11 +210,12 @@ class Netz:
         """lanes ist eine Liste von (allow, breite) von rechts nach links, Gehweg zuerst."""
         s = [f'    <edge id="{eid}" from="{frm}" to="{to}" priority="{prio}" numLanes="{len(lanes)}" '
              f'speed="{speed}" shape="{fmt(shape)}">']
+        erlaubt = {'park': 'custom1', 'sperr': 'custom2', 'bus': 'bus bicycle', 'pedestrian': 'pedestrian'}
         for i, (allow, w) in enumerate(lanes):
             if allow == 'kfz':
-                s.append(f'        <lane index="{i}" disallow="pedestrian custom1" width="{w}"/>')
+                s.append(f'        <lane index="{i}" disallow="pedestrian custom1 custom2" width="{w}"/>')
             else:
-                s.append(f'        <lane index="{i}" allow="{allow}" width="{w}"/>')
+                s.append(f'        <lane index="{i}" allow="{erlaubt[allow]}" width="{w}"/>')
         s.append('    </edge>')
         self.edges.append('\n'.join(s))
 
@@ -203,7 +250,7 @@ def baue_variante(var, arme):
     jtyp = {'bestand': 'priority', 't30_zebra': 'priority', 'rvl': 'right_before_left'}.get(var)
     if not kreisel:
         # edgePriority, damit die abknickende Vorfahrt Sued <-> West gilt
-        n.node('J', (0, 0), jtyp, **({'rightOfWay': 'edgePriority'} if jtyp == 'priority' else {}))
+        n.node('J', (0, 0), jtyp, radius=str(KNOTEN_RADIUS), **({'rightOfWay': 'edgePriority'} if jtyp == 'priority' else {}))
 
     # Kreisfahrbahn: ein Knoten je Arm auf dem Radius, Reihenfolge gegen den Uhrzeigersinn
     winkel = {a: math.atan2(arme[a][1][1], arme[a][1][0]) for a in arme}
@@ -221,7 +268,7 @@ def baue_variante(var, arme):
             k = 6
             shape = [(KREISEL_R * math.cos(w0 + (w1 - w0) * t / k), KREISEL_R * math.sin(w0 + (w1 - w0) * t / k)) for t in range(k + 1)]
             eid = f'ring_{a}{b}'
-            n.edge(eid, f'R{a}', f'R{b}', shape, [('pedestrian', GEHWEG), ('kfz', 4.5)], V20, 5)
+            n.edge(eid, f'R{a}', f'R{b}', shape, [('pedestrian', GEHWEG), ('kfz', KREISEL_B)], V20, 5)
             ring.append(eid)
         n.roundabouts.append(f'    <roundabout nodes="{" ".join("R" + a for a in folge)}" edges="{" ".join(ring)}"/>')
 
@@ -229,10 +276,10 @@ def baue_variante(var, arme):
         inner = f'R{a}' if kreisel else 'J'
         s_inner = KREISEL_R if kreisel else 0.0
         # Knoten entlang des Arms
-        stationen = [MUND, ARM_LEN]
+        stationen = [MUND[a], ARM_LEN]
         if a == 'S':
-            stationen = [MUND, S_ABBIEGER, S_BUCHT[0], S_BUCHT[1], ARM_LEN]
-        namen = {MUND: f'M{a}', ARM_LEN: f'{a}0'}
+            stationen = [MUND[a], S_ABBIEGER, S_BUCHT[0], S_BUCHT[1], ARM_LEN]
+        namen = {MUND[a]: f'M{a}', ARM_LEN: f'{a}0'}
         if a == 'S':
             namen.update({S_ABBIEGER: 'S25', S_BUCHT[0]: 'S45', S_BUCHT[1]: 'S70'})
         for s in stationen:
@@ -240,35 +287,25 @@ def baue_variante(var, arme):
         knoten = [(s_inner, inner)] + [(s, namen[s]) for s in stationen]
         # Edge-Namen je Abschnitt (innen nach aussen)
         teile = ['m', ''] if a != 'S' else ['m', '', 'mitte', 'bucht', 'fern']
-        w = BREITE[a]
+        grenze = grenzlinie(a, pts)
         for (s0, k0), (s1, k1), teil in zip(knoten, knoten[1:], teile):
-            sh = schneide(pts, max(s0, 0.01), s1)
-            if kreisel and s0 == s_inner:
-                sh[0] = (KREISEL_R * math.cos(winkel[a]), KREISEL_R * math.sin(winkel[a]))
+            # Im Kreisel beginnt die Zufahrt gerade am Aussenrand der Kreisfahrbahn. Ein Knick zum
+            # Ringknoten wuerde die Form des Querungsknotens verzerren.
+            sh = schneide(grenze, max(s0 + (KREISEL_B if kreisel and s0 == s_inner else 0), 0.01), s1)
             suf = f'_{teil}' if teil else ''
-            # stadteinwaerts (zum Knoten)
-            zu = [('pedestrian', GEHWEG), ('kfz', w)]
-            if a == 'S' and teil in ('m', '') and not kreisel:
-                zu = [('pedestrian', GEHWEG), ('kfz', 3.0), ('kfz', 3.0)]   # rechts geradeaus/rechts, links Linksabbieger
-            if a == 'S' and teil == 'bucht':
-                zu = [('pedestrian', GEHWEG), ('bus', 3.0), ('kfz', w)]
-            von = [('pedestrian', GEHWEG), ('kfz', w)]
-            if teil in PARKSTREIFEN.get((a, 'in'), ()):
-                zu = zu[:1] + [('custom1', PARKEN)] + zu[1:]
-            if teil in PARKSTREIFEN.get((a, 'out'), ()):
-                von = von[:1] + [('custom1', PARKEN)] + von[1:]
+            zu = [('pedestrian', GEHWEG)] + querschnitt(a, 'in', teil, kreisel)      # zum Knoten
+            von = [('pedestrian', GEHWEG)] + querschnitt(a, 'out', teil, kreisel)    # vom Knoten weg
             n.edge(f'{a}_in{suf}', k1, k0, list(reversed(sh)), zu, tempo[a], prio[a])
             n.edge(f'{a}_out{suf}', k0, k1, sh, von, tempo[a], prio[a])
 
     # Querungen
     zebra = {'bestand': set(), 'rvl': set(), 't30_zebra': {'N', 'W'}, 'minikreisel': set(arme)}[var]
     for a in arme:
-        if kreisel or a in zebra:
-            # Zebrastreifen etwa eine Wagenlaenge vom Knoten abgesetzt, damit ein Fahrzeug
-            # zwischen Zebra und Knoten warten kann
-            n.crossing(f'M{a}', f'{a}_in {a}_out', a in zebra)
-        else:
-            n.crossing('J', f'{a}_in_m {a}_out_m', a in zebra)
+        # Alle Querungen liegen auf einem eigenen Knoten direkt am Knotenrand. Laegen sie im
+        # Hauptknoten, wuerde ein Abbieger, der fuer Fussgaenger wartet, auf der Bahn des
+        # einfaedelnden Gegenverkehrs stehen. SUMO erkennt ihn dort nicht als Vordermann und
+        # meldet Zusammenstoesse (siehe README, Abschnitt Ueberlappungen).
+        n.crossing(f'M{a}', f'{a}_in {a}_out', a in zebra)
 
     # Spurzuordnung Suedarm vor dem Knoten (nur ohne Kreisel)
     if not kreisel:
@@ -277,8 +314,15 @@ def baue_variante(var, arme):
         n.con('S_in_m', 'N_out_m', 1, 1)
         n.con('S_in_m', 'E_out_m', 1, 2)   # Ost hat Parkstreifen auf Spur 1
         n.con('S_in_m', 'W_out_m', 2, 1)
-        n.con('S_in_mitte', 'S_in', 1, 1)
-        n.con('S_in_mitte', 'S_in', 1, 2)
+        n.con('S_in_mitte', 'S_in', 1, 1)    # Haltestellenstreifen (Bus, Rad) wird zur Rechtsspur
+        n.con('S_in_mitte', 'S_in', 2, 1)
+        n.con('S_in_mitte', 'S_in', 2, 2)
+    else:
+        # Kreisel: der Haltestellenstreifen endet vor der Sperrflaeche. Bus und Rad wechseln vorher
+        # regulaer auf die Fahrspur. Ein Einfaedeln im Knoten S25 wuerde Wartende quer auf die
+        # Fahrspur stellen.
+        n.con('S_in_mitte', 'S_in', 2, 2)
+        n.con('S_in', 'S_in_m', 2, 2)
     if var in ('bestand', 't30_zebra'):
         # Abknickende Vorfahrt: Wer aus West geradeaus nach Ost faehrt, verlaesst die
         # Vorfahrtstrasse und wartet auf den Hauptstrom Sued nach West.
@@ -292,7 +336,7 @@ def baue_variante(var, arme):
 def netconvert(prefix, net):
     cmd = ['netconvert', '-n', prefix + '.nod.xml', '-e', prefix + '.edg.xml', '-x', prefix + '.con.xml',
            '-o', net, '--no-turnarounds', 'true', '--tls.guess', 'false', '--walkingareas', 'true',
-           '--junctions.corner-detail', '6', '--no-warnings', 'false', '--offset.disable-normalization', 'true']
+           '--junctions.corner-detail', '6', '--internal-junctions.vehicle-width', '3.2', '--no-warnings', 'false', '--offset.disable-normalization', 'true']
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
         print(r.stdout, r.stderr)
@@ -391,7 +435,7 @@ def nachfrage(var, bus, ende):
 
 
 HALTESTELLE = '''<additional>
-    <!-- Haltestelle Naumburger Strasse (LVB ref 0505), Busbucht am Suedarm Richtung Norden -->
+    <!-- Haltestelle Naumburger Strasse (LVB ref 0505), Halt auf dem rechten Streifen der Fahrbahn am Suedarm Richtung Norden -->
     <busStop id="hst_naumburger" name="Naumburger Straße" lane="S_in_bucht_1" startPos="2" endPos="-2"/>
 </additional>
 '''
