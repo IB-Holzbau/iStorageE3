@@ -1,14 +1,14 @@
 # SUMO-Modell Gießerstraße / Naumburger Straße
 
-Mikroskopische Verkehrssimulation der Kreuzung in Leipzig-Plagwitz mit dem freien Simulator [Eclipse SUMO](https://eclipse.dev/sumo/). Das Modell vergleicht den Bestand mit drei Varianten, die die Initiative im Oktober 2026 ausgewählt hat (bessere Markierung mit Tempo 30, Tempo-30-Zone mit rechts vor links, rote Radwege), und liefert Kennzahlen zu Sicherheit und Wartezeiten für die Bürgerkampagne. Das Browsermodell in `../modell` bleibt das Ideenmodell, dieses SUMO-Modell ist die nachvollziehbare Rechengrundlage.
+Mikroskopische Verkehrssimulation der Kreuzung in Leipzig-Plagwitz mit dem freien Simulator [Eclipse SUMO](https://eclipse.dev/sumo/). Das Modell vergleicht den Bestand mit der empfohlenen Variante (bessere Markierung mit Tempo 30, abknickende Vorfahrt bleibt), roten Radwegen und als reinen Vergleich einer Tempo-30-Zone mit rechts vor links, und liefert Kennzahlen zu Sicherheit und Wartezeiten für die Bürgerkampagne. Das Browsermodell in `../modell` bleibt das Ideenmodell, dieses SUMO-Modell ist die nachvollziehbare Rechengrundlage.
 
 **Abspieler im Browser** in [`grafik/abspieler.html`](grafik/abspieler.html). Die Datei im Browser öffnen, sie läuft ohne Internet (nur die Schrift kommt von Google Fonts). Fünf Minuten der Spitzenstunde je Variante mit 60 Bildern je Sekunde. Spurwechsel dauern einige Sekunden, Bus und Lkw holen beim Abbiegen aus, Gelenkbus und Sattelzug knicken, Blinker zeigen das Abbiegen, Beinahe-Unfälle blinken als Ringe auf. Verkehrszeichen sind nach StVO-Vorlage gezeichnet, mit Mast und einer Marke, die zum jeweiligen Fahrer zeigt.
 
-| Bestand | Markierung und Tempo 30 |
+| Bestand | Markierung und Tempo 30 (Empfehlung) |
 |---|---|
 | ![Bestand](grafik/abspieler_bestand.png) | ![Markierung](grafik/abspieler_markierung.png) |
-| **Tempo-30-Zone, rechts vor links** | **Rote Radwege** |
-| ![Zone](grafik/abspieler_zone.png) | ![Radwege](grafik/abspieler_radwege.png) |
+| **Rote Radwege** | **Tempo-30-Zone (Vergleich, nicht empfohlen)** |
+| ![Radwege](grafik/abspieler_radwege.png) | ![Zone](grafik/abspieler_zone.png) |
 
 ## Aufruf
 
@@ -98,9 +98,11 @@ Die Nordecken sind mit 5 m ausgerundet, die Südecken wie die Hausecken abgeschr
 | Variante | Änderungen gegenüber Bestand |
 |---|---|
 | `bestand` | wie oben. Gießerstraße 50, Naumburger West 30 (Streckenschild), Naumburger Ost Tempo-30-Zone |
-| `markierung` | Vorfahrt wie heute, Tempo 30 auf allen Armen streckenbezogen (Zeichen 274). Eine Tempo-30-Zone ist hier nicht möglich, weil Zonen nach VwV-StVO keine Vorfahrtstraßen umfassen dürfen. Klarer Bogen der Vorfahrt, durchgezogene Fahrstreifenbegrenzung (295) zwischen Links- und Geradeausspur auf den letzten 15 m, dadurch nur noch 8 % Fehlspur (Annahme, wer geradeaus aus der Linksabbiegespur fährt, überfährt eine durchgezogene Linie). Grenzmarkierung (299) an der Nordseite des Ostarms auf den ersten 7 m, damit Sichtfeld frei. Breitere Haltlinie Nord und Wartelinie Ost, Schilder 206 und 205 zusätzlich links, 306 zusätzlich links am Südarm. Keine Zebrastreifen |
-| `zone` | Tempo-30-Zone (274.1) an allen Zufahrten, damit rechts vor links an allen Armen, alle Vorfahrtschilder und Wartelinien entfallen. Grenzmarkierung an der Ostecke wie oben. Keine Zebrastreifen. Fehlspur 15 % (Pfeile bleiben) |
+| `markierung` (Empfehlung) | Vorfahrt wie heute, Tempo 30 auf allen Armen streckenbezogen (Zeichen 274). Eine Tempo-30-Zone ist hier nicht möglich, weil Zonen nach VwV-StVO keine Vorfahrtstraßen umfassen dürfen. Klarer Bogen der Vorfahrt, durchgezogene Fahrstreifenbegrenzung (295) zwischen Links- und Geradeausspur auf den letzten 15 m, dadurch nur noch 8 % Fehlspur (Annahme, wer geradeaus aus der Linksabbiegespur fährt, überfährt eine durchgezogene Linie). Grenzmarkierung (299) an der Nordseite des Ostarms auf den ersten 7 m, damit Sichtfeld frei. Breitere Haltlinie Nord und Wartelinie Ost, Schilder 206 und 205 zusätzlich links, 306 zusätzlich links am Südarm, Tempo-30-Piktogramme auf der Fahrbahn aller Zufahrten. Keine Zebrastreifen, keine Poller |
 | `radwege` | wie `markierung`, dazu rot eingefärbte Radfahrstreifen (Breitstrich, Breiten nach ERA 2010). Gießerstraße Süd nordwärts 1,85 m am rechten Rand (Haltebereich wie heute gemeinsam mit dem Bus, südlich davon 0,5 m Sicherheitstrennstreifen zu den Parkern), südwärts 2,0 m statt des Parkstreifens auf der Westseite. Naumburger West Richtung Knoten 1,85 m auf den letzten 30 m im heutigen Halteverbot. Rote Furten durch den Knoten West nach Süd und Süd nach Nord. Westwärts (3,75 m), Nord (8,2 m) und Ost (Engstelle) reicht die Breite nicht, dort Piktogramme. Linksabbiegen Süd nach West auf der Linksabbiegespur, indirektes Linksabbiegen und aufgeweiteter Radaufstellstreifen wurden geprüft, passen ohne Ampel aber nicht sinnvoll |
+| `zone` (Vergleich, nicht empfohlen) | Tempo-30-Zone (274.1) an allen Zufahrten, damit rechts vor links an allen Armen, alle Vorfahrtschilder und Wartelinien entfallen. Grenzmarkierung an der Ostecke wie oben. Keine Zebrastreifen. Fehlspur 15 % (Pfeile bleiben) |
+
+**Warum die Zone nur Vergleich ist.** Die Initiative empfiehlt keine grundsätzliche Änderung der Vorfahrt, weil sich die Menschen an die abknickende Vorfahrtstraße gewöhnt haben. Ein Wechsel auf rechts vor links würde gerade in der Umstellungszeit neue Unsicherheit schaffen. Die Zone bleibt deshalb nur als Vergleich im Modell, sie zeigt, was eine Änderung der Vorfahrt rechnerisch bewirken würde.
 
 Die Vorfahrtstraße mit Radfahrstreifen ist bewusst die Basis der Variante `radwege`. In einer Tempo-30-Zone sind Radfahrstreifen nach VwV-StVO in der Regel nicht vorgesehen.
 
@@ -109,9 +111,9 @@ Die Vorfahrtstraße mit Radfahrstreifen ist bewusst die Basis der Variante `radw
 | Variante | Stellplätze | Unterschied |
 |---|---|---|
 | Bestand | 88 | |
-| Markierung und Tempo 30 | 87 | −1 an der Nordseite des Ostarms (Grenzmarkierung) |
-| Tempo-30-Zone | 87 | −1 wie oben |
+| Markierung und Tempo 30 (Empfehlung) | 87 | −1 an der Nordseite des Ostarms (Grenzmarkierung) |
 | Rote Radwege | 74 | −14, davon 13 auf der Westseite der Gießerstraße Süd (45 bis 120 m) und 1 am Ostarm. Jenseits des Modellausschnitts kostet der Radfahrstreifen dort etwa 18 Plätze je 100 m. Dazu entfallen auf der Naumburger West die etwa 5 Plätze, die heute nachmittags ab 14 Uhr im Halteverbotsabschnitt genutzt werden |
+| Tempo-30-Zone (Vergleich) | 87 | −1 wie bei der Markierung |
 
 **Verworfene Varianten.** Die Initiative hat nach den ersten Ergebnissen entschieden, Zebrastreifen, die geschützte Kreuzung und den Minikreisel nicht weiter zu verfolgen. Sie lassen sich mit `python3 build.py --alt` weiter bauen. Die letzten Kennzahlen (Stand Commit dc05a94, damals noch mit Querungen weiter vom Knoten, Ost Tempo 50, ohne Spurwechseldauer) stehen in `ergebnisse/vergleich_alt_stand_dc05a94.md`.
 
@@ -159,24 +161,26 @@ Vollständige Tabellen in [`ergebnisse/vergleich.md`](ergebnisse/vergleich.md), 
 
 Kernaussagen je Stunde (Mittel aus 10 Läufen, Morgenspitze)
 
-| | Bestand | Markierung und Tempo 30 | Tempo-30-Zone | Rote Radwege |
+| | Bestand | Markierung und Tempo 30 (Empfehlung) | Rote Radwege | Tempo-30-Zone (Vergleich) |
 |---|---|---|---|---|
-| Fahrzeugkonflikte im Knoten | 57 | 44 | 22 | 46 |
-| davon schwer | 13 | 16 | 1,9 | 15 |
-| davon Kfz gegen Rad | 9,6 | 9,7 | 4,3 | 14 |
-| Fußgänger auf Querung bedrängt | 25 | 20 | 20 | 20 |
-| davon Fahrzeug schneller als 30 km/h | 11 | 3,0 | 4,6 | 3,8 |
-| Wartezeit Fußgänger in s | 4,2 | 7,3 | 9,7 | 5,7 |
-| Nordarm Zeitverlust Kfz in s | 38 (D) | 28 (C) | 8 (A) | 28 (C) |
-| Nordarm Anteil der Zeit mit Wartenden | 50 % | 45 % | 7 % | 45 % |
-| Zeitverlust Kfz in s | 15 | 11 | 12 | 11 |
-| Stellplätze im Ausschnitt | 88 | 87 | 87 | 74 |
+| Fahrzeugkonflikte im Knoten | 60 | 42 | 42 | 21 |
+| davon schwer | 16 | 14 | 12 | 1,7 |
+| davon Kfz gegen Rad | 10 | 7,8 | 12 | 5,0 |
+| Fußgänger auf Querung bedrängt | 22 | 18 | 21 | 19 |
+| davon Fahrzeug schneller als 30 km/h | 8,3 | 2,9 | 3,6 | 3,6 |
+| Wartezeit Fußgänger in s | 4,3 | 7,7 | 5,6 | 9,5 |
+| Nordarm Zeitverlust Kfz in s | 39 (D) | 29 (C) | 28 (C) | 8 (A) |
+| Nordarm Anteil der Zeit mit Wartenden | 52 % | 45 % | 46 % | 7 % |
+| Zeitverlust Kfz in s | 15 | 11 | 10 | 9 |
+| Stellplätze im Ausschnitt | 88 | 87 | 74 | 87 |
 
 Lesart
 
-- **Tempo-30-Zone mit rechts vor links** schneidet mit Abstand am besten ab. Die Fahrzeugkonflikte sinken auf weniger als die Hälfte, schwere fast ganz weg, Kfz gegen Rad auf weniger als die Hälfte, der Nordarm staut sich kaum noch. Fußgänger warten länger, weil sie überall auf Lücken warten, dafür fahren an den Querungen viel weniger Fahrzeuge schneller als 30 km/h.
-- **Markierung und Tempo 30** senkt die Fahrzeugkonflikte um gut ein Fünftel und die schnellen Fahrzeuge an den Querungen auf ein Viertel. Schwere Konflikte und Kfz gegen Rad bleiben etwa wie heute, weil die abknickende Vorfahrt und das Stoppschild bleiben.
-- **Rote Radwege** bringen gegenüber der reinen Markierung im Modell keinen Sicherheitsgewinn, Kfz gegen Rad steigt sogar (14 statt 10). Vermutliche Ursache sind Radfahrende, die vom Radfahrstreifen rechts nach West links abbiegen wollen und dafür über die Geradeausspur wechseln, und Rechtsabbieger West nach Süd über den Radfahrstreifen. Ohne Ampel fehlt der geschützte Aufstellbereich. SUMO bildet das Einordnen der Räder grob ab, die Zahl ist eine Tendenz. Dafür kosten die Radwege 14 Stellplätze im Ausschnitt.
+- **Markierung und Tempo 30 (Empfehlung)** senkt die Fahrzeugkonflikte um gut ein Viertel (60 auf 42), Kfz gegen Rad um ein Viertel, die bedrängten Fußgänger um ein Fünftel und die schnellen Fahrzeuge an den Querungen auf ein Drittel. Der Nordarm wartet etwa 10 s weniger. Schwere Konflikte sinken nur wenig (16 auf 14), siehe unten.
+- **Was bei der Empfehlung bleibt.** Die schweren Konflikte im Modell sind fast alle Lückenkonflikte gegen den Hauptstrom Süd nach West. Am häufigsten (Lauf 1) Süd nach West gegen West nach Nord (7), gegen Ost nach Süd (5) und gegen Nord nach Ost (5). Wer aus West, Ost oder Nord einbiegt, muss eine Lücke im abbiegenden Hauptstrom finden, der aus der Linksabbiegespur kommt und dessen Ende man schlecht sieht. Das bleibt, solange die abknickende Vorfahrt bleibt. Die Maßnahmen dagegen wirken über Sicht und Aufmerksamkeit (freies Sichtfeld an der Ostecke, breitere Halt- und Wartelinien, zusätzliche Schilder links, Tempo-30-Piktogramme, weniger Falschparker). SUMO kennt Sicht nicht, deshalb sind sie gezeichnet, aber nicht als Zahl eingerechnet. Ihre Wirkung ist eher größer als im Modell.
+- **Geprüft und verworfen** (Sensitivität für Bestand / Markierung / Radwege, schwere Konflikte je Stunde). Vorsichtigeres Einbiegen aus Nord und Ost (`impatience` 0,35 statt 0,5) ergibt 16 / 13,5 / 13 bei 61 s Zeitverlust am Nordarm, mit 0,25 sogar 214 s, der Nordarm würde überlaufen. Langsamerer Bogen mit 20 km/h und Linksabbiegen West nach Nord nur mit Warten ergibt 16 / 17 / 20, also schlechter, weil sich die Ströme im Knoten länger überlagern. Beides bleibt deshalb aus dem Modell, Grundwert `impatience 0.5`.
+- **Tempo-30-Zone mit rechts vor links (nur Vergleich, nicht empfohlen)** hätte rechnerisch die wenigsten Konflikte (21, schwer 1,7) und kaum Stau am Nordarm. Sie ändert aber die Vorfahrt grundsätzlich, an die sich alle gewöhnt haben, und die Umstellungszeit ist im Modell nicht abgebildet. Fußgänger warten dort am längsten (9,5 s).
+- **Rote Radwege** bringen gegenüber der reinen Markierung im Modell keinen Sicherheitsgewinn, Kfz gegen Rad steigt sogar (12 statt 8). Vermutliche Ursache sind Radfahrende, die vom Radfahrstreifen rechts nach West links abbiegen wollen und dafür über die Geradeausspur wechseln, und Rechtsabbieger West nach Süd über den Radfahrstreifen. Ohne Ampel fehlt der geschützte Aufstellbereich. SUMO bildet das Einordnen der Räder grob ab, die Zahl ist eine Tendenz. Dafür kosten die Radwege 14 Stellplätze im Ausschnitt.
 - **Fehlspur.** Mit durchgezogener Linie fast keine Konflikte mehr durch Geradeausfahrer aus der Linksabbiegespur, im Bestand im Modell etwa einer je Stunde.
 - **Bus.** Der Wechsel vom Haltebereich auf die Linksabbiegespur passiert mit jedem Bus nach West (etwa 5 je Stunde), Konflikte dabei bleiben selten. Mit Ausholen beim Rechtsabbiegen überfahren Bus, Lkw und Sattelzug den Bordstein kaum noch (unter 0,5 Fahrten je Stunde).
 
@@ -202,12 +206,13 @@ Alle neun Szenen kommen in allen vier Varianten vor. `python3 werkzeuge/szenenbi
 
 ## Überlappungen von Fahrzeugen
 
-SUMO kann Fahrzeuge im Knoten übereinanderschieben, wenn die Vorfahrtlogik eine Lage nicht erkennt. Das ist ein Modellfehler, kein Unfall, und wird je Lauf gezählt. Bestand und Markierung unter 1 je Stunde, Zone 1,0, Radwege 6,9 (dort meist Einbieger West nach Süd und Nord nach Süd, die gleichzeitig in die Fahrspur neben dem Radfahrstreifen einfädeln). `werkzeuge/pruefe_abspieler.py` findet im Abspieler je Variante 0 bis 4 kurze Berührungen, meist ein ausschwenkendes Heck neben einem Pkw.
+SUMO kann Fahrzeuge im Knoten übereinanderschieben, wenn die Vorfahrtlogik eine Lage nicht erkennt. Das ist ein Modellfehler, kein Unfall, und wird je Lauf gezählt. Bestand und Markierung unter 1 je Stunde, Zone 1,3, Radwege 6,6 (dort meist Einbieger West nach Süd und Nord nach Süd, die gleichzeitig in die Fahrspur neben dem Radfahrstreifen einfädeln). `werkzeuge/pruefe_abspieler.py` findet im Abspieler je Variante 1 bis 3 kurze Berührungen, meist ein ausschwenkendes Heck neben einem Pkw.
 
 ## Grenzen
 
 - Die Nachfrage ist geschätzt, es gibt keine Zählung. Das Modell zeigt Unterschiede zwischen Varianten, nicht die echten Werte. Gerechnet ist die Morgenspitze.
-- Die Wartezeit am Nordarm hängt stark von Lückenannahme (`impatience 0.5`) und Zufluss ab.
+- Die Wartezeit am Nordarm hängt stark von Lückenannahme (`impatience 0.5`) und Zufluss ab, siehe Sensitivität oben.
+- Die Zone ist ohne Umstellungszeit gerechnet, alle halten sich sofort an rechts vor links. Das ist der Hauptgrund, warum sie nur Vergleich ist.
 - Parken bestimmt nur die Geometrie, Ein- und Ausparken und das Begegnungswarten im Ostarm fehlen. Sichtfelder (Grenzmarkierung, Schaltkasten) wirken in SUMO nicht, sie sind gezeichnet und begründet, aber nicht berechnet.
 - Der Fehlspur-Anteil mit durchgezogener Linie (8 %) ist eine Annahme.
 - Querungen liegen technisch bedingt 0,5 m hinter dem Beginn der Eckausrundung statt in der Ausrundung.

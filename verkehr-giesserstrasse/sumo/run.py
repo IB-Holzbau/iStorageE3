@@ -40,7 +40,7 @@ ROH = os.path.join(ERG, 'roh')
 
 VARIANTEN = list(B.VERGLEICH)
 ALLE = list(B.VARIANTEN)
-TITEL = {'bestand': 'Bestand', 'markierung': 'Markierung und Tempo 30', 'zone': 'Tempo-30-Zone, rechts vor links',
+TITEL = {'bestand': 'Bestand', 'markierung': 'Markierung und Tempo 30 (Empfehlung)', 'zone': 'Tempo-30-Zone, rechts vor links (Vergleich, nicht empfohlen)',
          'radwege': 'Rote Radwege', 'rvl': 'Rechts vor links, Tempo 30 (verworfen)',
          'minikreisel': 'Minikreisel mit Zebrastreifen (verworfen)', 't30_zebra': 'Tempo 30 und Zebra Nord und West (verworfen)',
          'geschuetzt': 'Geschützte Kreuzung (verworfen)'}

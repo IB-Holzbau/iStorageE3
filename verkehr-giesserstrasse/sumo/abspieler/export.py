@@ -858,6 +858,17 @@ def karte(var, bauten):
             k['falsch'].append([r2(p[0]), r2(-p[1]), winkel_svg(pr[0] - p[0], pr[1] - p[1]), lang, breit])
     if var in ('markierung', 'radwege'):
         k['deutlich'] = 1          # breitere Haltlinie Nord und Wartelinie Ost
+        # Piktogramm 30 auf der Fahrbahn aller Zufahrten (Tempo 30 auch auf der Vorfahrtstrasse)
+        for a_, s_ in (('S', 30.0), ('W', 26.0), ('N', 24.0), ('E', 24.0)):
+            ls_ = [l for l in kfz if l['edge'].startswith(f'{a_}_in') and not l['edge'].startswith(f'{a_}_in_m')]
+            if not ls_:
+                continue
+            r_ = rahmen(a_)
+            kw = sum(w for kk, w in B.querschnitt(a_, 'in', 'm', var) if kk in ('kfz',))
+            q_ = -(sum(w for kk, w in B.querschnitt(a_, 'in', 'm', var)) - kw / 2) if a_ != 'S' else -kw / 2 - 1.85 * (var == 'radwege')
+            p_ = r_.punkt(s_, q_)
+            pr = r_.punkt(s_ - 1, q_)
+            texte.append(['30', r2(p_[0]), r2(-p_[1]), winkel_svg(pr[0] - p_[0], pr[1] - p_[1]) + 90, 2.4, 1.8])
     if var == 'radwege':
         rad = [l for l in lanes if l['allow'] == 'bicycle']
         k['radweg'] = pfad(unary_union([LineString(l['pts']).buffer(l['width'] / 2, cap_style=2, join_style=2) for l in rad]).simplify(0.02))

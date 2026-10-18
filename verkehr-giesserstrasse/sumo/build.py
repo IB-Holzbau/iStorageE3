@@ -31,7 +31,7 @@ PLAIN = os.path.join(ROOT, 'build')
 # Tempo-30-Zone mit rechts vor links und rote Radwege. Die frueheren Varianten (rechts vor links
 # ohne Markierung, Tempo 30 mit Zebra, geschuetzte Kreuzung, Minikreisel) sind verworfen und
 # werden nur mit --alt gebaut (siehe README, Abschnitt verworfene Varianten).
-VERGLEICH = ['bestand', 'markierung', 'zone', 'radwege']
+VERGLEICH = ['bestand', 'markierung', 'radwege', 'zone']   # Zone nur als Vergleich, nicht empfohlen
 VERWORFEN = ['rvl', 't30_zebra', 'geschuetzt', 'minikreisel']
 VARIANTEN = VERGLEICH + VERWORFEN
 # Gruppen fuer die Regeln
@@ -413,7 +413,7 @@ def suedarm_verbindungen(n, var, gesch=False):
     # Fahrbahn bleibt nur das direkte Linksabbiegen nach West.
     n.con(m, 'N_out_m', rm, k('N_out_m')[0], disallow='taxi bicycle' if gesch else 'taxi')
     n.con(m, 'E_out_m', rm, k('E_out_m')[0], **({'disallow': 'bicycle'} if gesch else {}))
-    n.con(m, 'W_out_m', lm, k('W_out_m')[0])
+    n.con(m, 'W_out_m', lm, k('W_out_m')[0], **({'speed': f'{BOGEN_TEMPO:.2f}'} if var in EMPFEHLUNG and BOGEN_TEMPO else {}))
     if var != 'minikreisel':
         n.con(m, 'N_out_m', lm, k('N_out_m')[0], allow='taxi')
 
@@ -504,6 +504,8 @@ def baue_variante(var, arme):
     suedarm_verbindungen(n, var)
     if var in ABKNICKEND:
         vorfahrt_abknickend(n)
+    if var in EMPFEHLUNG and W_N_WARTET:
+        n.verbot('S_in_m->W_out_m', 'W_in_m->N_out_m')
     return n
 
 
@@ -803,6 +805,18 @@ FUSS_SUMME = {'N': 100, 'W': 50, 'S': 30, 'E': 30}   # Zielwerte, siehe README
 FUSS_GESCH = {('W_out', 3): ('W_out_b', 1), ('W_in', -3): ('gWi', 1), ('S_in', -1): ('gSi', 1),
               ('S_out', 1): ('gSo', 1)}
 
+# Empfehlungsvariante (Markierung und Tempo 30, auch Basis der roten Radwege): Massnahmen, die die
+# abknickende Vorfahrt behalten. Freie Sichtfelder an Nord- und Ostzufahrt (Grenzmarkierung statt
+# Parken und Falschparken), vorgezogene Haltlinie Nord: Wartepflichtige aus Nord und Ost sehen die
+# Vorfahrt frueher und nehmen seltener zu kleine Luecken (Annahme impatience 0,25 statt 0,5).
+# Deutlicher Bogen mit Pfeil und Sperrflaechen-Einengung: der Hauptstrom Sued nach West faehrt im
+# Bogen hoechstens 20 km/h, und wer aus West nach Nord abbiegt, wartet klar auf ihn (StVO, er
+# verlaesst die Vorfahrtstrasse nach links).
+EMPFEHLUNG = {'markierung', 'radwege'}
+IMPATIENCE_SICHT = 0.5         # 0,35 und 0,25 getestet, siehe README (Sensitivitaet)
+BOGEN_TEMPO = None          # 20 km/h getestet: mehr schwere Konflikte, verworfen
+W_N_WARTET = False          # getestet: keine Verbesserung, verworfen
+
 # impatience 0.5: Wartepflichtige akzeptieren nach laengerem Warten kleinere Luecken.
 IMPATIENCE = 0.5
 
@@ -813,6 +827,7 @@ SCHNELL = {50: (0.20, 'normc(1.25,0.04,1.18,1.32)'), 30: (0.10, 'normc(1.25,0.05
 
 VTYPES = '''    <vType id="pkw" impatience="{imp}" vClass="passenger" length="4.5" width="1.85" accel="2.6" decel="4.5" sigma="0.5" speedFactor="normc(1,0.1,0.8,1.3)"/>
     <vType id="pkwf" impatience="{imp}" vClass="passenger" length="4.5" width="1.85" accel="2.8" decel="4.5" sigma="0.4" speedFactor="{schnell}"/>
+    <vType id="pkwn" impatience="{impn}" vClass="passenger" length="4.5" width="1.85" accel="2.6" decel="4.5" sigma="0.5" speedFactor="normc(1,0.1,0.8,1.3)"/>
     <vType id="pkwx" impatience="{imp}" vClass="taxi" length="4.5" width="1.85" accel="2.6" decel="4.5" sigma="0.5" speedFactor="normc(1,0.1,0.8,1.3)"/>
     <vType id="lkw" impatience="{imp}" vClass="truck" length="10.0" width="2.5" accel="1.3" decel="4.0" sigma="0.5" maxSpeed="12.5" speedFactor="normc(1,0.05,0.8,1.1)"/>
     <vType id="sattel" impatience="{imp}" vClass="truck" length="16.5" width="2.55" accel="1.0" decel="4.0" sigma="0.5" maxSpeed="11.7" guiShape="truck/semitrailer"/>
@@ -838,13 +853,15 @@ def nachfrage(var, bus, ende):
     stopp = stopp_kante(var)
     lim = 50 if var == 'bestand' else 30
     anteil_schnell, faktor = SCHNELL[lim]
-    z = ['<routes>', VTYPES.replace('{imp}', str(IMPATIENCE)).replace('{schnell}', faktor)]
+    z = ['<routes>', VTYPES.replace('{imp}', str(IMPATIENCE)).replace('{schnell}', faktor).replace('{impn}', str(IMPATIENCE_SICHT))]
     flows = []
 
     def flow(fid, typ, rel, q):
         if q <= 0:
             return
         o, d = rel[0], rel[1]
+        if var in EMPFEHLUNG and typ == 'pkw' and o in 'NE':
+            typ = 'pkwn'      # freie Sichtfelder, vorgezogene Haltlinie: Wartepflichtige waehlen Luecken sorgfaeltiger
         stop = ''
         if stopp and o == 'N' and not (var == 'geschuetzt' and typ == 'rad'):
             stop = f'\n        <stop edge="{stopp}" endPos="-0.5" duration="1"/>'

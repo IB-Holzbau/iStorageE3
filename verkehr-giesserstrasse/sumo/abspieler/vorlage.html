@@ -201,9 +201,9 @@ const D=/*__DATEN__*/null;
 const NS='http://www.w3.org/2000/svg';
 const VAR=[
   {id:'bestand',t:'Bestand',k:'heute',x:'Abknickende Vorfahrt von Süd nach West, Stoppschild am Nordarm, Ost wartepflichtig. Tempo 50 auf der Gießerstraße, Tempo 30 auf der Naumburger Straße West (Streckenschild) und Tempo-30-Zone Ost. Auf der Ostseite wird bis an die Ecke geparkt. An der Kioskecke stehen oft Falschparker im Haltverbot.'},
-  {id:'markierung',t:'Markierung',k:'Tempo 30',x:'Vorfahrt wie heute, aber Tempo 30 auf allen Armen (Zeichen 274, eine Zone ist an einer Vorfahrtstraße nicht zulässig). Klarer Bogen der Vorfahrt, durchgezogene Linie zwischen Links- und Geradeausspur, Grenzmarkierung (Zeichen 299) an der Ostecke statt Parken und im Haltverbot an der Kioskecke gegen Falschparker, breitere Haltlinie Nord und Wartelinie Ost, zusätzliche Vorfahrtschilder. Keine Zebrastreifen.'},
-  {id:'zone',t:'Tempo-30-Zone',k:'rechts vor links',x:'Alle Vorfahrtschilder entfallen, in der Zone gilt rechts vor links und Tempo 30 (Zeichen 274.1). Grenzmarkierung an der Ostecke wie bei Markierung. Keine Zebrastreifen, keine Wartelinien.'},
-  {id:'radwege',t:'Rote Radwege',k:'Radfahrstreifen',x:'Wie Markierung mit Tempo 30, dazu rot eingefärbte Radfahrstreifen auf der Gießerstraße Süd in beiden Richtungen und auf den letzten 30 m der Naumburger Straße West Richtung Knoten, rote Furten durch den Knoten. Nord- und Ostarm sind zu schmal, dort Piktogramme. Dafür entfallen Parkplätze auf der Westseite der Gießerstraße Süd.'}
+  {id:'markierung',t:'Markierung',k:'Empfehlung, Tempo 30',x:'Vorfahrt wie heute, aber Tempo 30 auf allen Armen (Zeichen 274, eine Zone ist an einer Vorfahrtstraße nicht zulässig). Klarer Bogen der Vorfahrt, durchgezogene Linie zwischen Links- und Geradeausspur, Grenzmarkierung (Zeichen 299) an der Ostecke statt Parken und im Haltverbot an der Kioskecke gegen Falschparker, breitere Haltlinie Nord und Wartelinie Ost, zusätzliche Vorfahrtschilder. Keine Zebrastreifen.'},
+  {id:'radwege',t:'Rote Radwege',k:'Radfahrstreifen',x:'Wie Markierung mit Tempo 30, dazu rot eingefärbte Radfahrstreifen auf der Gießerstraße Süd in beiden Richtungen und auf den letzten 30 m der Naumburger Straße West Richtung Knoten, rote Furten durch den Knoten. Nord- und Ostarm sind zu schmal, dort Piktogramme. Dafür entfallen Parkplätze auf der Westseite der Gießerstraße Süd.'},
+  {id:'zone',t:'Tempo-30-Zone',k:'nur Vergleich',x:'Nicht empfohlen, weil sich die Menschen an die Vorfahrtstraße gewöhnt haben, nur zum Vergleich. Alle Vorfahrtschilder entfallen, in der Zone gilt rechts vor links und Tempo 30 (Zeichen 274.1). Grenzmarkierung an der Ostecke wie bei Markierung. Keine Zebrastreifen, keine Wartelinien.'}
 ];
 const KONF={k:{c:'#d62828',t:'Kreuzen und Einbiegen'},a:{c:'#f08c00',t:'Auffahren'},f:{c:'#7b2cbf',t:'Fußgänger auf der Querung'},d:{c:'#7b2cbf',t:'Fußgänger'}};
 const CARC=['#4a6fa5','#8c919a','#b0413e','#2f4858','#e8e8e8','#6b8f71','#3d3d3d','#c9a227','#5b7fa6','#7a6c5d'];
@@ -578,7 +578,7 @@ for(const s of [1,2,4]){const b=document.createElement('button');b.textContent=s
   b.addEventListener('click',()=>{tempo=s;for(const x of $('speed').children)x.setAttribute('aria-pressed',x===b?'true':'false');});$('speed').appendChild(b);}
 $('play').addEventListener('click',()=>setPlay(!playing));
 $('zeit').addEventListener('input',e=>{T=parseFloat(e.target.value);render();});
-const VKURZ={bestand:'Heute',markierung:'Markierung',zone:'Tempo-30-Zone',radwege:'Rote Radwege'};
+const VKURZ={bestand:'Heute',markierung:'Markierung (Empfehlung)',radwege:'Rote Radwege',zone:'Zone (Vergleich)'};
 function setModus(m){
   modus=m;$('m-frei').setAttribute('aria-pressed',m==='frei');$('m-sz').setAttribute('aria-pressed',m==='sz');
   $('szkarte').hidden=m!=='sz';$('tabs').hidden=m==='sz';$('untertitel').classList.toggle('an',m==='sz');
