@@ -126,25 +126,61 @@ def _anteil(vid, salz):
     return (h % 1000) / 1000
 
 
+LINKS = {'SW', 'WN', 'NE', 'ES'}
+RECHTS = {'WS', 'NW', 'EN', 'SE'}
+BLINK_VOR = 35.0      # m vor der Knotenmitte geht der Blinker an
+
+
+def relation(vid):
+    try:
+        return vid.split('_')[1].split('.')[0][:2]
+    except IndexError:
+        return ''
+
+
 def blinker_regeln(vid, typ, ab, blink, dt):
-    rel = vid.split('_')[1].split('.')[0][:2] if '_' in vid else ''
-    if typ != 'bus' and (rel in GERADEAUS or _anteil(vid, 'ab') < OHNE_BLINKER_ABBIEGER):
-        return [0] * len(blink)
-    blink = list(blink)
-    # Einordnen: Spurwechsel aus SUMO (Spurindex aendert sich zwischen normalen Kanten)
-    letzte = None
+    """Blinker aus der Route statt aus der Kruemmung. 1 links, 2 rechts. Abbieger blinken ab etwa
+    35 m vor der Knotenmitte bis sie den Knoten verlassen haben, danach sofort aus. Spurwechsel
+    blinken nur Abbieger und Busse (beim Einordnen bzw. Ein- und Ausschwenken an der Haltestelle).
+    Geradeausfahrer blinken nie."""
+    rel = relation(vid)
+    bus = typ == 'bus'
+    n = len(ab)
+    out = [0] * n
+    if rel in GERADEAUS and not bus:
+        return out
+    if not bus and _anteil(vid, 'ab') < OHNE_BLINKER_ABBIEGER:
+        return out
+    seite = 1 if rel in LINKS else (2 if rel in RECHTS else 0)
+    # Phase: vor dem Knoten, im Knoten, danach
+    drin = False
+    raus = False
     for i, p in enumerate(ab):
+        d = math.hypot(p[1], p[2])
+        if d < 8:
+            drin = True
+        if drin and d > 12:
+            raus = True
+        if seite and not raus and d <= BLINK_VOR:
+            out[i] = seite
+    # Spurwechsel vor dem Knoten (Einordnen, Haltestelle): Seite aus dem Spurindex
+    letzte = None
+    drin = False
+    for i, p in enumerate(ab):
+        d = math.hypot(p[1], p[2])
+        if d < 8:
+            drin = True
         spur = p[4] or ''
-        if not spur or spur.startswith(':'):
+        if drin or not spur or spur.startswith(':'):
             continue
         idx = int(spur.rsplit('_', 1)[1])
         if letzte is not None and idx != letzte:
-            seite = 1 if idx > letzte else 2          # hoeherer Index liegt links
-            for k in range(max(0, i - int(3 / dt)), min(len(blink), i + int(2 / dt))):
-                if not blink[k]:
-                    blink[k] = seite
+            s_ = 1 if idx > letzte else 2          # hoeherer Index liegt links
+            for k in range(max(0, i - int(3 / dt)), min(n, i + int(2 / dt))):
+                if not out[k] and math.hypot(ab[k][1], ab[k][2]) > 8:
+                    out[k] = s_
         letzte = idx
-    return blink
+    return out
 
 
 def kodiere(roh, dt, fenster=True):
@@ -188,9 +224,7 @@ def kodiere(roh, dt, fenster=True):
                         xs[i] += math.cos(a) * off
                         ys[i] -= math.sin(a) * off
                 poses = K.posen(ktyp, xs, ys, ws, dt, K.ausholen_fuer(vid))
-                blink = K.blinker(ws, xs, ys, int(7 / dt)) if ktyp != 'rad' else [0] * len(xs)
-                if ktyp != 'rad':
-                    blink = blinker_regeln(vid, ktyp, ab, blink, dt)
+                blink = blinker_regeln(vid, ktyp, ab, None, dt) if ktyp != 'rad' else [0] * len(xs)
             # nur Frames ab Fensterbeginn
             k0 = next((i for i, p in enumerate(ab) if p[0] >= 0), None)
             if k0 is None:
@@ -278,7 +312,7 @@ def bahnen_und_konflikte(var, f):
                         fuss_konf.append([round(t - START, 1), r2(px), r2(-py), art, 1 if sp > 30 / 3.6 else 0])
         ts.clear()
 
-    out, _ = kodiere(roh, SCHRITT)
+    out, ids = kodiere(roh, SCHRITT)
 
     # Fahrzeugkonflikte aus SSM, Filter wie run.py
     konf = []
@@ -322,7 +356,7 @@ def bahnen_und_konflikte(var, f):
         konf.append([round(zeit, 1), r2(x), r2(-y), 'a' if art in (1, 2, 3, 4, 18) else 'k', 1 if schwer else 0])
     konf += fuss_konf
     konf.sort()
-    return {'n': n_frames, 'tracks': out, 'konflikte': konf}
+    return {'n': n_frames, 'tracks': out, 'konflikte': konf, 'rel': [relation(i) if not i.startswith(('p:', 'd:')) else '' for i in ids]}
 
 
 # ---------------------------------------------------------------- Karte
@@ -677,10 +711,6 @@ def karte(var, bauten):
         k['bogen'] = linie(bogen)
         if var != 'geschuetzt':
             k['bogen'] += linie([e_se, e_ne])
-        # schmale Sperrflaeche links der Linksabbiegespur (Strassenfoto Sued)
-        if var != 'geschuetzt':
-            f = Polygon([rs.punkt(18.5, -0.45), rs.punkt(25.0, -0.45), rs.punkt(25.0, 0.45), rs.punkt(18.5, 0.45)])
-            sperr.append(pfad(f))
 
     def querlinie(edge):
         ls = sorted(proedge.get(edge, []), key=lambda l: l['index'])

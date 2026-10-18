@@ -480,7 +480,7 @@ def posen(typ, xs, ys, winkel, dt=0.2, ausholen=None):
                 h = _tangente(bahn, sR)
                 P = (R[0] + h[0] * g['wb'], R[1] + h[1] * g['wb'])
             out.append((P[0], P[1], winkel_von(*h), None))
-        return out
+        return quer_begrenzen(typ, out, dt)
     wb, hitch, L = g['wb'], g['hitch'], g['L']
     grenze = KNICK_MAX.get(typ, 90.0)
     A = bahn.punkt(-wb)
@@ -503,7 +503,38 @@ def posen(typ, xs, ys, winkel, dt=0.2, ausholen=None):
                     T = (H[0] - u2[0] * L, H[1] - u2[1] * L)
         P = (A[0] + u1[0] * wb, A[1] + u1[1] * wb) if aushol else bahn.pts[-1]
         out.append((P[0], P[1], winkel_von(*u1), winkel_von(*u2)))
-    return out
+    return quer_begrenzen(typ, out, dt)
+
+
+def quer_begrenzen(typ, out, dt):
+    """Letzte Sicherung auf den Armen (mehr als 18 m vom Knoten): Die Vorderachse bewegt sich quer
+    zur Fahrzeugrichtung hoechstens mit V_SEITE m/s. Ein Rest (z.B. beim Anfahren aus dem
+    Haltebereich) wird mitgefuehrt und mit derselben Rate abgebaut, so wird daraus ein sanftes
+    Ausschwenken. Im Knoten (Lenken beim Abbiegen) greift nur der Abbau."""
+    vmax = V_SEITE.get(typ, 0.5) * dt
+    res = []
+    offx = offy = 0.0
+    prev_raw = None
+    for F in out:
+        x, y, h1, h2 = F
+        if prev_raw is not None:
+            u = richtung(h1)
+            dx, dy = x - prev_raw[0], y - prev_raw[1]
+            quer = dx * u[1] - dy * u[0]
+            if math.hypot(x, y) > 18:
+                zul = max(-vmax, min(vmax, quer))
+                rest = quer - zul
+                offx -= u[1] * rest
+                offy += u[0] * rest
+            d = math.hypot(offx, offy)
+            if d > 0:
+                # Abbau nur so schnell, dass die Summe aus eigener Querbewegung und Abbau die Grenze haelt
+                frei = max(0.0, vmax - abs(quer)) if math.hypot(x, y) > 18 else vmax
+                f = max(d - frei, 0.0) / d
+                offx, offy = offx * f, offy * f
+        prev_raw = (x, y)
+        res.append((x + offx, y + offy, h1, h2))
+    return res
 
 
 def knickwinkel(h1, h2):

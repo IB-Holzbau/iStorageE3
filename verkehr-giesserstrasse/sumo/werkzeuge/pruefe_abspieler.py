@@ -78,6 +78,13 @@ def main():
     gesamt = 0
     for var, raw in D['varianten'].items():
         tr = dekodiere(raw, D['typen'])
+        rels = [r for r, d in zip(raw.get('rel', []), raw['tracks']) if STRIDE[D['typen'][d[0]]] != 2]
+        blinks = []
+        for d in raw['tracks']:
+            st_ = STRIDE[D['typen'][d[0]]]
+            if st_ == 2:
+                continue
+            blinks.append([d[3 + i * st_ + st_ - 1] for i in range(d[2])] if st_ >= 4 else [])
         fb = SR.fahrbahn(var)
         fb_p = prep(fb)
         insel = SR.inseln(var)
@@ -128,14 +135,17 @@ def main():
         quer = {}
         for t in tr:
             fr = t['frames']
-            for i in range(5, len(fr) - 5):
-                (x0, y0, a0, _), (x1, y1, a1, _) = fr[i - 1], fr[i]
-                v = math.hypot(x1 - x0, y1 - y0) / dt
+            # ueber 1 s gemessen: die Bahnen sind auf 0,1 m gerundet gespeichert, ein einzelner
+            # Schritt von 0,2 s wuerde bei langsamer Fahrt nur die Rundung messen
+            w = max(1, int(round(1.0 / dt)))
+            for i in range(5 + w, len(fr) - 5):
+                (x0, y0, a0, _), (x1, y1, a1, _) = fr[i - w], fr[i]
+                v = math.hypot(x1 - x0, y1 - y0) / (w * dt)
                 # nur auf den Armen (Spurwechsel), im Knoten ist die Schraegfahrt Teil der Bahn
                 if v < 1.0 or math.hypot(x1, y1) < 20 or abs(((fr[i + 5][2] - fr[i - 5][2]) + 180) % 360 - 180) > 6:
                     continue
-                u = K.richtung(a1)
-                q = abs((x1 - x0) * u[1] - (y1 - y0) * u[0]) / dt
+                u = K.richtung((a0 + ((a1 - a0 + 180) % 360 - 180) / 2) % 360)
+                q = abs((x1 - x0) * u[1] - (y1 - y0) * u[0]) / (w * dt)
                 # bei schneller Fahrt gilt die Grenze als Neigung 1:12 (Spurwechsel ueber gut 40 m)
                 q_rel = q - max(0.0, NEIGUNG_MAX * v - QUER_MAX.get(t['typ'], 9))
                 quer[t['typ']] = max(quer.get(t['typ'], 0.0), q_rel)
@@ -160,6 +170,27 @@ def main():
             halt.append(round(steh, 1))
         if any(h < 15 for h in halt):
             gesamt += 1
+        # Blinker: nie entgegen der Abbiegerichtung im Knotenbereich, nie nach dem Verlassen des Knotens
+        falsch = 0
+        LINKS, RECHTS = {'SW', 'WN', 'NE', 'ES'}, {'WS', 'NW', 'EN', 'SE'}
+        for t, rel, d in zip(tr, rels, blinks):
+            if not d:
+                continue
+            drin = raus = False
+            for (x, y, _, _), b in zip(t['frames'], d):
+                r = math.hypot(x, y)
+                if r < 8:
+                    drin = True
+                if drin and r > 14:
+                    raus = True
+                if not b:
+                    continue
+                if raus or (r < 30 and ((rel in LINKS and b == 2) or (rel in RECHTS and b == 1) or rel in ('SN', 'NS', 'WE', 'EW') and t['typ'] != 'bus')):
+                    falsch += 1
+                    break
+        if falsch:
+            gesamt += 1
+        print(f'   Blinker falsch (Fahrzeuge): {falsch}')
         print(f'   Bus nordwaerts im Haltebereich stehend (s): {halt}' + (' ZU KURZ' if any(h < 15 for h in halt) else ''))
         print(f'{var}: {frames} Frames mit Ueberlappung, {len(paare)} Paare; Kfz ueber Bordstein {len(bord)}, ueber Insel/Pflaster {len(ins)}; '
               f'groesster Knick {", ".join(f"{k} {v:.0f} Grad" for k, v in knick.items())}' + (f' UEBER GRENZE {zu_stark}' if zu_stark else '')
