@@ -60,11 +60,16 @@ def nummer(x, y, n):
 
 
 def pfeil_kombi(x, y, ang):
-    """Pfeil links, geradeaus, rechts; ang = Fahrtrichtung in Grad (0 = Norden)"""
-    p = ('M0 3 L0 -1.6 M0 -1.6 L-0.55 -0.7 M0 -1.6 L0.55 -0.7 '
-         'M0 0.6 Q0 -0.3 -1.2 -0.3 M-1.2 -0.3 L-0.7 -0.8 M-1.2 -0.3 L-0.7 0.2 '
-         'M0 1.2 Q0 0.3 1.2 0.3 M1.2 0.3 L0.7 -0.2 M1.2 0.3 L0.7 0.8')
-    return f'<path transform="translate({x} {y}) rotate({ang})" d="{p}" fill="none" stroke="#fff" stroke-width="0.32" stroke-linecap="round"/>'
+    """Fahrbahnpfeil links, geradeaus, rechts; ang = Fahrtrichtung in Grad (0 = Norden, im Uhrzeigersinn)"""
+    w = 0.28
+    p = (f'<g transform="translate({x} {y}) rotate({ang})" fill="#fff" stroke="#fff" stroke-linecap="round">'
+         f'<path d="M0 3.2 L0 -1.6" stroke-width="{w}" fill="none"/>'
+         '<path d="M0 -2.6 L-0.55 -1.5 L0.55 -1.5 Z" stroke="none"/>'
+         f'<path d="M0 1.4 C0 0.6 -0.4 0.2 -1.3 0.2" stroke-width="{w}" fill="none"/>'
+         '<path d="M-2.2 0.2 L-1.2 -0.35 L-1.2 0.75 Z" stroke="none"/>'
+         f'<path d="M0 1.4 C0 0.6 0.4 0.2 1.3 0.2" stroke-width="{w}" fill="none"/>'
+         '<path d="M2.2 0.2 L1.2 -0.35 L1.2 0.75 Z" stroke="none"/></g>')
+    return p
 
 
 def rad(x, y, ang, links=False):
@@ -84,25 +89,32 @@ def overlay():
     # alte Pfeile und Spurlinie im Knotenzulauf überdecken
     s.append(band([p for p in rechts if p[1] < 20.5] , 3.5, ASPHALT))
     s.append(band([p for p in links if p[1] < 20.5], 3.5, ASPHALT))
-    s.append(pfeil_kombi(-1.9, 15.0, -11))
+    s.append(pfeil_kombi(-1.9, 15.0, 11))
     # 4 Sperrfläche zwischen Radweg und östlichem Bordstein
-    sp_a = offset([p for p in rechts if 10 < p[1] < 26] or rechts[2:], 0.05)
-    sp_b = offset([p for p in rechts if 10 < p[1] < 26] or rechts[2:], 1.75)
-    poly = sp_a + sp_b[::-1]
-    s.append(f'<path d="{d(poly)} Z" fill="{ASPHALT}" stroke="#fff" stroke-width="0.18"/>')
-    for k in range(0, 15):
-        y = 11.5 + k
-        s.append(linie([(2.0 - (y - 11.5) * 0.19 + 0.1, y), (3.6 - (y - 11.5) * 0.19, y - 1.0)], 0.2))
+    def auf(pts, y):
+        for (x1, y1), (x2, y2) in zip(pts, pts[1:]):
+            if min(y1, y2) <= y <= max(y1, y2):
+                return (x1 + (x2 - x1) * (y - y1) / (y2 - y1), y)
+    teil = [auf(rechts, 25.0), auf(rechts, 19.6), auf(rechts, 10.6)]
+    sp_a = offset(teil, 0.05)
+    sp_b = offset(teil, 1.75)
+    s.append(f'<path d="{d(sp_a + sp_b[::-1])} Z" fill="{ASPHALT}" stroke="#fff" stroke-width="0.18"/>')
+    s.append('<clipPath id="spclip"><path d="' + d(sp_a + sp_b[::-1]) + ' Z"/></clipPath><g clip-path="url(#spclip)">')
+    for k in range(0, 18):
+        y = 10.0 + k
+        x = auf(rechts, min(max(y, 10.6), 25.0))[0]
+        s.append(linie([(x - 1, y + 0.6), (x + 3, y - 1.4)], 0.2))
+    s.append('</g>')
     # 5 zwei Parkplätze am östlichen Bordstein
     for yc in (29.0, 35.0):
         xc = -1.25 + (35 - yc) * 0.2
-        s.append(f'<rect x="{xc - 1.0:.2f}" y="{yc - 2.6:.2f}" width="2.0" height="5.2" fill="none" stroke="#fff" stroke-width="0.15" transform="rotate(-11 {xc:.2f} {yc:.2f})"/>')
+        s.append(f'<rect x="{xc - 1.0:.2f}" y="{yc - 2.6:.2f}" width="2.0" height="5.2" fill="none" stroke="#fff" stroke-width="0.15" transform="rotate(11 {xc:.2f} {yc:.2f})"/>')
         s.append(f'<text x="{xc:.2f}" y="{yc + 0.6:.2f}" font-size="1.6" text-anchor="middle" fill="#fff" font-family="Arial" font-weight="700">P</text>')
     # 2 Radfahrstreifen nach Norden links in der bisherigen rechten Spur
     rw = offset(rechts, -0.875)
     s.append(band(rw, 1.85, ROT))
     s.append(linie(offset(rw, -0.95), 0.25))
-    s.append(rad(*rw[1], -11))
+    s.append(rad(*rw[1], 11 - 90))
     # 2a Furt geradeaus in den Nordarm
     nord = [(1.84, 10.1), (3.7, -8.8)]
     s.append(furt([(nord[0][0] + (nord[1][0] - nord[0][0]) * t / 30, nord[0][1] + (nord[1][1] - nord[0][1]) * t / 30) for t in range(31)]))
