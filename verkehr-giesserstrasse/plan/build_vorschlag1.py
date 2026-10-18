@@ -21,6 +21,33 @@ def bez(p0, p1, p2, p3, n=40):
     return out
 
 
+def bogen(p_start, d_in, p_end, d_out, R, n=36):
+    """Gerade, Kreisbogen mit Radius R, Gerade (tangential), wie eine echte Markierung"""
+    import math
+    def norm(v):
+        l = math.hypot(*v); return (v[0] / l, v[1] / l)
+    a, b = norm(d_in), norm(d_out)
+    # Schnittpunkt der Geraden p_start + s*a und p_end - t*b
+    det = a[0] * (-b[1]) - a[1] * (-b[0])
+    rx, ry = p_end[0] - p_start[0], p_end[1] - p_start[1]
+    s_ = (rx * (-b[1]) - ry * (-b[0])) / det
+    S = (p_start[0] + a[0] * s_, p_start[1] + a[1] * s_)
+    th = math.acos(max(-1, min(1, a[0] * b[0] + a[1] * b[1])))
+    T = R * math.tan(th / 2)
+    A = (S[0] - a[0] * T, S[1] - a[1] * T)
+    B = (S[0] + b[0] * T, S[1] + b[1] * T)
+    cross = a[0] * b[1] - a[1] * b[0]
+    sg = 1 if cross > 0 else -1
+    C = (A[0] - a[1] * R * sg, A[1] + a[0] * R * sg)
+    a0 = math.atan2(A[1] - C[1], A[0] - C[0])
+    pts = [p_start, A]
+    for i in range(1, n):
+        ang = a0 + sg * th * i / n
+        pts.append((C[0] + R * math.cos(ang), C[1] + R * math.sin(ang)))
+    pts += [B, p_end]
+    return pts
+
+
 def d(pts):
     return 'M' + ' L'.join(f'{x:.2f} {y:.2f}' for x, y in pts)
 
@@ -122,7 +149,7 @@ def overlay():
     s.append(band([(3.7, -8.8), (5.6, -24.0)], 1.5, ROT, 0.85))
     s.append(linie(offset([(3.7, -8.8), (5.6, -24.0)], -0.8), 0.15, '1 1'))
     # 2b Furt Süd nach West im Außenbogen, vor der Stopplinie Nord vorbei
-    s.append(furt(bez((1.84, 10.1), (1.4, -1.5), (-4.0, -5.4), (-10.4, -5.4))))
+    s.append(furt(bogen((1.84, 10.1), (0.19, -0.98), (-10.4, -5.4), (-0.99, -0.141), 11.0)))
     # Schutzstreifen Naumburger West Nordseite, westwärts
     wn = [(-10.4, -5.4), (-44.8, -10.3)]
     s.append(band(wn, 1.5, ROT, 0.85))
@@ -134,7 +161,7 @@ def overlay():
     s.append(linie(offset(ws, -0.85), 0.15, '1 1'))
     s.append(rad(-30, 0.1, 82))
     s.append(band([(-6.9, 7.6), (-7.3, 10.0), (-8.8, 17.6), (-11.3, 29.4), (-12.6, 35.5)], 3.1, ASPHALT))
-    s.append(furt(bez((-11.4, 2.2), (-7.6, 2.6), (-6.9, 4.8), (-6.9, 8.2)), 1.6))
+    s.append(furt(bogen((-13.0, 1.98), (0.99, 0.138), (-7.3, 10.0), (-0.195, 0.98), 4.5), 1.6))
     sued_w = [(-6.9, 8.2), (-7.3, 10.0), (-8.8, 17.6), (-11.3, 29.4), (-12.6, 35.5)]
     s.append(band(sued_w, 1.85, ROT))
     s.append(linie(offset(sued_w, -0.95), 0.25))
@@ -145,7 +172,7 @@ def overlay():
     s.append(linie(offset(wl, -0.75), 0.15, '0.8 0.8'))
     s.append(linie(offset(wl, 0.75), 0.15, '0.8 0.8'))
     s.append(rad(-17, -2.75, 82, links=True))
-    s.append(f'<path d="{d(bez((-11.6, -1.9), (-3.0, -0.9), (3.0, -3.0), (3.8, -9.0)))}" fill="none" stroke="#e8a33d" stroke-width="1.3" stroke-opacity="0.8" stroke-dasharray="0.8 0.6"/>')
+    s.append(f'<path d="{d(bogen((-11.6, -1.9), (0.99, 0.135), (3.8, -9.0), (0.124, -0.992), 7.0))}" fill="none" stroke="#e8a33d" stroke-width="1.3" stroke-opacity="0.8" stroke-dasharray="0.8 0.6"/>')
     # Nummern
     for (x, y, n) in [(-36, 3.4, 1), (-6.5, -9.5, 2), (-6.3, 21.5, 3), (6.0, 18.0, 4), (3.6, 32.0, 5), (-24, -0.9, 6)]:
         s.append(nummer(x, y, n))
