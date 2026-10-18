@@ -52,7 +52,7 @@ ZUFAHRT = {'S': ['S_in_fern', 'S_in_bucht', 'S_in_mitte', 'S_in', 'S_in_f', 'S_i
 LAENGE = {'pkw': 4.5, 'lkw': 10.0, 'sattel': 16.5, 'bus': 18.0, 'rad': 1.8}
 BREITE = {'pkw': 1.85, 'lkw': 2.5, 'sattel': 2.55, 'bus': 2.55, 'rad': 0.8}
 
-WEG = {'pNw2e': 'Nordseite West nach Ost, quert Nordarm', 'pNe2w': 'Nordseite Ost nach West, quert Nordarm',
+WEG = {'pNw2e': 'Nordseite West nach Ost, quert Nordarm', 'pKiwa': 'Nordseite West nach Ost mit Kinderwagen, quert Nordarm', 'pNe2w': 'Nordseite Ost nach West, quert Nordarm',
        'pKiosk': 'Von Nordost zum Kiosk, quert Nord- und Westarm', 'pKioskBack': 'Vom Kiosk nach Nordost, quert West- und Nordarm',
        'pSued': 'Quert Südarm am Knoten', 'pEastN': 'Ostseite Süd nach Nord, quert Ostarm', 'pEastS': 'Ostseite Nord nach Süd, quert Ostarm',
        'diag': 'Diagonal über den Knoten zwischen Nordost- und Südwestecke (Kiosk)'}

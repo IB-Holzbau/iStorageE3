@@ -220,7 +220,7 @@ for(const [txt,x,y,rot] of D.namen){
   el('text',{x,y:-y,transform:`rotate(${rot} ${x} ${-y})`,'font-size':2.7,'font-weight':600,'text-anchor':'middle','font-family':'Barlow Semi Condensed,Arial Narrow,Arial,sans-serif',fill:'#6b6355','letter-spacing':'.06'},gLab).textContent=txt;
 }
 // ---------- Bahnen dekodieren
-const STRIDE={pkw:4,pkwx:4,lkw:4,rad:4,bus:5,sattel:5,fuss:2,fussd:2};
+const STRIDE={pkw:4,pkwx:4,lkw:4,rad:4,bus:5,sattel:5,fuss:2,fussd:2,kiwa:2};
 const cache={};
 function rohDaten(key){
   if(key.startsWith('sz:')){const [,nr,v]=key.split(':');return D.szenen.clips[nr][v];}
@@ -241,7 +241,7 @@ function decode(v){
     tr.push({typ,f0:d[1],n,xs,ys,a1,a2,bl,idx:tr.length});
   }
   const k=raw.konflikte.map(c=>({t:c[0],x:c[1],y:c[2],k:c[3],s:c[4]}));
-  return cache[v]={tr,k,n:raw.n,karte:raw.karte,kurz:raw.kurz||[],dt:raw.schritt||D.schritt,te:raw.te,fokus:raw.fokus||[],ort:raw.ort,text:raw.text,zeit:raw.zeit};
+  return cache[v]={tr,k,n:raw.n,karte:raw.karte,kurz:raw.kurz||[],dt:raw.schritt||D.schritt,te:raw.te,fokus:raw.fokus||[],ort:raw.ort,blick:raw.blick,text:raw.text,zeit:raw.zeit};
 }
 // ---------- Schilder
 // Verkehrszeichen nach StVO-Vorlage (vereinfachte Proportionen), Groesse s in Metern der Karte
@@ -384,6 +384,15 @@ function blinker(g,len,w,front){
 function baueAgent(t){
   const g=el('g',{},gAg);const segs=[];let bl=[];
   if(t.typ==='fuss'||t.typ==='fussd'){const c=el('circle',{r:.5,fill:'#1b2129',stroke:'#fff','stroke-width':.18},g);segs.push(c);return {g,segs,bl};}
+  if(t.typ==='kiwa'){
+    // Person mit Kinderwagen: Wagen 1 m lang vor der Person, Griff zur Person
+    const w=el('g',{},g);
+    el('path',{d:'M.15 -.28 H.32 M.15 .28 H.32',stroke:'#3a3f47','stroke-width':.09},w);
+    el('rect',{x:.32,y:-.32,width:1.0,height:.64,rx:.22,fill:'#9b7fd1',stroke:'#fff','stroke-width':.1},w);
+    el('path',{d:'M.95 -.3 A.32 .32 0 0 1 .95 .3',fill:'#6d55a3',stroke:'none'},w);
+    const c=el('circle',{r:.45,fill:'#1b2129',stroke:'#fff','stroke-width':.16},g);
+    el('title',{},g).textContent='Person mit Kinderwagen';
+    segs.push(c,w);return {g,segs,bl};}
   if(t.typ==='rad'){const s=el('g',{},g);
     el('rect',{x:-1.45,y:-.18,width:1.8,height:.36,rx:.18,fill:'#1d5e24'},s);
     el('circle',{cx:-.5,cy:0,r:.42,fill:'#2e7d32',stroke:'#fff','stroke-width':.1},s);segs.push(s);return {g,segs,bl};}
@@ -442,9 +451,11 @@ function render(){
     seen.add(t.idx);
     const x=t.xs[k]+(t.xs[k2]-t.xs[k])*ff,y=t.ys[k]+(t.ys[k2]-t.ys[k])*ff;
     const spd=k2>k?Math.hypot(t.xs[k2]-t.xs[k],t.ys[k2]-t.ys[k])/V.dt:0;
-    if(t.typ==='fuss'||t.typ==='fussd'){a.segs[0].setAttribute('cx',x.toFixed(2));a.segs[0].setAttribute('cy',y.toFixed(2));lage.push({t,x,y,h:null,spd,k});continue;}
+    if(t.typ==='fuss'||t.typ==='fussd'||t.typ==='kiwa'){a.segs[0].setAttribute('cx',x.toFixed(2));a.segs[0].setAttribute('cy',y.toFixed(2));
+      if(t.typ==='kiwa'){const r=blick(V,t,(f-t.f0)*V.dt).koerper;a.segs[1].setAttribute('transform',`translate(${x.toFixed(2)} ${y.toFixed(2)}) rotate(${(r*180/Math.PI).toFixed(1)})`);}
+      lage.push({t,x,y,h:null,spd,k,tl:(f-t.f0)*V.dt});continue;}
     const h1=lerpA(t.a1[k],t.a1[k2],ff);
-    lage.push({t,x,y,h:h1,h2:t.a2[k],spd,k});
+    lage.push({t,x,y,h:h1,h2:t.a2[k],spd,k,tl:(f-t.f0)*V.dt});
     place(a.segs[0],x,y,h1);
     const z=G[t.typ==='pkwx'?'pkw':t.typ];
     if(a.segs.length>1){
@@ -501,6 +512,63 @@ function schneidet(ax,ay,bx,by,poly){
     if(ua>0.02&&ua<0.98&&ub>=0&&ub<=1)return true;}
   return false;
 }
+// Blick der Fussgaenger und wartenden Fahrer. Vorab je Bahn berechnet, damit Springen und
+// Zurueckspulen dasselbe Bild geben. Der Blick dreht hoechstens 90 Grad je Sekunde und
+// beschleunigt und bremst sanft. Wartend: erst zur einen Seite, dann zur anderen, dann wieder
+// zur ersten, kurz geradeaus. Gehend: nach vorn mit kurzen Kontrollblicken.
+const BLICK_V=Math.PI/2,BLICK_A=Math.PI*1.5,KOERPER_V=Math.PI*0.8,BLICK_H=0.05;
+function wrapA(a){return ((a+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;}
+function sm(a,b,x){const u=Math.min(1,Math.max(0,(x-a)/(b-a)));return u*u*(3-2*u);}
+function blick(V,t,tl){
+  if(!t._blick)t._blick=blickSpur(V,t);
+  const B=t._blick;const i=Math.min(Math.max(tl/BLICK_H,0),B.n-1.001),j=Math.floor(i),f=i-j;
+  return {a:B.a[j]+wrapA(B.a[j+1]-B.a[j])*f,koerper:B.k[j]+wrapA(B.k[j+1]-B.k[j])*f};
+}
+function blickSpur(V,t){
+  const dt=V.dt,dauer=(t.n-1)*dt,n=Math.max(2,Math.ceil(dauer/BLICK_H)+2);
+  const fuss=t.typ==='fuss'||t.typ==='fussd'||t.typ==='kiwa';
+  const pos=k=>[t.xs[Math.min(Math.max(k,0),t.n-1)],t.ys[Math.min(Math.max(k,0),t.n-1)]];
+  // je Frame: steht oder geht, Richtung der naechsten Bewegung (Querungsrichtung)
+  const steht=new Uint8Array(t.n),richt=new Float32Array(t.n);
+  for(let k=0;k<t.n;k++){
+    const k1=Math.min(k+1,t.n-1),k0=Math.max(k-1,0);
+    const v=Math.hypot(t.xs[k1]-t.xs[k0],t.ys[k1]-t.ys[k0])/Math.max((k1-k0)*dt,dt);
+    steht[k]=v<(fuss?0.3:0.4)?1:0;
+    if(fuss){let r=null;const [x0,y0]=pos(k);
+      for(let m=k+1;m<t.n&&m<k+Math.round(30/dt);m++){const dx=t.xs[m]-x0,dy=t.ys[m]-y0;if(Math.hypot(dx,dy)>1.2){r=Math.atan2(dy,dx);break;}}
+      if(r===null)for(let m=k-1;m>=0;m--){const dx=x0-t.xs[m],dy=y0-t.ys[m];if(Math.hypot(dx,dy)>1.2){r=Math.atan2(dy,dx);break;}}
+      richt[k]=r===null?0:r;}
+    else{const u=dir(t.a1[k]);richt[k]=Math.atan2(u[1],u[0]);}
+  }
+  // Beginn des jeweiligen Stehens oder Gehens
+  const seit=new Float32Array(t.n);for(let k=1;k<t.n;k++)seit[k]=steht[k]===steht[k-1]?seit[k-1]+dt:0;
+  const erst=V.blick;   // Himmelsrichtung des ersten Blicks (Szene), sonst links
+  const SUED=Math.PI/2,NORD=-Math.PI/2,OST=0,WEST=Math.PI;
+  const ziel=tt=>{
+    const k=Math.min(Math.round(tt/dt),t.n-1);const r=richt[k];const u=seit[k]+(tt-k*dt);
+    if(steht[k]){
+      const seite=fuss?1.45:1.2;let A=r-seite,Bs=r+seite;     // A links, B rechts (Bildschirm, y nach unten)
+      if(erst){const w={S:SUED,N:NORD,O:OST,W:WEST}[erst];if(Math.abs(wrapA(Bs-w))<Math.abs(wrapA(A-w))){const h=A;A=Bs;Bs=h;}}
+      const plan=[[r,.4],[A,2.6],[Bs,3.2],[A,3.0],[r,1.2]];
+      let z=u;for(let q=0;q<40;q++){const [w,d]=plan[q===0?0:1+(q-1)%4];if(z<d)return w;z-=d;}
+      return r;}
+    if(!fuss)return r;
+    // gehend: alle 3,5 s ein kurzer Kontrollblick, abwechselnd zu beiden Seiten
+    const zyk=3.5,ph=u%zyk,nr=Math.floor(u/zyk);
+    if(u>1.5&&ph>2.4&&ph<3.3)return r+(nr%2?0.9:-0.9);
+    return r;};
+  const a=new Float32Array(n),kk=new Float32Array(n);
+  let ang=ziel(0),vel=0,kor=richt[0];
+  for(let i=0;i<n;i++){const tt=Math.min(i*BLICK_H,dauer);
+    const z=ziel(tt);const err=wrapA(z-ang);
+    const vz=Math.sign(err)*Math.min(BLICK_V,Math.sqrt(2*BLICK_A*Math.abs(err))*0.9);
+    vel+=Math.max(-BLICK_A*BLICK_H,Math.min(BLICK_A*BLICK_H,vz-vel));
+    if(Math.abs(err)<0.01&&Math.abs(vel)<0.05)vel=0;
+    ang=wrapA(ang+vel*BLICK_H);a[i]=ang;
+    const k=Math.min(Math.round(tt/dt),t.n-1);const ek=wrapA(richt[k]-kor);
+    kor=wrapA(kor+Math.sign(ek)*Math.min(Math.abs(ek),KOERPER_V*BLICK_H));kk[i]=kor;}
+  return {a,k:kk,n};
+}
 function zeichneSzene(V,lage){
   const nahe=Math.abs(T-V.te)<1.6;
   if(V.ort){const p=(T*1.2)%1;
@@ -514,21 +582,21 @@ function zeichneSzene(V,lage){
     if(L.h!==null&&L.spd>1){const u=dir(L.h);
       el('path',{d:`M${L.x+u[0]*1.5} ${L.y+u[1]*1.5} L${L.x+u[0]*6} ${L.y+u[1]*6}`,stroke:'#ffd166','stroke-width':.45,'marker-end':'url(#pfeilspitze)'},gFx);}
     // Sicht: Fussgaenger immer, Fahrer nur wenn er langsam ist (wartet am Stopp oder an der Wartelinie)
-    const fuss=L.h===null;if(!fuss&&L.spd>2.5)continue;
-    let basis;
-    if(fuss){const t=L.t,k2=Math.min(L.k+Math.round(6/V.dt),t.n-1);const dx=t.xs[k2]-t.xs[L.k],dy=t.ys[k2]-t.ys[L.k];
-      basis=Math.hypot(dx,dy)>1?Math.atan2(dy,dx):(V.ort?Math.atan2(V.ort[1]-L.y,V.ort[0]-L.x):0);}
-    else{const u=dir(L.h);basis=Math.atan2(u[1],u[0]);}
-    const warten=L.spd<0.4;const schwenk=warten?(fuss?1.35:1.0)*Math.sin(T*2*Math.PI/3.2):0;
-    const mitte=basis+schwenk,halb=fuss?0.55:0.75,R0=24;
+    const fuss=L.h===null;
+    // Fahrer: Kegel nur beim Warten oder langsamen Anrollen, weich ein- und ausgeblendet
+    const sk=fuss?1:sm(3.2,2.0,L.spd);if(sk<=0.01)continue;
+    const mitte=blick(V,L.t,L.tl).a,halb=fuss?0.55:0.75,R0=24;
     const pts=[[L.x,L.y]];for(let a=-halb;a<=halb+1e-6;a+=halb/6)pts.push([L.x+Math.cos(mitte+a)*R0,L.y+Math.sin(mitte+a)*R0]);
-    el('polygon',{points:pts.map(p=>p.map(v=>v.toFixed(2)).join(',')).join(' '),fill:'#ffd166','fill-opacity':.16,stroke:'#ffd166','stroke-opacity':.5,'stroke-width':.15},gSicht);
+    el('polygon',{points:pts.map(p=>p.map(v=>v.toFixed(2)).join(',')).join(' '),fill:'#ffd166','fill-opacity':(.16*sk).toFixed(3),stroke:'#ffd166','stroke-opacity':(.5*sk).toFixed(3),'stroke-width':.15},gSicht);
     const andere=lage.filter(o=>o!==L&&o.h!==null).map(o=>({o,p:fzPoly(o)}));
     for(const {o} of andere){
-      if(o.spd<1)continue;const d=Math.hypot(o.x-L.x,o.y-L.y);if(d>45||d<1.5)continue;
+      const d=Math.hypot(o.x-L.x,o.y-L.y);
+      // Sichtlinie weich: nach Abstand, Tempo und ob das Fahrzeug im Blick liegt
+      const imBlick=sm(halb+.45,halb,Math.abs(wrapA(Math.atan2(o.y-L.y,o.x-L.x)-mitte)));
+      const op=sk*sm(46,38,d)*sm(1.5,3,d)*sm(0.5,1.5,o.spd)*(.3+.7*imBlick);if(op<0.02)continue;
       let zu=false;for(const p of polys){if(schneidet(L.x,L.y,o.x,o.y,p)){zu=true;break;}}
       if(!zu)for(const {o:o2,p} of andere){if(o2===o||!p)continue;if(schneidet(L.x,L.y,o.x,o.y,p)){zu=true;break;}}
-      el('line',{x1:L.x,y1:L.y,x2:o.x,y2:o.y,stroke:zu?'#d62828':'#2e9d4f','stroke-width':zu?.22:.28,'stroke-dasharray':zu?'.8 .6':'','stroke-opacity':.9},gSicht);
+      el('line',{x1:L.x,y1:L.y,x2:o.x,y2:o.y,stroke:zu?'#d62828':'#2e9d4f','stroke-width':zu?.22:.28,'stroke-dasharray':zu?'.8 .6':'','stroke-opacity':(.9*op).toFixed(3)},gSicht);
     }
   }
   const u=$('untertitel');u.classList.toggle('jetzt',nahe);

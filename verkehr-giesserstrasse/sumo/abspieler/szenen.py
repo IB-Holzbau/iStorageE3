@@ -1,7 +1,8 @@
 """Kritische Szenen fuer den Abspieler, aus den echten SUMO-Laeufen gesucht.
 
 Grundlage sind die Rohdaten des ersten Laufs je Variante aus run.py (ergebnisse/roh/<var>_01,
-Startwert 1, Schrittweite 0,5 s). Jede Szene hat einen Suchfilter. Gewaehlt wird je Variante die
+Startwert 1, Schrittweite 0,5 s). Fuer die seltene Szene 1 (Kinderwagen) werden alle Laeufe
+durchsucht, dafuer run.py mit --behalte-roh starten. Jede Szene hat einen Suchfilter. Gewaehlt wird je Variante die
 deutlichste echte Stelle. Daraus wird ein kurzer Ausschnitt (etwa 12 s vor bis 10 s nach dem
 kritischen Moment) mit allen Fahrzeugen und Fussgaengern kodiert. Es wird nichts erfunden: findet
 der Filter in einer Variante nichts, gibt es dort keinen Ausschnitt, sondern nur die Kennzahl.
@@ -24,8 +25,8 @@ WARMUP, ENDE = R.WARMUP, R.WARMUP + R.DAUER
 
 # Texte in einfacher Sprache
 SZENEN = [
-    dict(nr=1, titel='Nordquerung, von Süden kommt es schnell',
-         text='Wer an der Nordquerung über die Gießerstraße geht, muss nach links, rechts und hinten schauen. Von Süden fährt ein Auto mit {kmh} km/h geradeaus auf die Querung zu.',
+    dict(nr=1, titel='Kinderwagen an der Nordquerung, von Süden kommt es schnell',
+         text='Eine Person mit Kinderwagen will an der Nordquerung von West nach Ost über die Gießerstraße. Beim Warten ragt der Kinderwagen etwa 1 m in die Fahrbahn. Sie muss dreimal schauen, nach Süden, nach Norden und wieder nach Süden. Von Süden kommt ein Auto mit {kmh} km/h.',
          kennzahl=('fuss', 'Fußgänger auf der Querung bedrängt')),
     dict(nr=2, titel='Rad biegt nach Nord ab und steht im Verkehr',
          text='Ein Rad will von West nach Nord links abbiegen. Es steht {warte} Sekunden mitten im Knoten, um es herum fährt der Verkehr der Vorfahrtstraße.',
@@ -63,9 +64,9 @@ def herkunft(vid):
         return '?'
 
 
-def lade(var):
-    """Liest FCD und SSM des ersten Laufs. Gibt Zeitschritte und Konflikte zurueck."""
-    d = os.path.join(ROH, f'{var}_01')
+def lade(var, lauf=1):
+    """Liest FCD und SSM eines Laufs (Standard Lauf 1). Gibt Zeitschritte und Konflikte zurueck."""
+    d = os.path.join(ROH, f'{var}_{lauf:02d}')
     zeit = []
     for _, ts in ET.iterparse(os.path.join(d, 'fcd.xml')):
         if ts.tag != 'timestep':
@@ -101,25 +102,45 @@ def im_fenster(t):
 
 
 # ---------------------------------------------------------------- Suchfilter
-def s1_nordquerung(zeit, konf, mn):
+def s1_kinderwagen_suche(var, mn):
+    """Szene 1: Person mit Kinderwagen (pKiwa) wartet an der Westseite der Nordquerung, ein
+    Fahrzeug aus Sued faehrt vorbei. Kinderwagen sind selten (etwa 6 je Stunde), deshalb werden
+    alle gespeicherten Laeufe durchsucht. Gewertet wird das Tempo des Fahrzeugs plus die
+    Wartezeit (hoechstens 6 s). Gibt (wert, lauf, t, person, fahrzeug, kmh) zurueck."""
     best = None
-    for t, fz, ps in zeit:
-        if not im_fenster(t):
+    for lauf in range(1, 11):
+        f = os.path.join(ROH, f'{var}_{lauf:02d}', 'fcd.xml')
+        if not os.path.exists(f):
             continue
-        auf = [p for p in ps if p[5].startswith(':MN_c')]
-        if not auf:
-            continue
-        for v in fz:
-            if herkunft(v[0]) != 'S' or v[4] < 6:
+        warte = defaultdict(float)
+        for _, ts in ET.iterparse(f):
+            if ts.tag != 'timestep':
                 continue
-            ux, uy = math.sin(math.radians(v[3])), math.cos(math.radians(v[3]))
-            dx, dy = mn[0] - v[1], mn[1] - v[2]
-            d = dx * ux + dy * uy
-            if not 2 < d < 35 or abs(dx * uy - dy * ux) > 6:
+            t = float(ts.get('time'))
+            if not im_fenster(t):
+                ts.clear()
                 continue
-            drac = v[4] ** 2 / (2 * max(d - 2, 0.5))
-            if best is None or drac > best[0]:
-                best = (drac, t, [auf[0][0], v[0]], (auf[0][1], auf[0][2]), dict(kmh=round(v[4] * 3.6)))
+            ks = [p for p in ts.findall('person') if p.get('id').startswith('pKiwa') and p.get('edge') == ':MN_w0'
+                  and float(p.get('speed')) < 0.2]
+            for p in ks:
+                warte[p.get('id')] += DT
+            for p in ks:
+                if warte[p.get('id')] < 2:
+                    continue
+                for v in ts.findall('vehicle'):
+                    if herkunft(v.get('id')) != 'S' or float(v.get('speed')) < 5:
+                        continue
+                    a = math.radians(float(v.get('angle')))
+                    ux, uy = math.sin(a), math.cos(a)
+                    dx, dy = mn[0] - float(v.get('x')), mn[1] - float(v.get('y'))
+                    d = dx * ux + dy * uy
+                    if not 0 < d < 20 or abs(dx * uy - dy * ux) > 6:
+                        continue
+                    kmh = float(v.get('speed')) * 3.6
+                    wert = kmh + min(warte[p.get('id')], 6) - d * 0.1
+                    if best is None or wert > best[0]:
+                        best = (wert, lauf, t, p.get('id'), v.get('id'), round(kmh))
+            ts.clear()
     return best
 
 
@@ -283,7 +304,7 @@ def ausschnitt(zeit, konf, te, fokus, export):
             roh[v[0]].append((fr, v[1], v[2], v[3], v[5]))
         if fr >= 0:
             for p in ps:
-                roh['p:' + p[0]].append((fr, p[1], p[2], 0.0, ''))
+                roh['p:' + p[0]].append((fr, p[1], p[2], 0.0, p[5]))
     tracks, ids = export.kodiere(roh, DT, fenster=False)
     kurz = [k for k, i in enumerate(ids) if '.k' in i and not i.startswith('p:')]
     fk = []
@@ -300,7 +321,7 @@ def ausschnitt(zeit, konf, te, fokus, export):
 
 def baue(varianten, export, mn, mw):
     """Gibt {'liste': SZENEN ohne Suchfunktion, 'clips': {nr: {var: clip}}} zurueck."""
-    filter_ = {1: lambda z, k: s1_nordquerung(z, k, mn), 2: s2_rad_links, 3: s3_nord_ost, 4: s4_engstelle,
+    filter_ = {2: s2_rad_links, 3: s3_nord_ost, 4: s4_engstelle,
                5: s5_stopp, 6: lambda z, k: s6_fehlspur(z, k, mn), 7: s7_bus, 8: lambda z, k: s8_kiosk(z, k, mw),
                9: s9_kurz}
     clips = defaultdict(dict)
@@ -310,12 +331,32 @@ def baue(varianten, export, mn, mw):
             continue
         zeit, konf = lade(var)
         for sz in SZENEN:
-            r = filter_[sz['nr']](zeit, konf)
-            if not r:
-                print(f'   Szene {sz["nr"]} {var}: nicht gefunden')
-                continue
-            _, te, fokus, pos, extra = r
-            c = ausschnitt(zeit, konf, te, fokus, export)
+            lauf = 1
+            if sz['nr'] == 1:
+                k = s1_kinderwagen_suche(var, mn)
+                if k:
+                    _, lauf, te, pid, vid, kmh = k
+                    z1, k1 = lade(var, lauf) if lauf != 1 else (zeit, konf)
+                    pos = next((p[1], p[2]) for t, _, ps in z1 if abs(t - te) < 1e-6 for p in ps if p[0] == pid)
+                    c = ausschnitt(z1, k1, te, [pid, vid], export)
+                    c['blick'] = 'S'
+                    r = None
+                    extra = dict(kmh=kmh)
+                else:
+                    r = None
+                    c = None
+                if c is None:
+                    print(f'   Szene 1 {var}: kein Kinderwagen gefunden')
+                    continue
+            else:
+                r = filter_[sz['nr']](zeit, konf)
+            if sz['nr'] != 1:
+                if not r:
+                    print(f'   Szene {sz["nr"]} {var}: nicht gefunden')
+                    continue
+                _, te, fokus, pos, extra = r
+                c = ausschnitt(zeit, konf, te, fokus, export)
+            c['lauf'] = lauf
             c['ort'] = [round(pos[0], 2), round(-pos[1], 2)]
             c['zeit'] = round(te - WARMUP)
             txt = sz.get('text_' + var, sz['text'])
@@ -323,7 +364,9 @@ def baue(varianten, export, mn, mw):
                 c['text'] = txt.format(**extra)
             except KeyError:
                 c['text'] = sz['text']
+            if lauf != 1:
+                c['text'] += f' (Lauf {lauf} von 10)'
             clips[sz['nr']][var] = c
-            print(f'   Szene {sz["nr"]} {var}: bei {te - WARMUP:.0f} s, {len(c["tracks"])} Bahnen')
+            print(f'   Szene {sz["nr"]} {var}: Lauf {lauf} bei {te - WARMUP:.0f} s, {len(c["tracks"])} Bahnen')
     liste = [{k: v for k, v in sz.items()} for sz in SZENEN]
     return {'liste': liste, 'clips': clips}

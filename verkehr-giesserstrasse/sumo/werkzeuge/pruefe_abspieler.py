@@ -29,7 +29,7 @@ SCHRUMPF = 0.05
 # Grenzen fuer die Quergeschwindigkeit beim Spurwechsel in m/s (Wunsch der Initiative)
 QUER_MAX = {'pkw': 0.55, 'lkw': 0.5, 'bus': 0.5, 'sattel': 0.5}
 NEIGUNG_MAX = 1 / 12
-STRIDE = {'pkw': 4, 'pkwx': 4, 'lkw': 4, 'rad': 4, 'bus': 5, 'sattel': 5, 'fuss': 2, 'fussd': 2}
+STRIDE = {'pkw': 4, 'pkwx': 4, 'lkw': 4, 'rad': 4, 'bus': 5, 'sattel': 5, 'fuss': 2, 'fussd': 2, 'kiwa': 2}
 
 
 def lade():

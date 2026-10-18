@@ -791,7 +791,9 @@ FEHLSPUR = {'bestand': 0.25, 'rvl': 0.15, 't30_zebra': 0.15, 'geschuetzt': 0.05,
 # diagonal ueber den Knoten (diagonal.py, nicht in SUMO, siehe README).
 # Jeder Eintrag ist (id, Personen je Stunde, Etappen), eine Etappe ist (von, Pos, nach, Pos).
 FUSS = [
-    ('pNw2e', 25, [('W_out', 40, 'E_in', -40)]),
+    ('pNw2e', 19, [('W_out', 40, 'E_in', -40)]),
+    # davon etwa 6 je Stunde mit Kinderwagen (eigener Typ, langsamer und laenger)
+    ('pKiwa', 6, [('W_out', 40, 'E_in', -40)]),
     ('pNe2w', 25, [('E_in', -40, 'W_out', 40)]),
     ('pKiosk', 22, [('N_out', 60, 'W_out', 3), ('W_out', 3, 'W_in', -3)]),
     ('pKioskBack', 18, [('W_in', -3, 'W_out', 3), ('W_out', 3, 'N_out', 60)]),
@@ -833,7 +835,8 @@ VTYPES = '''    <vType id="pkw" impatience="{imp}" vClass="passenger" length="4.
     <vType id="sattel" impatience="{imp}" vClass="truck" length="16.5" width="2.55" accel="1.0" decel="4.0" sigma="0.5" maxSpeed="11.7" guiShape="truck/semitrailer"/>
     <vType id="bus" impatience="{imp}" vClass="bus" length="18.0" width="2.55" accel="1.1" decel="4.0" sigma="0.3" maxSpeed="11.1" guiShape="bus/flexible" personCapacity="100"/>
     <vType id="rad" impatience="{imp}" vClass="bicycle" length="1.8" width="0.8" accel="1.0" decel="3.0" sigma="0.5" maxSpeed="6.5" speedFactor="normc(0.85,0.15,0.5,1.2)"/>
-    <vType id="fuss" vClass="pedestrian" width="0.6" length="0.3" speedFactor="normc(1,0.15,0.6,1.4)" jmDriveAfterRedTime="-1"/>'''
+    <vType id="fuss" vClass="pedestrian" width="0.6" length="0.3" speedFactor="normc(1,0.15,0.6,1.4)" jmDriveAfterRedTime="-1"/>
+    <vType id="kiwa" vClass="pedestrian" width="0.7" length="1.8" maxSpeed="1.0" desiredMaxSpeed="1.0" speedFactor="normc(1,0.05,0.9,1.1)" jmDriveAfterRedTime="-1"/>'''
 
 KANTE = {'S': ('S_in_fern', 'S_out_fern'), 'N': ('N_in', 'N_out'), 'W': ('W_in', 'W_out'), 'E': ('E_in', 'E_out')}
 
@@ -922,7 +925,7 @@ def nachfrage(var, bus, ende):
         if var == 'geschuetzt':
             etappen = [(*FUSS_GESCH.get((v, p), (v, p)), *FUSS_GESCH.get((n_, np_), (n_, np_))) for v, p, n_, np_ in etappen]
         walks = ''.join(f'\n        <walk from="{von}" to="{nach}" arrivalPos="{np_}"/>' for von, _, nach, np_ in etappen)
-        flows.append((0, f'    <personFlow id="{pid}" type="fuss" begin="0" end="{ende}" period="exp({q / 3600:.6f})" '
+        flows.append((0, f'    <personFlow id="{pid}" type="{'kiwa' if pid == 'pKiwa' else 'fuss'}" begin="0" end="{ende}" period="exp({q / 3600:.6f})" '
                          f'departPos="{etappen[0][1]}">{walks}\n    </personFlow>'))
     z += [f for _, f in sorted(flows, key=lambda x: x[0])]
     z.append('</routes>')

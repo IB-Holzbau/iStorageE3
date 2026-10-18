@@ -124,6 +124,8 @@ Die Vorfahrtstraße mit Radfahrstreifen ist bewusst die Basis der Variante `radw
 | Geschützte Kreuzung (angepasst) | an den Nordecken kein Platz für Radwege hinter Inseln, Furten direkt am Knotenrand, im Modell mehr Konflikte | 82 | 28 | 25 |
 | Minikreisel | 18 m Gelenkbus Süd nach West, Nordarm 8,2 m, Knoten zu klein | nicht mehr gerechnet | | |
 
+**Kinderwagen.** Von den 25 Personen je Stunde auf der Nordseite West nach Ost schieben etwa 6 einen Kinderwagen (eigener Fußgängertyp, 1,8 m lang, etwa 1,0 m/s). Im Abspieler steht die Person am Bordstein, der Wagen ragt beim Warten etwa 1 m in die Fahrbahn.
+
 **Nachfrage.** Spitzenstunde aus dem Browsermodell (`../modell/src/sim.js`, `DEMAND`), angepasst nach Beobachtung. Pkw, Lkw, Sattelzüge und Räder kommen zufällig (Poisson), die Busse im 10-Minuten-Takt je Richtung.
 
 | Gruppe | je Stunde |
@@ -163,34 +165,36 @@ Kernaussagen je Stunde (Mittel aus 10 Läufen, Morgenspitze)
 
 | | Bestand | Markierung und Tempo 30 (Empfehlung) | Rote Radwege | Tempo-30-Zone (Vergleich) |
 |---|---|---|---|---|
-| Fahrzeugkonflikte im Knoten | 60 | 42 | 42 | 21 |
-| davon schwer | 16 | 14 | 12 | 1,7 |
-| davon Kfz gegen Rad | 10 | 7,8 | 12 | 5,0 |
-| Fußgänger auf Querung bedrängt | 22 | 18 | 21 | 19 |
-| davon Fahrzeug schneller als 30 km/h | 8,3 | 2,9 | 3,6 | 3,6 |
-| Wartezeit Fußgänger in s | 4,3 | 7,7 | 5,6 | 9,5 |
-| Nordarm Zeitverlust Kfz in s | 39 (D) | 29 (C) | 28 (C) | 8 (A) |
-| Nordarm Anteil der Zeit mit Wartenden | 52 % | 45 % | 46 % | 7 % |
-| Zeitverlust Kfz in s | 15 | 11 | 10 | 9 |
+| Fahrzeugkonflikte im Knoten | 57 | 42 | 47 | 19 |
+| davon schwer | 13 | 13 | 15 | 2,0 |
+| davon Kfz gegen Rad | 10 | 7,1 | 13 | 3,6 |
+| Fußgänger auf Querung bedrängt | 20 | 19 | 21 | 19 |
+| davon Fahrzeug schneller als 30 km/h | 6,7 | 3,6 | 2,0 | 3,8 |
+| Wartezeit Fußgänger in s | 4,4 | 7,6 | 5,5 | 9,6 |
+| Nordarm Zeitverlust Kfz in s | 45 (E) | 30 (C) | 28 (C) | 8 (A) |
+| Nordarm Anteil der Zeit mit Wartenden | 52 % | 45 % | 46 % | 8 % |
+| Zeitverlust Kfz in s | 17 | 12 | 13 | 10 |
 | Stellplätze im Ausschnitt | 88 | 87 | 74 | 87 |
+
+**Streuung.** Die Zahlen schwanken zwischen den zehn Läufen deutlich, bei den schweren Konflikten etwa ± 5 je Stunde. Schon ein zusätzlicher kleiner Fußgängerstrom (die Kinderwagen, 6 je Stunde) mischt die Zufallszahlen neu und verschiebt die schweren Konflikte um bis zu 3. Unterschiede unter etwa 3 bei den schweren Konflikten sind deshalb kein belastbarer Unterschied. Belastbar sind die großen Abstände (alle Konflikte, Zone gegen den Rest, schnelle Fahrzeuge an den Querungen, Nordarm).
 
 Lesart
 
-- **Markierung und Tempo 30 (Empfehlung)** senkt die Fahrzeugkonflikte um gut ein Viertel (60 auf 42), Kfz gegen Rad um ein Viertel, die bedrängten Fußgänger um ein Fünftel und die schnellen Fahrzeuge an den Querungen auf ein Drittel. Der Nordarm wartet etwa 10 s weniger. Schwere Konflikte sinken nur wenig (16 auf 14), siehe unten.
-- **Was bei der Empfehlung bleibt.** Die schweren Konflikte im Modell sind fast alle Lückenkonflikte gegen den Hauptstrom Süd nach West. Am häufigsten (Lauf 1) Süd nach West gegen West nach Nord (7), gegen Ost nach Süd (5) und gegen Nord nach Ost (5). Wer aus West, Ost oder Nord einbiegt, muss eine Lücke im abbiegenden Hauptstrom finden, der aus der Linksabbiegespur kommt und dessen Ende man schlecht sieht. Das bleibt, solange die abknickende Vorfahrt bleibt. Die Maßnahmen dagegen wirken über Sicht und Aufmerksamkeit (freies Sichtfeld an der Ostecke, breitere Halt- und Wartelinien, zusätzliche Schilder links, Tempo-30-Piktogramme, weniger Falschparker). SUMO kennt Sicht nicht, deshalb sind sie gezeichnet, aber nicht als Zahl eingerechnet. Ihre Wirkung ist eher größer als im Modell.
-- **Geprüft und verworfen** (Sensitivität für Bestand / Markierung / Radwege, schwere Konflikte je Stunde). Vorsichtigeres Einbiegen aus Nord und Ost (`impatience` 0,35 statt 0,5) ergibt 16 / 13,5 / 13 bei 61 s Zeitverlust am Nordarm, mit 0,25 sogar 214 s, der Nordarm würde überlaufen. Langsamerer Bogen mit 20 km/h und Linksabbiegen West nach Nord nur mit Warten ergibt 16 / 17 / 20, also schlechter, weil sich die Ströme im Knoten länger überlagern. Beides bleibt deshalb aus dem Modell, Grundwert `impatience 0.5`.
-- **Tempo-30-Zone mit rechts vor links (nur Vergleich, nicht empfohlen)** hätte rechnerisch die wenigsten Konflikte (21, schwer 1,7) und kaum Stau am Nordarm. Sie ändert aber die Vorfahrt grundsätzlich, an die sich alle gewöhnt haben, und die Umstellungszeit ist im Modell nicht abgebildet. Fußgänger warten dort am längsten (9,5 s).
-- **Rote Radwege** bringen gegenüber der reinen Markierung im Modell keinen Sicherheitsgewinn, Kfz gegen Rad steigt sogar (12 statt 8). Vermutliche Ursache sind Radfahrende, die vom Radfahrstreifen rechts nach West links abbiegen wollen und dafür über die Geradeausspur wechseln, und Rechtsabbieger West nach Süd über den Radfahrstreifen. Ohne Ampel fehlt der geschützte Aufstellbereich. SUMO bildet das Einordnen der Räder grob ab, die Zahl ist eine Tendenz. Dafür kosten die Radwege 14 Stellplätze im Ausschnitt.
+- **Markierung und Tempo 30 (Empfehlung)** senkt die Fahrzeugkonflikte um gut ein Viertel (57 auf 42), Kfz gegen Rad um knapp ein Drittel und die schnellen Fahrzeuge an den Querungen etwa auf die Hälfte. Der Nordarm wartet im Mittel 15 s weniger und läuft nicht mehr über. Die schweren Konflikte bleiben etwa gleich (13), siehe unten.
+- **Was bei der Empfehlung bleibt.** Die schweren Konflikte im Modell sind fast alle Lückenkonflikte gegen den Hauptstrom Süd nach West. Über alle zehn Läufe je Stunde: Süd nach West gegen Linksabbieger West nach Nord etwa 5 (Pkw, Lkw und Bus), gegen Räder West nach Nord 1,6, gegen Einbieger aus Ost und Nord zusammen 1,8. Das sind gut zwei Drittel der 13 schweren Konflikte. Wer aus West, Ost oder Nord einbiegt, muss eine Lücke im abbiegenden Hauptstrom finden, der aus der Linksabbiegespur kommt und dessen Ende man schlecht sieht. Das bleibt, solange die abknickende Vorfahrt bleibt. Die Maßnahmen dagegen wirken über Sicht und Aufmerksamkeit (freies Sichtfeld an der Ostecke, breitere Halt- und Wartelinien, zusätzliche Schilder links, Tempo-30-Piktogramme, weniger Falschparker). SUMO kennt Sicht nicht, deshalb sind sie gezeichnet, aber nicht als Zahl eingerechnet. Ihre Wirkung ist eher größer als im Modell.
+- **Geprüft und verworfen** (Sensitivität für Bestand / Markierung / Radwege, schwere Konflikte je Stunde, gerechnet vor dem Kinderwagen-Strom, Grundwerte damals 16 / 14 / 12). Vorsichtigeres Einbiegen aus Nord und Ost (`impatience` 0,35 statt 0,5) ergibt 16 / 13,5 / 13 bei 61 s Zeitverlust am Nordarm, mit 0,25 sogar 214 s, der Nordarm würde überlaufen. Langsamerer Bogen mit 20 km/h und Linksabbiegen West nach Nord nur mit Warten ergibt 16 / 17 / 20, also schlechter, weil sich die Ströme im Knoten länger überlagern. Beides bleibt deshalb aus dem Modell, Grundwert `impatience 0.5`.
+- **Tempo-30-Zone mit rechts vor links (nur Vergleich, nicht empfohlen)** hätte rechnerisch die wenigsten Konflikte (19, schwer 2) und kaum Stau am Nordarm. Sie ändert aber die Vorfahrt grundsätzlich, an die sich alle gewöhnt haben, und die Umstellungszeit ist im Modell nicht abgebildet. Fußgänger warten dort am längsten (9,6 s).
+- **Rote Radwege** bringen gegenüber der reinen Markierung im Modell keinen Sicherheitsgewinn, Kfz gegen Rad steigt sogar (13 statt 7). Vermutliche Ursache sind Radfahrende, die vom Radfahrstreifen rechts nach West links abbiegen wollen und dafür über die Geradeausspur wechseln, und Rechtsabbieger West nach Süd über den Radfahrstreifen. Ohne Ampel fehlt der geschützte Aufstellbereich. SUMO bildet das Einordnen der Räder grob ab, die Zahl ist eine Tendenz. Dafür kosten die Radwege 14 Stellplätze im Ausschnitt.
 - **Fehlspur.** Mit durchgezogener Linie fast keine Konflikte mehr durch Geradeausfahrer aus der Linksabbiegespur, im Bestand im Modell etwa einer je Stunde.
 - **Bus.** Der Wechsel vom Haltebereich auf die Linksabbiegespur passiert mit jedem Bus nach West (etwa 5 je Stunde), Konflikte dabei bleiben selten. Mit Ausholen beim Rechtsabbiegen überfahren Bus, Lkw und Sattelzug den Bordstein kaum noch (unter 0,5 Fahrten je Stunde).
 
 ## Kritische Szenen
 
-Im Abspieler gibt es neben dem freien Abspielen den Modus **Kritische Szenen**. Jede Szene ist eine echte Stelle aus dem ersten der zehn Läufe je Variante (`ergebnisse/roh/<variante>_01`, Startwert 1, 0,5 s Schrittweite), gesucht mit einem festen Filter (`abspieler/szenen.py`). Es wird nichts nachgestellt. Die Szene läuft mit halber Geschwindigkeit, hält am kritischen Moment 2,5 s an und zeigt einen Untertitel in einfacher Sprache. Beteiligte sind gelb markiert, Pfeile zeigen die Fahrtrichtung. Wartende Fußgänger und langsame Fahrer zeigen einen schwenkenden Sichtkegel und Sichtlinien zu fahrenden Fahrzeugen bis 45 m, grün wenn frei, rot gestrichelt wenn Häuser, Schaltkasten, Parker oder andere Fahrzeuge die Sicht verdecken (2D-Strahltest). Über „So wäre es mit“ lässt sich je Szene die passende Stelle in einer anderen Variante zeigen, darunter steht die zugehörige Kennzahl je Variante.
+Im Abspieler gibt es neben dem freien Abspielen den Modus **Kritische Szenen**. Jede Szene ist eine echte Stelle aus dem ersten der zehn Läufe je Variante (`ergebnisse/roh/<variante>_01`, Startwert 1, 0,5 s Schrittweite), gesucht mit einem festen Filter (`abspieler/szenen.py`). Kinderwagen sind selten, für Szene 1 werden deshalb alle zehn Läufe durchsucht (`run.py --behalte-roh`), der Untertitel nennt dann den Lauf. Es wird nichts nachgestellt. Die Szene läuft mit halber Geschwindigkeit, hält am kritischen Moment 2,5 s an und zeigt einen Untertitel in einfacher Sprache. Beteiligte sind gelb markiert, Pfeile zeigen die Fahrtrichtung. Wartende Fußgänger und langsame Fahrer zeigen einen Sichtkegel. Der Blick dreht weich, höchstens 90 Grad je Sekunde, mit sanftem Anfahren und Abbremsen. Wartend schaut man erst zur einen Seite, dann zur anderen und wieder zur ersten (in Szene 1 Süd, Nord, Süd, sonst erst links), gehend nach vorn mit kurzen Kontrollblicken. Sichtlinien führen zu fahrenden Fahrzeugen bis etwa 45 m und blenden weich ein und aus, je nach Abstand, Tempo und ob das Fahrzeug im Blick liegt, grün wenn frei, rot gestrichelt wenn Häuser, Schaltkasten, Parker oder andere Fahrzeuge die Sicht verdecken (2D-Strahltest). Über „So wäre es mit“ lässt sich je Szene die passende Stelle in einer anderen Variante zeigen, darunter steht die zugehörige Kennzahl je Variante.
 
 | Nr | Szene | Filter |
 |---|---|---|
-| 1 | Nordquerung, von Süden kommt es schnell | Person auf der Nordquerung, Fahrzeug aus Süd über 6 m/s müsste am stärksten bremsen |
+| 1 | Kinderwagen an der Nordquerung, von Süden kommt es schnell | Person mit Kinderwagen wartet mindestens 2 s an der Nordwestecke, Fahrzeug aus Süd fährt bis 20 m vor der Querung vorbei, gewählt das schnellste (plus Wartezeit) |
 | 2 | Rad biegt nach Nord ab und steht im Verkehr | Rad West nach Nord steht am längsten im Knoten, viel Verkehr ringsum |
 | 3 | Nord gegen Ost, wer darf zuerst? | Konflikt zwischen Fahrzeugen aus Nord und Ost (auch langsam), sonst engste gleichzeitige Begegnung |
 | 4 | Engstelle Ost, Begegnung zwischen Parkern | engste Begegnung zweier Fahrzeuge in Gegenrichtung auf dem Ostarm, schwere Fahrzeuge bevorzugt |
@@ -206,7 +210,7 @@ Alle neun Szenen kommen in allen vier Varianten vor. `python3 werkzeuge/szenenbi
 
 ## Überlappungen von Fahrzeugen
 
-SUMO kann Fahrzeuge im Knoten übereinanderschieben, wenn die Vorfahrtlogik eine Lage nicht erkennt. Das ist ein Modellfehler, kein Unfall, und wird je Lauf gezählt. Bestand und Markierung unter 1 je Stunde, Zone 1,3, Radwege 6,6 (dort meist Einbieger West nach Süd und Nord nach Süd, die gleichzeitig in die Fahrspur neben dem Radfahrstreifen einfädeln). `werkzeuge/pruefe_abspieler.py` findet im Abspieler je Variante 1 bis 3 kurze Berührungen, meist ein ausschwenkendes Heck neben einem Pkw.
+SUMO kann Fahrzeuge im Knoten übereinanderschieben, wenn die Vorfahrtlogik eine Lage nicht erkennt. Das ist ein Modellfehler, kein Unfall, und wird je Lauf gezählt. Bestand und Markierung unter 1 je Stunde, Zone 0,9, Radwege 6,1 (dort meist Einbieger West nach Süd und Nord nach Süd, die gleichzeitig in die Fahrspur neben dem Radfahrstreifen einfädeln). `werkzeuge/pruefe_abspieler.py` findet im Abspieler je Variante 0 bis 6 kurze Berührungen, meist ein ausschwenkendes Heck neben einem Pkw.
 
 ## Grenzen
 

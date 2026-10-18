@@ -47,7 +47,7 @@ SEED = 1
 # dass Haltestelle, Keil und die Parker suedlich davon zu sehen sind.
 FENSTER = (-48.0, -98.0, 48.0, 44.0)
 RAND = 25.0
-TYPEN = ['pkw', 'lkw', 'sattel', 'bus', 'rad', 'fuss', 'fussd', 'pkwx']
+TYPEN = ['pkw', 'lkw', 'sattel', 'bus', 'rad', 'fuss', 'fussd', 'pkwx', 'kiwa']   # kiwa: Person mit Kinderwagen
 # Fehlspur-Fahrer fahren auf dem Suedarm sichtbar mittig zwischen den Spuren
 FEHLSPUR_VERSATZ = 1.1
 
@@ -228,14 +228,54 @@ def kurzhalter_fussweg(roh, dt):
     roh.update(neu)
 
 
+_QUER = {}
+
+
+def kinderwagen_bordstein(roh):
+    """Nur Darstellung: SUMO laesst Fussgaenger am Rand der Ecke vor der Querung warten. Mit
+    Kinderwagen steht man am Bordstein und der Wagen ragt etwa 1 m in die Fahrbahn. Steht die
+    Person weiter als 0,3 m vor der Bordsteinkante, wird sie in Gehrichtung weich bis dorthin
+    geschoben (Wagen 0,3 bis 1,3 m vor der Person). Meist steht sie in SUMO schon dort."""
+    if not _QUER:
+        _QUER.update({c['edge']: c['pts'] for c in lies_netz('bestand')[1]})
+    for vid, seq in roh.items():
+        if not vid.startswith('p:pKiwa'):
+            continue
+        for i in range(1, len(seq)):
+            kante, vorher = seq[i][4], seq[i - 1][4]
+            if kante not in _QUER or vorher == kante:
+                continue
+            pts = _QUER[kante]
+            a, b = pts[0], pts[-1]
+            if math.hypot(b[0] - seq[i][1], b[1] - seq[i][2]) < math.hypot(a[0] - seq[i][1], a[1] - seq[i][2]):
+                a, b = b, a
+            L = math.hypot(b[0] - a[0], b[1] - a[1])
+            ux, uy = (b[0] - a[0]) / L, (b[1] - a[1]) / L
+            j = i - 1
+            while j >= 0 and seq[j][4].startswith(':') and '_w' in seq[j][4]:
+                fr, x, y, w, e = seq[j]
+                lang = (x - a[0]) * ux + (y - a[1]) * uy      # Abstand zur Bordsteinkante, negativ davor
+                if lang < -3.0:
+                    break
+                fehlt = -0.3 - lang
+                if fehlt > 0:
+                    g = 1.0 if lang > -1.6 else (3.0 + lang) / 1.4
+                    g = g * g * (3 - 2 * g)
+                    seq[j] = (fr, x + ux * fehlt * g, y + uy * fehlt * g, w, e)
+                j -= 1
+
+
 def kodiere(roh, dt, fenster=True):
     """Kodiert Bahnen fuer den Abspieler. roh ist id -> [(frame, x, y, winkel, spur)], Frames unter 0
     sind Vorlauf fuer die Schleppkurve. Fahrzeuge mit Lenkgeometrie, Fussgaenger als Punkte."""
     kurzhalter_fussweg(roh, dt)
+    kinderwagen_bordstein(roh)
     out, ids = [], []
     for vid, seq in roh.items():
         if vid.startswith(('p:', 'd:')):
             typ = 'fuss' if vid.startswith('p:') else 'fussd'
+            if vid.startswith('p:pKiwa'):
+                typ = 'kiwa'
         else:
             typ = R.typ_von(vid)
             if '_SNx' in vid:
@@ -254,7 +294,7 @@ def kodiere(roh, dt, fenster=True):
             xs = [p[1] for p in ab]
             ys = [p[2] for p in ab]
             ws = [p[3] for p in ab]
-            if typ in ('fuss', 'fussd'):
+            if typ in ('fuss', 'fussd', 'kiwa'):
                 frames = [(x, y) for x, y in zip(xs, ys)]
                 poses = None
             else:
@@ -334,7 +374,7 @@ def bahnen_und_konflikte(var, f):
             ts.clear()
             continue
         for p in pers:
-            roh['p:' + p.get('id')].append((fr, float(p.get('x')), float(p.get('y')), 0.0, ''))
+            roh['p:' + p.get('id')].append((fr, float(p.get('x')), float(p.get('y')), 0.0, p.get('edge') or ''))
         for pid, x, y, vx, vy, geht in leute:
             roh['d:' + pid].append((fr, x, y, 0.0, ''))
         # Fussgaenger auf Querungen und Diagonalquerer gegen schnelle Fahrzeuge (wie run.py)
