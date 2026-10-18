@@ -17,23 +17,23 @@
     </flow>
     <flow id="pkw_WS.f" type="pkwf" begin="0" end="4200" period="exp(0.013333)" from="W_in" to="S_out_fern" departLane="best" departSpeed="max">
     </flow>
-    <flow id="pkw_SN" type="pkw" begin="0" end="4200" period="exp(0.033333)" from="S_in_fern" to="N_out" departLane="best" departSpeed="max">
+    <flow id="pkw_SN" type="pkw" begin="0" end="4200" period="exp(0.033333)" from="S_in_fern" to="N_weg" departLane="best" departSpeed="max">
     </flow>
-    <flow id="pkw_SN.f" type="pkwf" begin="0" end="4200" period="exp(0.008333)" from="S_in_fern" to="N_out" departLane="best" departSpeed="max">
+    <flow id="pkw_SN.f" type="pkwf" begin="0" end="4200" period="exp(0.008333)" from="S_in_fern" to="N_weg" departLane="best" departSpeed="max">
     </flow>
-    <flow id="pkw_SNx" type="pkwx" begin="0" end="4200" period="exp(0.013889)" from="S_in_fern" to="N_out" departLane="best" departSpeed="max">
+    <flow id="pkw_SNx" type="pkwx" begin="0" end="4200" period="exp(0.013889)" from="S_in_fern" to="N_weg" departLane="best" departSpeed="max">
     </flow>
-    <flow id="pkw_NS" type="pkw" begin="0" end="4200" period="exp(0.036111)" from="N_in" to="S_out_fern" departLane="best" departSpeed="max">
+    <flow id="pkw_NS" type="pkw" begin="0" end="4200" period="exp(0.036111)" from="N_vor" to="S_out_fern" departLane="best" departSpeed="max">
         <stop edge="N_in_b" endPos="-0.5" duration="1"/>
     </flow>
-    <flow id="pkw_NW" type="pkw" begin="0" end="4200" period="exp(0.021667)" from="N_in" to="W_out" departLane="best" departSpeed="max">
+    <flow id="pkw_NW" type="pkw" begin="0" end="4200" period="exp(0.021667)" from="N_vor" to="W_out" departLane="best" departSpeed="max">
         <stop edge="N_in_b" endPos="-0.5" duration="1"/>
     </flow>
-    <flow id="pkw_WN" type="pkw" begin="0" end="4200" period="exp(0.013333)" from="W_in" to="N_out" departLane="best" departSpeed="max">
+    <flow id="pkw_WN" type="pkw" begin="0" end="4200" period="exp(0.013333)" from="W_in" to="N_weg" departLane="best" departSpeed="max">
     </flow>
-    <flow id="pkw_WN.f" type="pkwf" begin="0" end="4200" period="exp(0.003333)" from="W_in" to="N_out" departLane="best" departSpeed="max">
+    <flow id="pkw_WN.f" type="pkwf" begin="0" end="4200" period="exp(0.003333)" from="W_in" to="N_weg" departLane="best" departSpeed="max">
     </flow>
-    <flow id="pkw_NE" type="pkw" begin="0" end="4200" period="exp(0.002778)" from="N_in" to="E_out" departLane="best" departSpeed="max">
+    <flow id="pkw_NE" type="pkw" begin="0" end="4200" period="exp(0.002778)" from="N_vor" to="E_out" departLane="best" departSpeed="max">
         <stop edge="N_in_b" endPos="-0.5" duration="1"/>
     </flow>
     <flow id="pkw_SE" type="pkw" begin="0" end="4200" period="exp(0.004444)" from="S_in_fern" to="E_out" departLane="best" departSpeed="max">
@@ -48,21 +48,21 @@
     </flow>
     <flow id="pkw_ES" type="pkw" begin="0" end="4200" period="exp(0.002778)" from="E_in" to="S_out_fern" departLane="best" departSpeed="max">
     </flow>
-    <flow id="pkw_EN" type="pkw" begin="0" end="4200" period="exp(0.003333)" from="E_in" to="N_out" departLane="best" departSpeed="max">
+    <flow id="pkw_EN" type="pkw" begin="0" end="4200" period="exp(0.003333)" from="E_in" to="N_weg" departLane="best" departSpeed="max">
     </flow>
     <flow id="lkw_SW" type="lkw" begin="0" end="4200" period="exp(0.002222)" from="S_in_fern" to="W_out" departLane="best" departSpeed="max">
     </flow>
     <flow id="lkw_WS" type="lkw" begin="0" end="4200" period="exp(0.002222)" from="W_in" to="S_out_fern" departLane="best" departSpeed="max">
     </flow>
-    <flow id="lkw_NS" type="lkw" begin="0" end="4200" period="exp(0.001111)" from="N_in" to="S_out_fern" departLane="best" departSpeed="max">
+    <flow id="lkw_NS" type="lkw" begin="0" end="4200" period="exp(0.001111)" from="N_vor" to="S_out_fern" departLane="best" departSpeed="max">
         <stop edge="N_in_b" endPos="-0.5" duration="1"/>
     </flow>
-    <flow id="lkw_SN" type="lkw" begin="0" end="4200" period="exp(0.000833)" from="S_in_fern" to="N_out" departLane="best" departSpeed="max">
+    <flow id="lkw_SN" type="lkw" begin="0" end="4200" period="exp(0.000833)" from="S_in_fern" to="N_weg" departLane="best" departSpeed="max">
     </flow>
-    <flow id="lkw_NW" type="lkw" begin="0" end="4200" period="exp(0.000556)" from="N_in" to="W_out" departLane="best" departSpeed="max">
+    <flow id="lkw_NW" type="lkw" begin="0" end="4200" period="exp(0.000556)" from="N_vor" to="W_out" departLane="best" departSpeed="max">
         <stop edge="N_in_b" endPos="-0.5" duration="1"/>
     </flow>
-    <flow id="lkw_WN" type="lkw" begin="0" end="4200" period="exp(0.000556)" from="W_in" to="N_out" departLane="best" departSpeed="max">
+    <flow id="lkw_WN" type="lkw" begin="0" end="4200" period="exp(0.000556)" from="W_in" to="N_weg" departLane="best" departSpeed="max">
     </flow>
     <flow id="sattel_SW" type="sattel" begin="0" end="4200" period="exp(0.000833)" from="S_in_fern" to="W_out" departLane="best" departSpeed="max">
     </flow>
@@ -72,14 +72,14 @@
     </flow>
     <flow id="rad_WS" type="rad" begin="0" end="4200" period="exp(0.012500)" from="W_in" to="S_out_fern" departLane="best" departSpeed="max">
     </flow>
-    <flow id="rad_SN" type="rad" begin="0" end="4200" period="exp(0.006944)" from="S_in_fern" to="N_out" departLane="best" departSpeed="max">
+    <flow id="rad_SN" type="rad" begin="0" end="4200" period="exp(0.006944)" from="S_in_fern" to="N_weg" departLane="best" departSpeed="max">
     </flow>
-    <flow id="rad_NS" type="rad" begin="0" end="4200" period="exp(0.008333)" from="N_in" to="S_out_fern" departLane="best" departSpeed="max">
+    <flow id="rad_NS" type="rad" begin="0" end="4200" period="exp(0.008333)" from="N_vor" to="S_out_fern" departLane="best" departSpeed="max">
         <stop edge="N_in_b" endPos="-0.5" duration="1"/>
     </flow>
-    <flow id="rad_WN" type="rad" begin="0" end="4200" period="exp(0.006111)" from="W_in" to="N_out" departLane="best" departSpeed="max">
+    <flow id="rad_WN" type="rad" begin="0" end="4200" period="exp(0.006111)" from="W_in" to="N_weg" departLane="best" departSpeed="max">
     </flow>
-    <flow id="rad_NW" type="rad" begin="0" end="4200" period="exp(0.004167)" from="N_in" to="W_out" departLane="best" departSpeed="max">
+    <flow id="rad_NW" type="rad" begin="0" end="4200" period="exp(0.004167)" from="N_vor" to="W_out" departLane="best" departSpeed="max">
         <stop edge="N_in_b" endPos="-0.5" duration="1"/>
     </flow>
     <flow id="rad_EW" type="rad" begin="0" end="4200" period="exp(0.002222)" from="E_in" to="W_out" departLane="best" departSpeed="max">

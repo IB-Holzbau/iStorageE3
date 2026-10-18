@@ -34,8 +34,8 @@ import kinematik as K
 import strassenraum as SR
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-NETZE = os.path.join(ROOT, 'netze')
-ERG = os.path.join(ROOT, 'ergebnisse')
+NETZE = B.OUT
+ERG = os.environ.get('SUMO_ERG', os.path.join(ROOT, 'ergebnisse'))
 ROH = os.path.join(ERG, 'roh')
 
 VARIANTEN = list(B.VERGLEICH)
@@ -47,9 +47,18 @@ TITEL = {'bestand': 'Bestand', 'markierung': 'Markierung und Tempo 30 (Empfehlun
 ARME = ['S', 'N', 'W', 'E']
 ARMNAME = {'S': 'Süd (Gießerstr.)', 'N': 'Nord (Gießerstr.)', 'W': 'West (Naumburger Str.)', 'E': 'Ost (Naumburger Str.)'}
 ZUFAHRT = {'S': ['S_in_fern', 'S_in_bucht', 'S_in_mitte', 'S_in', 'S_in_f', 'S_in_m'],
-           'N': ['N_in', 'N_in_b', 'N_in_f', 'N_in_m'], 'W': ['W_in', 'W_in_b', 'W_in_f', 'W_in_m'],
+           'N': ['N_zu', 'N_in', 'N_in_b', 'N_in_f', 'N_in_m'], 'W': ['W_in', 'W_in_b', 'W_in_f', 'W_in_m'],
            'E': ['E_in', 'E_in_b', 'E_in_f', 'E_in_m']}
 LAENGE = {'pkw': 4.5, 'lkw': 10.0, 'sattel': 16.5, 'bus': 18.0, 'rad': 1.8}
+# Hoechstgeschwindigkeit je Fahrzeugtyp wie in build.py (Pkw ohne Grenze)
+VMAX = {'pkw': 55.5, 'lkw': 12.5, 'sattel': 11.7, 'bus': 11.1, 'rad': 6.5}
+# Zulauf Nord mit Ampel (build.py): Zeitverlust auf der kuenstlichen Strecke gehoert zur Ampel und
+# zum Fahren im Pulk und wird abgezogen. Ausnahme ist ein Rueckstau vom Stopp Nord, der ueber den
+# Modellrand (110 m vor der Haltlinie) hinausreicht: steht ein Fahrzeug auf N_zu in dieser
+# Schlange, zaehlt sein Verlust zum Knoten. Auf N_ab gehoeren die letzten AB_AMPEL m vor der
+# Ampel zur Ampel, der Rest zum Knoten.
+AB_AMPEL = 100.0
+LUECKE_FUSS = 7.0      # s, Zeitluecke, die man an der Nordquerung braucht (8 m bei etwa 1,2 m/s)
 BREITE = {'pkw': 1.85, 'lkw': 2.5, 'sattel': 2.55, 'bus': 2.55, 'rad': 0.8}
 
 WEG = {'pNw2e': 'Nordseite West nach Ost, quert Nordarm', 'pKiwa': 'Nordseite West nach Ost mit Kinderwagen, quert Nordarm', 'pNe2w': 'Nordseite Ost nach West, quert Nordarm',
@@ -168,24 +177,20 @@ def auswerten(var, seed, f):
     lanelen, querung, form, nach = netzinfo(var)
     werte = []   # (kennzahl, gruppe, wert)
 
-    # ---- Fahrten
-    verlust = defaultdict(list)
-    for t in ET.parse(f['trip']).getroot().findall('tripinfo'):
-        if not im_fenster(float(t.get('depart'))):
-            continue
-        typ, rel = typ_von(t.get('id')), rel_von(t.get('id'))
-        mittel = {'pkw': 'Kfz', 'lkw': 'Kfz', 'sattel': 'Kfz', 'bus': 'Bus', 'rad': 'Rad'}[typ]
-        # Zeitverlust inklusive Einfahrverzug (Rueckstau ueber den Netzrand hinaus)
-        tl = float(t.get('timeLoss')) + float(t.get('departDelay'))
-        verlust[(rel[0], mittel)].append(tl)
-        verlust[('alle', mittel)].append(tl)
-        verlust[(rel[0], 'einfahrverzug')].append(float(t.get('departDelay')))
-    for (arm, m), v in verlust.items():
-        if m == 'einfahrverzug':
-            werte.append(('einfahrverzug_s', arm, st.mean(v)))
-        else:
-            werte.append(('zeitverlust_s', f'{arm}|{m}', st.mean(v)))
-            werte.append(('fahrten', f'{arm}|{m}', len(v)))
+    trips = [t for t in ET.parse(f['trip']).getroot().findall('tripinfo')]
+    sfak = {t.get('id'): float(t.get('speedFactor') or 1) for t in trips}
+    lspeed = {}
+    for e in ET.parse(os.path.join(NETZE, f'{var}.net.xml')).getroot().findall('edge'):
+        for l in e.findall('lane'):
+            lspeed[l.get('id')] = float(l.get('speed'))
+    zul = set(B.ZULAUF_KANTEN)
+    ext = defaultdict(float)          # Zeitverlust an der Ampel (abgezogen)
+    ext_knoten = defaultdict(float)   # Zeitverlust ausserhalb des Modellrands durch den Knoten
+    ampel_stau = {'zu': [], 'ab': []}  # groesster Abstand stehender Fahrzeuge von der Ampel
+    nord_ein = []                      # Zeitpunkte, an denen Fahrzeuge aus Nord den Modellrand erreichen
+    querung_n = []                     # Zeitpunkte, an denen Fahrzeuge die Nordquerung passieren
+    zuletzt = {}
+    offen = []                         # Verlust auf N_zu, Zuordnung nach der Schlangenlaenge
 
     # ---- Fussgaenger
     fuss_v, fuss_w = defaultdict(list), defaultdict(list)
@@ -290,6 +295,40 @@ def auswerten(var, seed, f):
         t = float(ts.get('time'))
         fz = ts.findall('vehicle')
         pers = ts.findall('person')
+        for vid_, los_, d_ in offen:
+            ext[vid_] += los_
+        offen = []
+        st_zu = st_ab = 0.0
+        for v in fz:
+            vid = v.get('id')
+            lane = v.get('lane')
+            e = lane.rsplit('_', 1)[0]
+            vorher = zuletzt.get(vid)
+            zuletzt[vid] = e
+            if e != vorher and im_fenster(t):
+                if e == 'N_in' and vorher is not None and (vorher == 'N_zu' or vorher.startswith(':N0')):
+                    nord_ein.append(t)
+                if vorher is not None and e in ('N_in_m', 'N_out_b'):
+                    querung_n.append(t)
+            if e in zul or e.startswith(':NA_'):
+                sp = float(v.get('speed'))
+                pos = float(v.get('pos'))
+                vm = min(VMAX.get(typ_von(vid), 55.5), lspeed.get(lane, 13.9) * sfak.get(vid, 1.0))
+                los = SCHRITT * max(0.0, 1 - sp / vm)
+                if e == 'N_zu' and 'N_zu' in kette:
+                    offen.append((vid, los, lanelen[lane] - pos + kette['N_zu'][1]))
+                elif e == 'N_ab' and pos <= lanelen[lane] - AB_AMPEL:
+                    ext_knoten[vid] += los
+                else:
+                    ext[vid] += los
+                if sp < 0.5 and im_fenster(t):
+                    if e == 'N_vor':
+                        st_zu = max(st_zu, lanelen[lane] - pos)
+                    elif e == 'N_ab':
+                        st_ab = max(st_ab, lanelen[lane] - pos)
+        if im_fenster(t):
+            ampel_stau['zu'].append(st_zu)
+            ampel_stau['ab'].append(st_ab)
         if t > WARMUP + DAUER + 60:
             ts.clear()
             continue
@@ -328,6 +367,13 @@ def auswerten(var, seed, f):
                 n += 1
             stau[arm].append(q)
             stau_fz[arm].append(n)
+        # Verlust auf der Zulaufstrecke: in der Schlange vom Stopp Nord zum Knoten, sonst zur Ampel
+        for vid_, los_, d_ in offen:
+            if d_ <= stau['N'][-1] + 7.0:
+                ext_knoten[vid_] += los_
+            else:
+                ext[vid_] += los_
+        offen = []
         # Fussgaenger auf Querungen und diagonal gegen schnelle Fahrzeuge
         kandidaten = []
         for p in pers:
@@ -365,6 +411,65 @@ def auswerten(var, seed, f):
                         fuss_konf['durch_fehlspur'] += 1
         ts.clear()
 
+    # ---- Fahrten
+    verlust = defaultdict(list)
+    for t in trips:
+        if not im_fenster(float(t.get('depart'))):
+            continue
+        typ, rel = typ_von(t.get('id')), rel_von(t.get('id'))
+        mittel = {'pkw': 'Kfz', 'lkw': 'Kfz', 'sattel': 'Kfz', 'bus': 'Bus', 'rad': 'Rad'}[typ]
+        # Zeitverlust inklusive Einfahrverzug (Rueckstau ueber den Netzrand hinaus)
+        # Mit Zulauf Nord: Verlust an der Ampel abziehen. Fahrten aus Nord starten vor der Ampel,
+        # ihr Einfahrverzug ist dann Ampelwartezeit. Als Einfahrverzug (Rueckstau ueber den
+        # Modellrand) zaehlt dort der Verlust auf der Zulaufstrecke kurz vor dem Modellrand.
+        tid = t.get('id')
+        verzug = ext_knoten.get(tid, 0.0) if rel[0] == 'N' and B.ZULAUF_NORD and var != 'geschuetzt' else float(t.get('departDelay'))
+        tl = float(t.get('timeLoss')) - ext.get(tid, 0.0)
+        if not (rel[0] == 'N' and B.ZULAUF_NORD and var != 'geschuetzt'):
+            tl += float(t.get('departDelay'))
+        verlust[(rel[0], mittel)].append(tl)
+        verlust[('alle', mittel)].append(tl)
+        verlust[(rel[0], 'einfahrverzug')].append(verzug)
+    for (arm, m), v in verlust.items():
+        if m == 'einfahrverzug':
+            werte.append(('einfahrverzug_s', arm, st.mean(v)))
+        else:
+            werte.append(('zeitverlust_s', f'{arm}|{m}', st.mean(v)))
+            werte.append(('fahrten', f'{arm}|{m}', len(v)))
+
+    # ---- Zulauf Nord: Pulks, Luecken an der Nordquerung, Rueckstau an der Ampel
+    if nord_ein:
+        nord_ein.sort()
+        h = [b - a for a, b in zip(nord_ein, nord_ein[1:])]
+        if len(h) > 2:
+            werte.append(('zulauf_nord_cv', 'N', st.pstdev(h) / st.mean(h)))
+        # Anteil der Fahrzeuge, die mit hoechstens 3 s Abstand zum Vordermann ankommen
+        werte.append(('zulauf_nord_dicht', 'N', 100 * sum(1 for x in h if x <= 3) / max(len(h), 1)))
+    q = sorted(querung_n)
+    grenzen = [WARMUP] + q + [WARMUP + DAUER]
+    luecken = [b - a for a, b in zip(grenzen, grenzen[1:])]
+    werte.append(('nordquerung_luecken', 'ab7', sum(1 for g in luecken if g >= LUECKE_FUSS)))
+    werte.append(('nordquerung_luecken', 'ab15', sum(1 for g in luecken if g >= 15)))
+    werte.append(('nordquerung_sofort', 'N', 100 * sum(max(0.0, g - LUECKE_FUSS) for g in luecken) / DAUER))
+    # Wartezeit einer zufaellig ankommenden Person bis zur ersten Luecke von 7 s
+    warte = []
+    i = 0
+    for t_an in range(WARMUP, WARMUP + DAUER):
+        while i < len(luecken) - 1 and grenzen[i + 1] <= t_an:
+            i += 1
+        if grenzen[i + 1] - t_an >= LUECKE_FUSS:
+            warte.append(0.0)
+        else:
+            k = i + 1
+            while k < len(luecken) and luecken[k] < LUECKE_FUSS:
+                k += 1
+            warte.append((grenzen[k] - t_an) if k < len(luecken) else 0.0)
+    werte.append(('nordquerung_warte_s', 'N', st.mean(warte)))
+    werte.append(('nordquerung_warte_p95_s', 'N', perzentil(warte, 95)))
+    for k_, v_ in ampel_stau.items():
+        werte.append(('ampel_rueckstau_max_m', k_, max(v_) if v_ else 0))
+        werte.append(('ampel_rueckstau_p95_m', k_, perzentil(v_, 95) if v_ else 0))
+
     for g in fuss_v:
         werte.append(('fuss_zeitverlust_s', g, st.mean(fuss_v[g])))
         werte.append(('fuss_wartezeit_s', g, st.mean(fuss_w[g])))
@@ -386,7 +491,8 @@ def auswerten(var, seed, f):
         werte.append(('schlange_fz_mittel', arm, st.mean(stau_fz[arm]) if stau_fz[arm] else 0))
         werte.append(('schlange_fz_max', arm, max(stau_fz[arm]) if stau_fz[arm] else 0))
         werte.append(('anteil_zeit_wartend', arm, 100 * sum(1 for n in stau_fz[arm] if n > 0) / max(len(stau_fz[arm]), 1)))
-        for k in (1, 2, 3):
+        werte.append(('schlange_fz_p95', arm, perzentil(stau_fz[arm], 95)))
+        for k in (1, 2, 3, 4, 5):
             werte.append((f'anteil_zeit_{k}plus', arm, 100 * sum(1 for n in stau_fz[arm] if n >= k) / max(len(stau_fz[arm]), 1)))
 
     # ---- Bus Sued nach West: Wechsel vom Haltebereich ganz rechts auf die Linksabbiegespur
@@ -536,6 +642,17 @@ def bericht(rows, laeufe, bus):
         ('Nordarm: Anteil der Zeit mit mindestens 1 wartenden Fahrzeug in %', ('anteil_zeit_wartend', 'N')),
         ('Nordarm: Anteil der Zeit mit 2 oder mehr in %', ('anteil_zeit_2plus', 'N')),
         ('Nordarm: Anteil der Zeit mit 3 oder mehr in %', ('anteil_zeit_3plus', 'N')),
+        ('Nordarm: Anteil der Zeit mit 5 oder mehr in %', ('anteil_zeit_5plus', 'N')),
+        ('Nordarm: Schlange, 95 %-Wert (Fahrzeuge)', ('schlange_fz_p95', 'N')),
+        ('Nordarm: Rückstau größter Wert in m (Modellrand bei 110 m vor der Haltlinie)', ('rueckstau_max_m', 'N')),
+        ('Zulauf Nord: Pulkigkeit (Streuung der Abstände geteilt durch Mittel, 1 = zufällig)', ('zulauf_nord_cv', 'N')),
+        ('Zulauf Nord: Anteil der Fahrzeuge höchstens 3 s hinter dem Vordermann in %', ('zulauf_nord_dicht', 'N')),
+        ('Nordquerung: Lücken von mindestens 7 s je Stunde (beide Richtungen)', ('nordquerung_luecken', 'ab7')),
+        ('Nordquerung: Lücken von mindestens 15 s je Stunde', ('nordquerung_luecken', 'ab15')),
+        ('Nordquerung: Anteil der Zeit, in der man sofort gehen kann (Lücke ab 7 s) in %', ('nordquerung_sofort', 'N')),
+        ('Nordquerung: Wartezeit auf eine Lücke von 7 s im Mittel in s', ('nordquerung_warte_s', 'N')),
+        ('Nordquerung: Wartezeit auf eine Lücke von 7 s, 95 %-Wert in s', ('nordquerung_warte_p95_s', 'N')),
+        ('Ampel Nord: Rückstau Richtung Norden, größter Wert in m (Knoten bei 340 m)', ('ampel_rueckstau_max_m', 'ab')),
         ('Bus Süd nach West: Spurwechsel vom Haltebereich zur Linksabbiegespur', ('bus_spurwechsel', 'SW')),
         ('dabei Konflikte (±5 s um den Wechsel)', ('bus_spurwechsel_konflikte', 'SW')),
         ('Bus überfährt Bordstein (Fahrten je Stunde)', ('ueberfahren_bordstein', 'bus')),

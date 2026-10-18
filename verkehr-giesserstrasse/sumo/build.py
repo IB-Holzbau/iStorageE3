@@ -22,8 +22,9 @@ import xml.etree.ElementTree as ET
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 OSM = os.path.join(ROOT, '..', 'daten', 'map.osm')
-OUT = os.path.join(ROOT, 'netze')
-PLAIN = os.path.join(ROOT, 'build')
+# Fuer Vergleichsrechnungen lassen sich die Ausgabeordner umlenken (siehe README, Zulauf Nord)
+OUT = os.environ.get('SUMO_NETZE', os.path.join(ROOT, 'netze'))
+PLAIN = os.environ.get('SUMO_PLAIN', os.path.join(ROOT, 'build'))
 
 # Alle Varianten. Der Minikreisel wird weiter gebaut, ist aber nicht mehr Teil des Vergleichs
 # (siehe README, er passt fuer den 18 m Gelenkbus und den 8,2 m breiten Nordarm nicht).
@@ -506,7 +507,59 @@ def baue_variante(var, arme):
         vorfahrt_abknickend(n)
     if var in EMPFEHLUNG and W_N_WARTET:
         n.verbot('S_in_m->W_out_m', 'W_in_m->N_out_m')
+    if ZULAUF_NORD:
+        zulauf_nord(n, arme['N'], tempo['N'], prio['N'])
     return n
+
+
+# ---------------------------------------------------------------- Ampel im Norden
+# Nutzerbeobachtung: etwa 350 m noerdlich liegt an der Giesserstrasse eine Ampel, vermutlich
+# Karl-Heine-Strasse / Giesserstrasse (laut Recherche 2019/20 vorgesehen, Lage in OSM nicht
+# geprueft). Der Verkehr aus Nord kommt deshalb in Pulks. Abgebildet mit einer kuenstlichen
+# Zulaufstrecke nur in SUMO (ausserhalb des Abspieler-Ausschnitts): Ampel 350 m vor der
+# Knotenmitte, davor 100 m Einfahrstrecke. Festzeit als Annahme: Umlauf 80 s, Gruen fuer die
+# Giesserstrasse 35 s, 3 s Gelb, 42 s Rot (Querstrasse, Raeumen). Beide Richtungen der
+# Giesserstrasse haben gleichzeitig Gruen, auch Sued nach Nord faehrt auf diese Ampel zu.
+ZULAUF_NORD = os.environ.get('ZULAUF_NORD', '1') != '0'   # 0 = alter gleichmaessiger Zulauf zum Vergleich
+AMPEL_ABSTAND = 350.0      # m von der Knotenmitte
+AMPEL_VORLAUF = 100.0      # m Einfahrstrecke vor der Ampel
+AMPEL_GRUEN, AMPEL_GELB, AMPEL_ROT = 35, 3, 42
+ZULAUF_KANTEN = ('N_vor', 'N_zu', 'N_ab', 'N_weg')
+
+
+def zulauf_nord(n, pts, tempo, prio):
+    (x0, y0), (x1, y1) = pts[-2], pts[-1]
+    L = math.hypot(x1 - x0, y1 - y0)
+    ux, uy = (x1 - x0) / L, (y1 - y0) / L
+    rest = AMPEL_ABSTAND - ARM_LEN
+    pa = (x1 + ux * rest, y1 + uy * rest)
+    pf = (pa[0] + ux * AMPEL_VORLAUF, pa[1] + uy * AMPEL_VORLAUF)
+    n.node('NA', pa, 'traffic_light', tlType='static')
+    n.node('NF', pf)
+    spur = [('kfz', 3.3)]
+    n.edge('N_vor', 'NF', 'NA', [pf, pa], spur, tempo, prio)
+    n.edge('N_zu', 'NA', 'N0', [pa, (x1, y1)], spur, tempo, prio)
+    n.edge('N_ab', 'N0', 'NA', [(x1, y1), pa], spur, tempo, prio)
+    n.edge('N_weg', 'NA', 'NF', [pa, pf], spur, tempo, prio)
+
+
+AMPEL_TLL = '''<tlLogics>
+    <!-- Annahme: Umlauf 80 s, Gruen Giesserstrasse 35 s, beide Richtungen gleichzeitig -->
+    <tlLogic id="NA" type="static" programID="0" offset="0">
+        <phase duration="{g}" state="GG"/>
+        <phase duration="{y}" state="yy"/>
+        <phase duration="{r}" state="rr"/>
+    </tlLogic>
+</tlLogics>
+'''
+
+
+def kante(var, arm):
+    """Start- und Zielkante der Fahrten je Arm. Mit Zulauf Nord beginnen und enden die Fahrten
+    hinter der Ampel im Norden."""
+    if arm == 'N' and ZULAUF_NORD and var != 'geschuetzt':
+        return ('N_vor', 'N_weg')
+    return KANTE[arm]
 
 
 # ---------------------------------------------------------------- geschuetzte Kreuzung
@@ -751,6 +804,8 @@ def netconvert(prefix, net):
            '-o', net, '--no-turnarounds', 'true', '--tls.guess', 'false', '--walkingareas', 'true',
            '--junctions.corner-detail', '6', '--internal-junctions.vehicle-width', '3.2', '--no-warnings', 'false',
            '--offset.disable-normalization', 'true']
+    if os.path.exists(prefix + '.tll.xml'):
+        cmd += ['--tllogic-files', prefix + '.tll.xml']
     r = subprocess.run(cmd, capture_output=True, text=True)
     if r.returncode != 0:
         print(r.stdout, r.stderr)
@@ -869,7 +924,7 @@ def nachfrage(var, bus, ende):
         if stopp and o == 'N' and not (var == 'geschuetzt' and typ == 'rad'):
             stop = f'\n        <stop edge="{stopp}" endPos="-0.5" duration="1"/>'
         flows.append((0, f'    <flow id="{fid}" type="{typ}" begin="0" end="{ende}" period="exp({q / 3600:.6f})" '
-                         f'from="{KANTE[o][0]}" to="{KANTE[d][1]}" departLane="best" departSpeed="max">{stop}\n    </flow>'))
+                         f'from="{kante(var, o)[0]}" to="{kante(var, d)[1]}" departLane="best" departSpeed="max">{stop}\n    </flow>'))
 
     for rel, q in KFZ.items():
         fs = anteil_schnell if rel[0] in 'SW' else 0.0
@@ -893,7 +948,7 @@ def nachfrage(var, bus, ende):
         kante_w = 'W_out_b' if var == 'radwege' else 'W_out'
         for i, (beginn, dauer) in enumerate(kurz):
             flows.append((beginn, f'    <flow id="pkw_SW.k{i}" type="pkw" begin="{beginn}" end="{ende}" period="{takt}" '
-                                  f'from="{KANTE["S"][0]}" to="{KANTE["W"][1]}" departLane="best" departSpeed="max">'
+                                  f'from="{kante(var, "S")[0]}" to="{kante(var, "W")[1]}" departLane="best" departSpeed="max">'
                                   f'\n        <stop edge="{kante_w}" startPos="0.5" endPos="6.5" duration="{dauer}" parking="true"/>\n    </flow>'))
     for rel, q in LKW.items():
         flow(f'lkw_{rel}', 'lkw', rel, q)
@@ -908,7 +963,7 @@ def nachfrage(var, bus, ende):
         # beide Richtungen vorkommen.
         o, d = rel[0], rel[1]
         flows.append((beginn, f'    <flow id="{fid}" type="bus" begin="{beginn}" end="{ende}" period="{3600 // BUS_TAKT}" '
-                              f'from="{KANTE[o][0]}" to="{KANTE[d][1]}" departLane="best" departSpeed="max">{extra}\n    </flow>'))
+                              f'from="{kante(var, o)[0]}" to="{kante(var, d)[1]}" departLane="best" departSpeed="max">{extra}\n    </flow>'))
     if bus == 'SN':
         busflow('bus_SN', 'SN', 60, halt)
         busflow('bus_NS', 'NS', 120, stopp and f'\n        <stop edge="{stopp}" endPos="-0.5" duration="1"/>' or '')
@@ -956,6 +1011,9 @@ def main():
         n = baue_variante(var, arme)
         prefix = os.path.join(PLAIN, var)
         n.schreibe(prefix)
+        if ZULAUF_NORD and var != 'geschuetzt':
+            with open(prefix + '.tll.xml', 'w') as f:
+                f.write(AMPEL_TLL.format(g=AMPEL_GRUEN, y=AMPEL_GELB, r=AMPEL_ROT))
         netconvert(prefix, os.path.join(OUT, f'{var}.net.xml'))
         if var not in ('geschuetzt', 'minikreisel'):
             weite_kurven(prefix, os.path.join(OUT, f'{var}.net.xml'))

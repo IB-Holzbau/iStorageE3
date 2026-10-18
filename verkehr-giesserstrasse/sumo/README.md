@@ -165,26 +165,28 @@ Kernaussagen je Stunde (Mittel aus 10 Läufen, Morgenspitze)
 
 | | Bestand | Markierung und Tempo 30 (Empfehlung) | Rote Radwege | Tempo-30-Zone (Vergleich) |
 |---|---|---|---|---|
-| Fahrzeugkonflikte im Knoten | 57 | 42 | 47 | 19 |
-| davon schwer | 13 | 13 | 15 | 2,0 |
-| davon Kfz gegen Rad | 10 | 7,1 | 13 | 3,6 |
-| Fußgänger auf Querung bedrängt | 20 | 19 | 21 | 19 |
-| davon Fahrzeug schneller als 30 km/h | 6,7 | 3,6 | 2,0 | 3,8 |
-| Wartezeit Fußgänger in s | 4,4 | 7,6 | 5,5 | 9,6 |
-| Nordarm Zeitverlust Kfz in s | 45 (E) | 30 (C) | 28 (C) | 8 (A) |
-| Nordarm Anteil der Zeit mit Wartenden | 52 % | 45 % | 46 % | 8 % |
-| Zeitverlust Kfz in s | 17 | 12 | 13 | 10 |
+| Fahrzeugkonflikte im Knoten | 44 | 37 | 39 | 20 |
+| davon schwer | 13 | 15 | 16 | 3,3 |
+| davon Kfz gegen Rad | 10 | 7,7 | 12 | 4,2 |
+| Fußgänger auf Querung bedrängt | 21 | 18 | 19 | 19 |
+| davon Fahrzeug schneller als 30 km/h | 6,8 | 2,8 | 2,4 | 3,4 |
+| Wartezeit Fußgänger in s | 4,4 | 7,3 | 5,2 | 9,6 |
+| Nordarm Zeitverlust Kfz in s | 62 (E) | 41 (D) | 39 (D) | 14 (B) |
+| Nordarm Anteil der Zeit mit Wartenden | 53 % | 48 % | 48 % | 10 % |
+| Zeitverlust Kfz in s | 22 | 15 | 15 | 12 |
 | Stellplätze im Ausschnitt | 88 | 87 | 74 | 87 |
+
+Gerechnet mit Pulks aus Nord (Ampel 350 m nördlich, siehe unten).
 
 **Streuung.** Die Zahlen schwanken zwischen den zehn Läufen deutlich, bei den schweren Konflikten etwa ± 5 je Stunde. Schon ein zusätzlicher kleiner Fußgängerstrom (die Kinderwagen, 6 je Stunde) mischt die Zufallszahlen neu und verschiebt die schweren Konflikte um bis zu 3. Unterschiede unter etwa 3 bei den schweren Konflikten sind deshalb kein belastbarer Unterschied. Belastbar sind die großen Abstände (alle Konflikte, Zone gegen den Rest, schnelle Fahrzeuge an den Querungen, Nordarm).
 
 Lesart
 
-- **Markierung und Tempo 30 (Empfehlung)** senkt die Fahrzeugkonflikte um gut ein Viertel (57 auf 42), Kfz gegen Rad um knapp ein Drittel und die schnellen Fahrzeuge an den Querungen etwa auf die Hälfte. Der Nordarm wartet im Mittel 15 s weniger und läuft nicht mehr über. Die schweren Konflikte bleiben etwa gleich (13), siehe unten.
-- **Was bei der Empfehlung bleibt.** Die schweren Konflikte im Modell sind fast alle Lückenkonflikte gegen den Hauptstrom Süd nach West. Über alle zehn Läufe je Stunde: Süd nach West gegen Linksabbieger West nach Nord etwa 5 (Pkw, Lkw und Bus), gegen Räder West nach Nord 1,6, gegen Einbieger aus Ost und Nord zusammen 1,8. Das sind gut zwei Drittel der 13 schweren Konflikte. Wer aus West, Ost oder Nord einbiegt, muss eine Lücke im abbiegenden Hauptstrom finden, der aus der Linksabbiegespur kommt und dessen Ende man schlecht sieht. Das bleibt, solange die abknickende Vorfahrt bleibt. Die Maßnahmen dagegen wirken über Sicht und Aufmerksamkeit (freies Sichtfeld an der Ostecke, breitere Halt- und Wartelinien, zusätzliche Schilder links, Tempo-30-Piktogramme, weniger Falschparker). SUMO kennt Sicht nicht, deshalb sind sie gezeichnet, aber nicht als Zahl eingerechnet. Ihre Wirkung ist eher größer als im Modell.
+- **Markierung und Tempo 30 (Empfehlung)** senkt die Fahrzeugkonflikte um etwa ein Sechstel (44 auf 37), Kfz gegen Rad um ein Viertel und die schnellen Fahrzeuge an den Querungen auf weniger als die Hälfte. Der Nordarm wartet im Mittel gut 20 s weniger (62 auf 41 s). Die schweren Konflikte bleiben im Rahmen der Streuung gleich (13 und 15), siehe unten.
+- **Was bei der Empfehlung bleibt.** Die schweren Konflikte im Modell sind fast alle Lückenkonflikte gegen den Hauptstrom Süd nach West. Über alle zehn Läufe je Stunde: Süd nach West gegen Linksabbieger West nach Nord etwa 5 (Pkw, Lkw und Bus), gegen Räder West nach Nord 1,6, gegen Einbieger aus Ost und Nord zusammen 1,8. Das sind gut zwei Drittel der schweren Konflikte (gezählt noch mit gleichmäßigem Zulauf aus Nord, 13 je Stunde). Wer aus West, Ost oder Nord einbiegt, muss eine Lücke im abbiegenden Hauptstrom finden, der aus der Linksabbiegespur kommt und dessen Ende man schlecht sieht. Das bleibt, solange die abknickende Vorfahrt bleibt. Die Maßnahmen dagegen wirken über Sicht und Aufmerksamkeit (freies Sichtfeld an der Ostecke, breitere Halt- und Wartelinien, zusätzliche Schilder links, Tempo-30-Piktogramme, weniger Falschparker). SUMO kennt Sicht nicht, deshalb sind sie gezeichnet, aber nicht als Zahl eingerechnet. Ihre Wirkung ist eher größer als im Modell.
 - **Geprüft und verworfen** (Sensitivität für Bestand / Markierung / Radwege, schwere Konflikte je Stunde, gerechnet vor dem Kinderwagen-Strom, Grundwerte damals 16 / 14 / 12). Vorsichtigeres Einbiegen aus Nord und Ost (`impatience` 0,35 statt 0,5) ergibt 16 / 13,5 / 13 bei 61 s Zeitverlust am Nordarm, mit 0,25 sogar 214 s, der Nordarm würde überlaufen. Langsamerer Bogen mit 20 km/h und Linksabbiegen West nach Nord nur mit Warten ergibt 16 / 17 / 20, also schlechter, weil sich die Ströme im Knoten länger überlagern. Beides bleibt deshalb aus dem Modell, Grundwert `impatience 0.5`.
-- **Tempo-30-Zone mit rechts vor links (nur Vergleich, nicht empfohlen)** hätte rechnerisch die wenigsten Konflikte (19, schwer 2) und kaum Stau am Nordarm. Sie ändert aber die Vorfahrt grundsätzlich, an die sich alle gewöhnt haben, und die Umstellungszeit ist im Modell nicht abgebildet. Fußgänger warten dort am längsten (9,6 s).
-- **Rote Radwege** bringen gegenüber der reinen Markierung im Modell keinen Sicherheitsgewinn, Kfz gegen Rad steigt sogar (13 statt 7). Vermutliche Ursache sind Radfahrende, die vom Radfahrstreifen rechts nach West links abbiegen wollen und dafür über die Geradeausspur wechseln, und Rechtsabbieger West nach Süd über den Radfahrstreifen. Ohne Ampel fehlt der geschützte Aufstellbereich. SUMO bildet das Einordnen der Räder grob ab, die Zahl ist eine Tendenz. Dafür kosten die Radwege 14 Stellplätze im Ausschnitt.
+- **Tempo-30-Zone mit rechts vor links (nur Vergleich, nicht empfohlen)** hätte rechnerisch die wenigsten Konflikte (20, schwer 3) und wenig Stau am Nordarm. Sie ändert aber die Vorfahrt grundsätzlich, an die sich alle gewöhnt haben, und die Umstellungszeit ist im Modell nicht abgebildet. Fußgänger warten dort am längsten (9,6 s).
+- **Rote Radwege** bringen gegenüber der reinen Markierung im Modell keinen Sicherheitsgewinn, Kfz gegen Rad steigt sogar (12 statt 8). Vermutliche Ursache sind Radfahrende, die vom Radfahrstreifen rechts nach West links abbiegen wollen und dafür über die Geradeausspur wechseln, und Rechtsabbieger West nach Süd über den Radfahrstreifen. Ohne Ampel fehlt der geschützte Aufstellbereich. SUMO bildet das Einordnen der Räder grob ab, die Zahl ist eine Tendenz. Dafür kosten die Radwege 14 Stellplätze im Ausschnitt.
 - **Fehlspur.** Mit durchgezogener Linie fast keine Konflikte mehr durch Geradeausfahrer aus der Linksabbiegespur, im Bestand im Modell etwa einer je Stunde.
 - **Bus.** Der Wechsel vom Haltebereich auf die Linksabbiegespur passiert mit jedem Bus nach West (etwa 5 je Stunde), Konflikte dabei bleiben selten. Mit Ausholen beim Rechtsabbiegen überfahren Bus, Lkw und Sattelzug den Bordstein kaum noch (unter 0,5 Fahrten je Stunde).
 
@@ -208,14 +210,40 @@ Alle neun Szenen kommen in allen vier Varianten vor. `python3 werkzeuge/szenenbi
 
 **Blinken (Ortsbeobachtung, Schätzung).** Geradeausfahrer (Süd nach Nord, Nord nach Süd, West nach Ost, Ost nach West) blinken nie, auch nicht beim Spurwechsel am Südarm oder wenn sie in der Linksabbiegespur fahren. Abbieger, auch auf der abknickenden Vorfahrt, blinken zu etwa 88 %, und zwar nach ihrer Route ab etwa 35 m vor der Knotenmitte bis zum Verlassen des Knotens, danach sofort aus. Beim Einordnen und Busse beim Ein- und Ausschwenken an der Haltestelle blinkt es zur Seite des Spurwechsels. Busse blinken immer. Der Test prüft, dass niemand im Knotenbereich entgegen seiner Abbiegerichtung oder nach dem Verlassen des Knotens blinkt. Das ist nur im Abspieler dargestellt. In SUMO selbst wirkt das Blinken nicht, wartende Fahrer und Fußgänger kennen dort die Absicht der anderen. Die Unsicherheit durch fehlende Blinker ist deshalb in den Kennzahlen nicht enthalten, sie zeigt sich nur in Szene 6.
 
+### Zulauf Nord mit Ampel (Pulks)
+
+**Beobachtung der Initiative.** Etwa 350 m nördlich liegt an der Gießerstraße eine Ampel, der Verkehr aus Nord kommt deshalb oft stoßweise. Vermutlich ist es die Kreuzung Karl-Heine-Straße / Gießerstraße, für die laut Recherche (`../recherche/02-kreuzung-daten.md`) 2019/20 eine Ampel vorgesehen war. Die Lage ließ sich hier nicht in OSM nachsehen, weil OSM aus der Rechenumgebung nicht erreichbar war, bitte vor Ort bestätigen.
+
+**Umsetzung (nur SUMO).** Der Nordarm ist um eine künstliche Zulaufstrecke verlängert, außerhalb des Abspieler-Ausschnitts. Die Ampel steht 350 m vor der Knotenmitte, davor liegen 100 m Einfahrstrecke. Festzeit als **Annahme**, Umlauf 80 s, Grün für die Gießerstraße 35 s, 3 s Gelb, 42 s Rot. Beide Richtungen der Gießerstraße haben gleichzeitig Grün, auch Süd nach Nord fährt auf diese Ampel zu. Die Stundenmenge aus Nord bleibt gleich. Auf den 340 m bis zum Knoten lösen sich die Pulks durch unterschiedliche Wunschgeschwindigkeiten etwas auf. Zeitverlust an der Ampel und beim Fahren im Pulk auf der Zulaufstrecke wird abgezogen, nur wer auf der Zulaufstrecke in der Schlange vom Stopp Nord steht, zählt zum Knoten. Im Abspieler zeigt oben eine kleine Anzeige die Phase dieser Ampel. Der alte gleichmäßige Zulauf lässt sich mit `ZULAUF_NORD=0` (dazu `SUMO_NETZE`, `SUMO_PLAIN`, `SUMO_ERG` auf eigene Ordner) weiter rechnen, Ergebnis in [`ergebnisse/vergleich_ohne_ampel_nord.md`](ergebnisse/vergleich_ohne_ampel_nord.md).
+
+| je Stunde, ohne Ampel → mit Ampel | Bestand | Empfehlung | Zone (Vergleich) |
+|---|---|---|---|
+| Pulkigkeit Zulauf Nord (1 = zufällig) | 1,0 → 1,6 | 1,0 → 1,5 | 1,0 → 1,5 |
+| Nordarm Zeitverlust Kfz in s | 45 → 62 | 30 → 41 | 8 → 14 |
+| Schlange am Stopp Nord, 95 %-Wert / größter Wert (Fahrzeuge) | 4 / 10 → 6 / 12 | 3 / 9 → 4 / 11 | 1 / 3 → 2 / 5 |
+| Anteil der Zeit mit 5 und mehr Wartenden | 5 % → 9 % | 3 % → 5 % | 0 % → 0,3 % |
+| Rückstau Nord größter Wert in m (Modellrand 110 m) | 73 → 95 | 72 → 85 | 26 → 41 |
+| Fahrzeugkonflikte im Knoten / davon schwer | 57 / 13 → 44 / 13 | 42 / 13 → 37 / 15 | 19 / 2 → 20 / 3 |
+| Nordquerung, Lücken ab 7 s | 178 → 180 | 177 → 177 | 174 → 176 |
+| Nordquerung, Anteil der Zeit, in der man sofort gehen kann | 48 % → 47 % | 49 % → 49 % | 49 % → 49 % |
+| Nordquerung, Wartezeit auf 7 s Lücke im Mittel / 95 %-Wert in s | 3,2 / 13 → 3,3 / 14 | 3,1 / 13 → 3,1 / 13 | 3,3 / 14 → 3,2 / 14 |
+
+Lesart
+
+- **Stopp Nord.** Wer im Pulk ankommt, muss hinter den anderen am Stopp warten, jeder einzeln auf eine Lücke. Die Schlange wird länger, der Zeitverlust aus Nord steigt um etwa ein Drittel. In einzelnen Läufen im Bestand reicht die Schlange über 110 m hinaus. Die Empfehlung bleibt deutlich besser als der Bestand.
+- **Konflikte.** Insgesamt gibt es weniger Fahrzeugkonflikte, weil die Wartenden aus Nord häufiger hintereinander in der Schlange stehen statt einzeln in den Knoten zu drängen. Die schweren Konflikte ändern sich im Rahmen der Streuung nicht.
+- **Lücken für Fußgänger an der Nordquerung.** Zwischen den Pulks entstehen längere Lücken, dafür ist es im Pulk dichter. Beides gleicht sich fast aus, weil die Nordquerung auch den starken Strom Süd nach Nord und die Linksabbieger West nach Nord quert, die nicht im Pulk kommen. Im Mittel wartet man etwa 3 s auf eine Lücke von 7 s, in 5 % der Fälle 13 bis 14 s. Wer gerade vor einem Pulk ankommt, wartet länger, wer danach kommt, kann sofort gehen.
+- **Rückstau an der Ampel Richtung Norden.** Er reicht höchstens 70 bis 90 m zurück, bis zum Knoten (340 m) also bei weitem nicht.
+
 ## Überlappungen von Fahrzeugen
 
-SUMO kann Fahrzeuge im Knoten übereinanderschieben, wenn die Vorfahrtlogik eine Lage nicht erkennt. Das ist ein Modellfehler, kein Unfall, und wird je Lauf gezählt. Bestand und Markierung unter 1 je Stunde, Zone 0,9, Radwege 6,1 (dort meist Einbieger West nach Süd und Nord nach Süd, die gleichzeitig in die Fahrspur neben dem Radfahrstreifen einfädeln). `werkzeuge/pruefe_abspieler.py` findet im Abspieler je Variante 0 bis 6 kurze Berührungen, meist ein ausschwenkendes Heck neben einem Pkw.
+SUMO kann Fahrzeuge im Knoten übereinanderschieben, wenn die Vorfahrtlogik eine Lage nicht erkennt. Das ist ein Modellfehler, kein Unfall, und wird je Lauf gezählt. Bestand, Markierung und Zone um 1 je Stunde, Radwege 4,7 (dort meist Einbieger West nach Süd und Nord nach Süd, die gleichzeitig in die Fahrspur neben dem Radfahrstreifen einfädeln). `werkzeuge/pruefe_abspieler.py` findet im Abspieler je Variante 0 bis 4 kurze Berührungen, meist ein ausschwenkendes Heck neben einem Pkw.
 
 ## Grenzen
 
 - Die Nachfrage ist geschätzt, es gibt keine Zählung. Das Modell zeigt Unterschiede zwischen Varianten, nicht die echten Werte. Gerechnet ist die Morgenspitze.
 - Die Wartezeit am Nordarm hängt stark von Lückenannahme (`impatience 0.5`) und Zufluss ab, siehe Sensitivität oben.
+- Die Ampel im Norden ist mit angenommener Festzeit gerechnet (Umlauf 80 s, Grün 35 s). Echte Signalzeiten, eine Koordinierung oder Anforderung durch Fußgänger können die Pulks stärker oder schwächer machen.
 - Die Zone ist ohne Umstellungszeit gerechnet, alle halten sich sofort an rechts vor links. Das ist der Hauptgrund, warum sie nur Vergleich ist.
 - Parken bestimmt nur die Geometrie, Ein- und Ausparken und das Begegnungswarten im Ostarm fehlen. Sichtfelder (Grenzmarkierung, Schaltkasten) wirken in SUMO nicht, sie sind gezeichnet und begründet, aber nicht berechnet.
 - Der Fehlspur-Anteil mit durchgezogener Linie (8 %) ist eine Annahme.

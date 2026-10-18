@@ -41,6 +41,8 @@ h1{font-family:var(--display);font-weight:700;font-size:clamp(27px,5vw,40px);lin
 button:focus-visible,input:focus-visible{outline:3px solid var(--signal);outline-offset:2px}
 .mapbox{background:#ece7dc;border:1px solid var(--line);border-radius:10px;overflow:hidden;position:relative}
 .mapbox svg{display:block;width:100%;height:auto;touch-action:manipulation}
+.ampel{position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(20,24,29,.86);color:#fff;font-size:12px;padding:4px 9px;border-radius:6px;display:flex;align-items:center;gap:6px;pointer-events:none;white-space:nowrap}
+.ampel i{display:inline-block;width:10px;height:10px;border-radius:50%;background:#2e9d4f;box-shadow:0 0 0 1px rgba(255,255,255,.5)}
 .clock{position:absolute;top:10px;left:10px;background:rgba(20,24,29,.86);color:#fff;font-family:var(--display);font-weight:600;font-size:15px;padding:4px 10px;border-radius:6px;font-variant-numeric:tabular-nums}
 .badge{position:absolute;top:10px;right:10px;background:rgba(255,255,255,.92);color:#1b2129;font-family:var(--display);font-weight:600;font-size:14px;padding:4px 10px;border-radius:6px;border:1px solid #cfd6dd;font-variant-numeric:tabular-nums}
 .player{display:grid;grid-template-columns:auto auto minmax(0,1fr);gap:10px;align-items:center}
@@ -134,6 +136,7 @@ details ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
           <g id="labels"></g>
         </svg>
         <div class="clock" id="clock">0:00</div>
+        <div class="ampel" id="ampel" hidden title="Ampel etwa 350 m nördlich an der Gießerstraße, Festzeit als Annahme. Die Fahrzeuge aus Nord kommen deshalb in Pulks."><i></i><span>↑ Ampel in 350 m</span></div>
         <div class="badge" id="badge">Konflikte 0</div>
         <div class="untertitel" id="untertitel" aria-live="polite"></div>
       </div>
@@ -480,6 +483,9 @@ function render(){
   const tz=modus==='sz'?T+(V.zeit||0)-(V.te||0):T;
   const m=Math.floor(tz/60),s=Math.floor(tz%60);
   $('clock').textContent=`${m}:${String(s).padStart(2,'0')}`;
+  if(D.ampel){const A=D.ampel;const sim=modus==='sz'?(V.zeit||0)+A.warmup-(V.te||0)+T:A.start+T;
+    const ph=((sim-A.offset)%A.umlauf+A.umlauf)%A.umlauf;const c=ph<A.gruen?'#2e9d4f':(ph<A.gruen+A.gelb?'#f5b800':'#d62828');
+    const el_=$('ampel');el_.hidden=false;el_.firstElementChild.style.background=c;}
   const tot=cnt.k+cnt.a+cnt.f+cnt.d;$('badge').textContent=`Konflikte ${tot}`;
   $('live').replaceChildren(...Object.entries(KONF).map(([key,o])=>{const r=document.createElement('div');r.className='row';
     r.innerHTML=`<span class="ring" style="color:${o.c}"></span><span>${o.t}</span><b>${cnt[key]}</b>`;return r;}));

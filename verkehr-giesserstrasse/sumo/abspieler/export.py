@@ -1009,6 +1009,11 @@ def main():
              'namen': namen(), 'kennzahlen': kennzahlen(), 'bus': open(os.path.join(NETZE, 'bus.txt')).read().strip(),
              'geom': {t: {k: v for k, v in g.items() if not isinstance(v, bool)} for t, g in K.GEOM.items()},
              'varianten': {}}
+    if B.ZULAUF_NORD:
+        # Phase der Ampel im Norden fuer die Anzeige (gleiche Festzeit wie in SUMO)
+        daten['ampel'] = {'abstand': B.AMPEL_ABSTAND, 'gruen': B.AMPEL_GRUEN, 'gelb': B.AMPEL_GELB,
+                          'umlauf': B.AMPEL_GRUEN + B.AMPEL_GELB + B.AMPEL_ROT, 'offset': 0,
+                          'start': START, 'warmup': R.WARMUP}
     with tempfile.TemporaryDirectory() as tmp:
         for var in VARIANTEN:
             print('Variante', var)
