@@ -1,0 +1,162 @@
+{
+ "erstellt": "2026-10-18T07:01:55",
+ "quelle": "../../../../../tmp/claude-0/-home-user-iStorageE3/65a4f01f-240b-5470-b000-3cee53b92bf6/scratchpad/plan/abspieler_head.html",
+ "git_commit": "dc7f360",
+ "seite_mm": [
+  297.0,
+  420.0
+ ],
+ "referenz_dpi": 150,
+ "koordinaten": "Modellmeter, Ursprung Knotenmitte, x Ost, y Süd (wie SUMO-Abspieler)",
+ "seiten": [
+  {
+   "seite": 1,
+   "name": "Gesamtplan",
+   "massstab": 400,
+   "modell_bbox": [
+    -46,
+    -40,
+    46,
+    90
+   ],
+   "kartenfeld_mm": [
+    33.5,
+    44.0,
+    230.0,
+    325.0
+   ],
+   "raster_m": 10,
+   "passmarken_mm": [
+    [
+     26.5,
+     37.0
+    ],
+    [
+     270.5,
+     37.0
+    ],
+    [
+     26.5,
+     376.0
+    ],
+    [
+     270.5,
+     376.0
+    ]
+   ],
+   "raster_spalten": [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H"
+   ],
+   "raster_x": [
+    -40,
+    -30,
+    -20,
+    -10,
+    0,
+    10,
+    20,
+    30,
+    40
+   ],
+   "raster_y": [
+    -40,
+    -30,
+    -20,
+    -10,
+    0,
+    10,
+    20,
+    30,
+    40,
+    50,
+    60,
+    70,
+    80,
+    90
+   ]
+  },
+  {
+   "seite": 2,
+   "name": "Knoten im Detail",
+   "massstab": 200,
+   "modell_bbox": [
+    -27,
+    -28,
+    27,
+    36
+   ],
+   "kartenfeld_mm": [
+    13.5,
+    44.0,
+    270.0,
+    320.0
+   ],
+   "raster_m": 5,
+   "passmarken_mm": [
+    [
+     6.5,
+     37.0
+    ],
+    [
+     290.5,
+     37.0
+    ],
+    [
+     6.5,
+     371.0
+    ],
+    [
+     290.5,
+     371.0
+    ]
+   ],
+   "raster_spalten": [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "I",
+    "J"
+   ],
+   "raster_x": [
+    -25,
+    -20,
+    -15,
+    -10,
+    -5,
+    0,
+    5,
+    10,
+    15,
+    20,
+    25
+   ],
+   "raster_y": [
+    -25,
+    -20,
+    -15,
+    -10,
+    -5,
+    0,
+    5,
+    10,
+    15,
+    20,
+    25,
+    30,
+    35
+   ]
+  }
+ ]
+}
