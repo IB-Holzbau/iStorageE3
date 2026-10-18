@@ -12,7 +12,8 @@ import asyncio, json, os, sys, subprocess, glob, datetime
 from playwright.async_api import async_playwright
 
 HIER = os.path.dirname(os.path.abspath(__file__))
-QUELLE = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HIER, '..', 'sumo', 'grafik', 'abspieler.html')
+QUELLE = sys.argv[1] if len(sys.argv) > 1 and __name__ == '__main__' else os.path.join(HIER, '..', 'sumo', 'grafik', 'abspieler.html')
+OPT = dict(name='bestand', titel='Eintragsplan Bestand', overlay='', hinweis=None, notizen=None, meta=True, quelle=None)
 EXE = (glob.glob('/opt/pw-browsers/chromium-*/chrome-linux/chrome') or [None])[0]
 
 # Seiten: A3 hoch, 297 x 420 mm. Kartenfeld mit festem Maßstab.
@@ -98,7 +99,7 @@ def seite_html(nr, cfg, inhalt, gesamt):
     nordpfeil = f'''<svg class="np" style="left:{left+w_mm-12:.2f}mm;top:{top+3:.2f}mm" viewBox="-6 -8 12 16"><circle r="5.5" fill="#fff" fill-opacity=".85" stroke="#000" stroke-width=".3"/><path d="M0 -5 L2.2 2 L0 0.8 L-2.2 2 Z" fill="#000"/><text y="6.9" font-size="3" text-anchor="middle" font-weight="700">N</text></svg>'''
     karte = f'''<svg class="karte" style="left:{left:.2f}mm;top:{top:.2f}mm;width:{w_mm:.2f}mm;height:{h_mm:.2f}mm"
         viewBox="{cfg['x0']} {cfg['y0']} {w_m} {h_m}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-        <g opacity="0.62">{inhalt}</g>
+        <g opacity="0.62">{inhalt}</g><g>{OPT["overlay"]}</g>
         <g stroke="#2f6fb5" stroke-width="0.06" stroke-opacity="0.55" fill="none">{''.join(grid)}</g>
         <rect x="{cfg['x0']}" y="{cfg['y0']}" width="{w_m}" height="{h_m}" fill="none" stroke="#000" stroke-width="0.15"/>
       </svg>'''
@@ -106,12 +107,12 @@ def seite_html(nr, cfg, inhalt, gesamt):
     html = f'''<section class="seite">
       <div class="kopf" style="left:{RAND}mm;top:{RAND}mm;width:{PAGE_W-2*RAND}mm">
         <div class="t1">Kreuzung Gießerstraße / Naumburger Straße, Leipzig-Plagwitz</div>
-        <div class="t2">Eintragsplan Bestand · {cfg['name']} · Maßstab 1:{m} bei Druck auf A3 · Raster {r} m · Stand {stand} · Seite {nr} von {gesamt}</div>
-        <div class="t3">Verbesserungen bitte farbig einzeichnen (rot oder grün), jede Idee mit einer Nummer im Kreis, darunter kurz beschreiben. Passmarken in den Ecken nicht abdecken. Foto möglichst gerade von oben.</div>
+        <div class="t2">{OPT['titel']} · {cfg['name']} · Maßstab 1:{m} bei Druck auf A3 · Raster {r} m · Stand {stand} · Seite {nr} von {gesamt}</div>
+        <div class="t3">{OPT['hinweis'] or 'Verbesserungen bitte farbig einzeichnen (rot oder grün), jede Idee mit einer Nummer im Kreis, darunter kurz beschreiben. Passmarken in den Ecken nicht abdecken. Foto möglichst gerade von oben.'}</div>
       </div>
       {karte}{''.join(lab)}{''.join(marken)}{massst}{nordpfeil}
       <div class="notiz" style="left:{left+sb_mm+20:.2f}mm;top:{top+h_mm+13:.2f}mm;width:{left+w_mm-(left+sb_mm+20):.2f}mm;height:{PAGE_H-RAND+6-(top+h_mm+13):.2f}mm">
-        <b>Notizen</b> (Nr. · Maßnahme)
+        {OPT['notizen'] or '<b>Notizen</b> (Nr. · Maßnahme)'}
       </div>
     </section>'''
     meta = dict(seite=nr, name=cfg['name'], massstab=m, modell_bbox=[cfg['x0'], cfg['y0'], cfg['x1'], cfg['y1']],
@@ -142,7 +143,7 @@ async def main():
       .notiz {{ border:0.3mm solid #999; font-size:8pt; padding:2mm; box-sizing:border-box;
                background: repeating-linear-gradient(#fff 0, #fff 6.6mm, #bbb 6.6mm, #bbb 6.8mm) }}
     </style></head><body>{''.join(teile)}</body></html>'''
-    out_html = os.path.join(HIER, 'plan_bestand.html')
+    out_html = os.path.join(HIER, f"plan_{OPT['name']}.html")
     with open(out_html, 'w', encoding='utf-8') as f:
         f.write(doc)
     async with async_playwright() as p:
@@ -150,7 +151,7 @@ async def main():
         pg = await b.new_page()
         await pg.goto('file://' + out_html)
         await pg.wait_for_timeout(800)
-        await pg.pdf(path=os.path.join(HIER, 'plan_bestand.pdf'), width=f'{PAGE_W}mm', height=f'{PAGE_H}mm', print_background=True)
+        await pg.pdf(path=os.path.join(HIER, f"plan_{OPT['name']}.pdf"), width=f'{PAGE_W}mm', height=f'{PAGE_H}mm', print_background=True)
         # Referenzbilder je Seite, 150 dpi
         px_mm = 150 / 25.4
         pg2 = await b.new_page(viewport={'width': int(PAGE_W * 96 / 25.4), 'height': int(PAGE_H * 96 / 25.4)}, device_scale_factor=150 / 96)
@@ -158,7 +159,7 @@ async def main():
         await pg2.wait_for_timeout(800)
         for i in range(len(SEITEN)):
             el = (await pg2.query_selector_all('section.seite'))[i]
-            await el.screenshot(path=os.path.join(HIER, f'plan_bestand_s{i+1}.png'))
+            await el.screenshot(path=os.path.join(HIER, f"plan_{OPT['name']}_s{i+1}.png"))
         await b.close()
     try:
         commit = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], cwd=HIER, text=True).strip()
@@ -167,8 +168,11 @@ async def main():
     meta = dict(erstellt=datetime.datetime.now().isoformat(timespec='seconds'), quelle=os.path.relpath(QUELLE, HIER),
                 git_commit=commit, seite_mm=[PAGE_W, PAGE_H], referenz_dpi=150,
                 koordinaten='Modellmeter, Ursprung Knotenmitte, x Ost, y Süd (wie SUMO-Abspieler)', seiten=metas)
+    if not OPT['meta']:
+        print('fertig', OPT['name']); return
     with open(os.path.join(HIER, 'plan_meta.json'), 'w', encoding='utf-8') as f:
         json.dump(meta, f, ensure_ascii=False, indent=1)
     print('fertig', [m['name'] for m in metas])
 
-asyncio.run(main())
+if __name__ == '__main__':
+    asyncio.run(main())
