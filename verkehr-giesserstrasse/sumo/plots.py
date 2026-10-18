@@ -30,13 +30,13 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build as B  # noqa: E402
 VARIANTEN = list(B.AKTIV)   # vorübergehend nur Bestand, siehe build.py
-KURZ = {'bestand': 'Bestand', 'markierung': 'Markierung, T30\n(Empfehlung)', 'zone': 'T30-Zone, rvl\n(nur Vergleich)',
+KURZ = {'bestand': 'Bestand', 'vorschlag1': 'Vorschlag 1', 'markierung': 'Markierung, T30\n(Empfehlung)', 'zone': 'T30-Zone, rvl\n(nur Vergleich)',
         'radwege': 'Rote\nRadwege', 'rvl': 'Rechts vor links\nTempo 30', 'minikreisel': 'Minikreisel\nmit Zebras',
         't30_zebra': 'T30, Zebra\nNord + West', 'geschuetzt': 'Geschützt\nInseln, Radfurten'}
-TITEL = {'bestand': 'Bestand', 'markierung': 'Markierung und Tempo 30 (Empfehlung)', 'zone': 'Tempo-30-Zone, rechts vor links (nur Vergleich, nicht empfohlen)',
+TITEL = {'bestand': 'Bestand', 'vorschlag1': 'Vorschlag 1 der Initiative', 'markierung': 'Markierung und Tempo 30 (Empfehlung)', 'zone': 'Tempo-30-Zone, rechts vor links (nur Vergleich, nicht empfohlen)',
          'radwege': 'Rote Radwege', 'rvl': 'Rechts vor links, Tempo 30', 'minikreisel': 'Minikreisel mit Zebrastreifen',
          't30_zebra': 'Bestand mit Tempo 30 und Zebra Nord und West', 'geschuetzt': 'Geschützte Kreuzung (angepasst)'}
-FARBE = {'bestand': '#2a78d6', 'markierung': '#eda100', 'zone': '#eb6834', 'radwege': '#d03b3b', 'rvl': '#8a8a8a', 'geschuetzt': '#1baf7a', 't30_zebra': '#8a8a8a', 'minikreisel': '#8a8a8a'}
+FARBE = {'bestand': '#2a78d6', 'vorschlag1': '#c8402c', 'markierung': '#eda100', 'zone': '#eb6834', 'radwege': '#d03b3b', 'rvl': '#8a8a8a', 'geschuetzt': '#1baf7a', 't30_zebra': '#8a8a8a', 'minikreisel': '#8a8a8a'}
 FLAECHE = '#fcfcfb'
 TEXT1, TEXT2, RASTER = '#0b0b0b', '#52514e', '#e4e3df'
 FAHRBAHN, GEHWEG, KNOTEN = '#5b5f66', '#d9d6cf', '#6b6f76'

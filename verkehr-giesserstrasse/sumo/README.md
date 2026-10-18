@@ -2,7 +2,7 @@
 
 Mikroskopische Verkehrssimulation der Kreuzung in Leipzig-Plagwitz mit dem freien Simulator [Eclipse SUMO](https://eclipse.dev/sumo/). Das Modell vergleicht den Bestand mit der empfohlenen Variante (bessere Markierung mit Tempo 30, abknickende Vorfahrt bleibt), roten Radwegen und als reinen Vergleich einer Tempo-30-Zone mit rechts vor links, und liefert Kennzahlen zu Sicherheit und Wartezeiten für die Bürgerkampagne. Das Browsermodell in `../modell` bleibt das Ideenmodell, dieses SUMO-Modell ist die nachvollziehbare Rechengrundlage.
 
-> **Stand: nur Bestand.** Nutzerentscheidung: Erst wird der Bestand fertig gebaut und kalibriert (Sublane-Modell mit Rädern am rechten Rand, Überholen in der Spur, Streuung der Fahrlinien, weiche Übergänge am Südarm, Kalibrierung am Stopp Nord). Die Varianten werden danach neu gerechnet. Bis dahin bauen, rechnen und exportieren alle Werkzeuge nur den Bestand (`AKTIV` in `build.py`). Im Abspieler sind die Varianten als veraltet gesperrt, die Szenen gibt es nur im Bestand. Die Variantenzahlen weiter unten stammen aus dem Stand vor dem Sublane-Modell und gelten nur noch als grobe Orientierung.
+> **Stand: Bestand und Vorschlag 1 der Initiative.** Nutzerentscheidung: Erst wird der Bestand fertig gebaut und kalibriert (Sublane-Modell mit Rädern am rechten Rand, Überholen in der Spur, Streuung der Fahrlinien, weiche Übergänge am Südarm, Kalibrierung am Stopp Nord). Die Varianten werden danach neu gerechnet. Bis dahin bauen, rechnen und exportieren alle Werkzeuge nur den Bestand und den Vorschlag 1 der Initiative (`AKTIV` in `build.py`). Im Abspieler sind die übrigen Varianten als veraltet gesperrt, die Szenen gibt es nur in diesen beiden. Die Variantenzahlen weiter unten stammen aus dem Stand vor dem Sublane-Modell und gelten nur noch als grobe Orientierung.
 
 **Abspieler im Browser** in [`grafik/abspieler.html`](grafik/abspieler.html). Die Datei im Browser öffnen, sie läuft ohne Internet (nur die Schrift kommt von Google Fonts). Fünf Minuten der Spitzenstunde je Variante mit 60 Bildern je Sekunde. Spurwechsel dauern einige Sekunden, Bus und Lkw holen beim Abbiegen aus, Gelenkbus und Sattelzug knicken, Blinker zeigen das Abbiegen, Beinahe-Unfälle blinken als Ringe auf. Verkehrszeichen sind nach StVO-Vorlage gezeichnet, mit Mast und einer Marke, die zum jeweiligen Fahrer zeigt.
 
@@ -183,6 +183,44 @@ Gezählt wird die Stunde nach 10 Minuten Einschwingzeit, Mittel aus 10 Läufen m
 Mehr Konflikte Kfz gegen Rad als vorher (23 statt 11) sind eine Folge des Sublane-Modells. Räder fahren jetzt neben den Autos in derselben Spur, SUMO zählt knappe Begegnungen dabei mit. Fast jedes Überholen in der Spur bleibt unter 1,5 m, weil die Spuren 3,6 m (Süd) und 3,75 m (West) breit sind. Pkw 1,85 m plus Rad 0,8 m lassen dort nur etwa 1 m Abstand.
 
 ![Spurenbild Bestand](grafik/spuren_bestand.png)
+
+### Vorschlag 1 der Initiative
+
+Grundlage sind `../plan/build_vorschlag1.py`, `../plan/plan_vorschlag1.pdf` und die Analyse in `../plan/eintraege/vorschlag1/analyse.md`. Vorfahrt, Stopp Nord, Vorfahrt gewähren Ost, Tempo und Nachfrage wie im Bestand, Kalibrierung gleich.
+
+**Umsetzung im Modell.** Südarm nach Norden nur eine Kfz-Spur (die bisherige Linksabbiegespur, Pfeil links, geradeaus, rechts), daneben ein Radfahrstreifen 1,85 m als eigene Spur, rechts davon am Ostbordstein Sperrfläche bis 25 m und zwei Längsparkplätze (etwa 26 bis 38 m). Der Bus hält wie heute rechts und fädelt am Nordende des Haltebereichs in die Kfz-Spur ein. Radfahrstreifen Süd südwärts an der Westseite bis zum Ende des Halteverbots (keine Falschparker). Naumburger West ostwärts Schutzstreifen 1,6 m im ganztägigen Halteverbot (im Modell eigene Radspur), auf den letzten 30 m links neben der Kfz-Spur ein Aufstellstreifen 1,4 m für Rad nach Nord. Schutzstreifen westwärts und im Nordarm nordwärts als Teil der Kfz-Spur (Räder rechts, Kfz dürfen mitbenutzen). Furten als eigene Verbindungen mit Kreisbögen wie im Plan, Außenbogen Süd nach West R 11 m vor der Haltlinie Nord vorbei, Kioskecke R 4,5 m, Rad links West nach Nord R 7 m, geradeaus Süd nach Nord. Mittellinie der abknickenden Vorfahrt R 8 m. Keine Fehlspur-Fahrer (nur eine Spur), keine Kurzhalter am Kiosk. Vorrang: Ausfahrer aus Nord und Ost warten auf das Rad im Außenbogen, Rechtsabbieger Süd nach Ost und West nach Süd lassen Rad geradeaus durch. Rad im Außenbogen wartet im Modell auf Kfz geradeaus Süd nach Nord (netconvert ordnet das so, eine Regel für Verbindungen derselben Zufahrt greift nicht, rechtlich ist der Fall unklar).
+
+**Ergebnis je Stunde (10 Läufe)**
+
+| | Bestand | Vorschlag 1 |
+|---|---|---|
+| Fahrzeugkonflikte im Knoten, davon schwer | 71, 17 | 83, 27 |
+| Kfz gegen Rad gesamt | 23 | 30 |
+| an der Kiosk-Ecke | 0,3 | 2,7 |
+| vor der Haltlinie Nord (Ausfahrer aus Nord) | 7,2 | 6,1 |
+| Rechtsabbieger Süd nach Ost gegen Rad geradeaus | 0,2 | 0,2 |
+| links abbiegen West nach Nord | 10,7 | 8,8 |
+| Rad im Außenbogen gegen Kfz geradeaus Süd nach Nord | 0,9 | 10,6 |
+| Kfz überholt Rad mit weniger als 1,5 m | 247 | 190 |
+| Fußgänger auf Querung bedrängt | 18 | 17 |
+| Südarm größte Schlange (Fahrzeuge), Rückstau größter Wert | 2,2, 26 m | 4,9, 38 m (in 5 von 10 Läufen 7 bis 10 Fahrzeuge, gut 70 m) |
+| Zeitverlust Kfz Süd, West, Nord, Ost in s | 5, 6, 47, 12 | 7, 11, 35, 11 |
+| Zeitverlust Rad in s | 11 | 7 |
+| Stopp Nord, Zeit mit Wartenden, größte Schlange | 50 %, 9 | 44 %, 8 |
+| Bus West nach Süd über die Radfurt an der Kioskecke | – | 5 von 6 Fahrten, nur am Rand (größte Tiefe im Mittel unter 0,1 m) |
+| Busbegegnungen auf der Naumburger West, kleinster Seitenabstand | 0,7, 1,2 m | 0,2, 1,4 m |
+| SUMO-Überlappungen (Modellfehler) | 6,5 | 16 |
+
+**Einschätzung.**
+- Die eigene Lage für Räder wirkt. Wo Radfahrstreifen liegen (Südarm am Knoten, West ostwärts), bleibt der Überholabstand über 1,5 m. Enge Überholvorgänge bleiben südlich der Haltestelle, auf den Schutzstreifen (West westwärts, Nordarm) und im Übergang am Spurbeginn. Räder verlieren weniger Zeit (7 statt 11 s), die Fehlspur-Fahrer entfallen.
+- Der Außenbogen Süd nach West ist die Schwachstelle. Räder müssen dort vom rechten Rand nach links über die Geradeausfahrer Süd nach Nord, das gibt etwa 11 Konflikte je Stunde, ein guter Teil davon schwer. Deshalb steigen die schweren Konflikte insgesamt von 17 auf 27. Ausfahrer aus Nord gegen den Außenbogen bleiben etwa wie heute.
+- An der Kioskecke kommen Konflikte zwischen Rechtsabbiegern West nach Süd und Rädern geradeaus nach Ost dazu (knapp 3 je Stunde). Der Gelenkbus West nach Süd streift die Furt bei fast jeder Fahrt am Rand, fährt aber kaum hinein (Schleppkurve im Modell, siehe Grenzen der Kinematik).
+- Leistungsfähigkeit: Mit einer Spur wird die Schlange am Südarm in der Hälfte der Läufe deutlich länger (bis 10 Fahrzeuge, gut 70 m statt höchstens 2 Fahrzeuge). Ursache ist ein gegenseitiges Aufhalten im Knoten. Abbieger Süd nach West stehen im Knoten, während Linksabbieger West nach Nord (Kfz und Räder vom Aufstellstreifen) kreuzen, und mit nur einer Spur warten dann auch alle Geradeausfahrer dahinter. Im Mittel bleibt der Zeitverlust Süd klein (7 s). West verliert etwas (11 statt 6 s), Nord gewinnt (35 statt 47 s).
+- Begegnung zweier Busse auf der Naumburger West ist selten (0,2 je Stunde im Modell). Mit Schutzstreifen bleiben für zwei Kfz-Spuren etwa 6,4 m, nahe am Knoten mit Aufstellstreifen etwa 5 m. Zwei Busse (je 2,55 m) müssen dort die Schutzstreifen mitbenutzen. Im Modell ist die Fahrbahn am Aufstellstreifen etwa 0,5 m breiter als real, die Restbreite ist dort also eher zu günstig.
+- Mehr SUMO-Überlappungen (16 statt 6 je Stunde) zeigen, dass die vielen Bahnen für Räder im Knoten das Modell an seine Grenzen bringen. Sie zählen nicht als Konflikte, die Kfz-Rad-Zahlen sind trotzdem mit Vorsicht zu lesen.
+- Mögliche Verbesserungen für eine Variante 2: Außenbogen weglassen und Räder nach West über eine Aufstellfläche vor der Haltlinie des Südarms bzw. indirekt führen, oder den Bogen mit Vorrang und Markierung so legen, dass Geradeausfahrer nach Nord ihn erst hinter der Furt kreuzen. Haltestelle so legen, dass der Bus nicht in die einzige Spur einfädeln muss.
+
+![Spurenbild Vorschlag 1](grafik/spuren_vorschlag1.png)
 
 ### Sublane-Modell, Räder und Überholen
 

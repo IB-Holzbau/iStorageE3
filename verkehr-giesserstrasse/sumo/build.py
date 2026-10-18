@@ -32,14 +32,16 @@ PLAIN = os.environ.get('SUMO_PLAIN', os.path.join(ROOT, 'build'))
 # Tempo-30-Zone mit rechts vor links und rote Radwege. Die frueheren Varianten (rechts vor links
 # ohne Markierung, Tempo 30 mit Zebra, geschuetzte Kreuzung, Minikreisel) sind verworfen und
 # werden nur mit --alt gebaut (siehe README, Abschnitt verworfene Varianten).
-VERGLEICH = ['bestand', 'markierung', 'radwege', 'zone']   # Zone nur als Vergleich, nicht empfohlen
+VERGLEICH = ['bestand', 'vorschlag1', 'markierung', 'radwege', 'zone']   # Zone nur als Vergleich, nicht empfohlen
 VERWORFEN = ['rvl', 't30_zebra', 'geschuetzt', 'minikreisel']
 VARIANTEN = VERGLEICH + VERWORFEN
 # Nutzerentscheidung: erst den Bestand fertig bauen und kalibrieren, die Varianten danach neu
 # rechnen. Bis dahin bauen, rechnen und exportieren alle Werkzeuge nur AKTIV.
-AKTIV = ['bestand']
+AKTIV = ['bestand', 'vorschlag1']
+# Varianten mit dem Tempo des Bestands (Giesserstrasse 50)
+TEMPO_BESTAND = {'bestand', 'vorschlag1'}
 # Gruppen fuer die Regeln
-ABKNICKEND = {'bestand', 't30_zebra', 'markierung', 'radwege'}   # abknickende Vorfahrt Sued <-> West
+ABKNICKEND = {'bestand', 't30_zebra', 'markierung', 'radwege', 'vorschlag1'}   # abknickende Vorfahrt Sued <-> West
 RECHTS_VOR_LINKS = {'rvl', 'zone'}
 ECK_SPERR = {'markierung', 'zone', 'radwege'}                    # Grenzmarkierung Zeichen 299 an den Ecken
 
@@ -144,7 +146,36 @@ def querschnitt(a, richtung, teil, var='bestand'):
         spuren = [('sperr', w) if k == 'park' else (k, w) for k, w in spuren]
     if var == 'radwege':
         spuren = RADWEGE.get((a, richtung, teil), RADWEGE.get((a, richtung, '*'), spuren))
+    if var == 'vorschlag1':
+        spuren = VORSCHLAG1.get((a, richtung, teil), VORSCHLAG1.get((a, richtung, '*'), spuren))
     return spuren
+
+
+# Vorschlag 1 der Initiative (plan/build_vorschlag1.py, plan/eintraege/vorschlag1/analyse.md).
+# Spuren von rechts nach links, Summen je Seite wie heute (Bordsteine und Mitte bleiben).
+#   Suedarm nordwaerts: nur noch EINE Kfz-Spur (die bisherige Linksabbiegespur, Pfeil links,
+#       geradeaus, rechts). In der bisherigen rechten Spur links ein Radfahrstreifen 1,85 m, rechts
+#       davon am Ostbordstein Sperrflaeche (bis 25 m) bzw. zwei Laengsparkplaetze (25 bis 45 m).
+#       Am Haltebereich und suedlich davon wie heute.
+#   Suedarm suedwaerts: Radfahrstreifen 1,85 m an der Westseite bis zum Ende des Halteverbots
+#       (keine Falschparker mehr), danach Parken wie heute.
+#   Naumburger West ostwaerts: Schutzstreifen 1,6 m im Halteverbot (ganztags), im Modell als
+#       eigene Radspur. Auf den letzten 30 m links neben der Kfz-Spur ein Aufstellstreifen 1,4 m
+#       fuer Rad links abbiegen nach Nord.
+#   Naumburger West westwaerts und Nordarm nordwaerts: Schutzstreifen 1,5 m, im Modell Teil der
+#       Kfz-Spur (Sublane-Modell, Raeder rechts), Kfz duerfen ihn bei Bedarf befahren.
+VORSCHLAG1 = {
+    ('S', 'in', 'm'): [('sperr', 1.75), ('rad', 1.85), ('kfz', 3.6)],
+    ('S', 'in', ''): [('sperr', 1.75), ('rad', 1.85), ('kfz', 3.6)],
+    ('S', 'in', 'mitte'): [('park', 1.75), ('rad', 1.85), ('kfz', 3.6)],
+    ('S', 'out', 'm'): [('rad', 1.85), ('kfz', 3.95)],
+    ('S', 'out', ''): [('rad', 1.85), ('kfz', 3.95)],
+    ('S', 'out', 'mitte'): [('rad', 1.85), ('kfz', 3.95)],
+    ('W', 'in', ''): [('rad', 1.6), ('kfz', 4.15)],
+    ('W', 'in', 'b'): [('rad', 1.6), ('kfz', 2.75), ('rad', 1.4)],
+    ('W', 'in', 'm'): [('rad', 1.6), ('kfz', 2.75), ('rad', 1.4)],
+}
+V1_FURT_RADIUS = {'SW': 11.0, 'WS': 4.5, 'WN': 7.0}   # Radien der Radfurten aus dem Plan
 
 
 # Rote Radwege (Variante radwege). Breiten nach ERA 2010: Radfahrstreifen 1,85 m einschliesslich
@@ -375,7 +406,117 @@ class Netz:
 def tempo_von(var, arme):
     # Umbauvarianten mit Tempo 30. Beim Minikreisel bremst real die Ablenkung, das bildet SUMO
     # nicht ab, deshalb auch dort Tempo 30 auf den Armen.
-    return {a: (TEMPO_OSM[a] if var == 'bestand' else V30) for a in arme}
+    return {a: (TEMPO_OSM[a] if var in TEMPO_BESTAND else V30) for a in arme}
+
+
+def suedarm_vorschlag1(n):
+    """Vorschlag 1: eine Kfz-Spur nach Norden, Radfahrstreifen rechts daneben ab dem Haltebereich.
+    Der Bus haelt wie heute rechts und faedelt am Nordende des Haltebereichs in die Kfz-Spur ein.
+    Raeder fahren suedlich davon am rechten Rand der Fahrspur und wechseln im weichen Uebergang S45
+    auf den Radfahrstreifen."""
+    k = n.kfz
+    rad = lambda e: n.spuren[e].index('rad')
+    n.con('S_in_fern', 'S_in_bucht', k('S_in_fern')[0], k('S_in_bucht')[0], allow='bus')
+    n.con('S_in_fern', 'S_in_bucht', k('S_in_fern')[0], k('S_in_bucht')[1])
+    n.con('S_in_bucht', 'S_in_mitte', k('S_in_bucht')[0], k('S_in_mitte')[0], allow='bus')
+    n.con('S_in_bucht', 'S_in_mitte', k('S_in_bucht')[1], k('S_in_mitte')[0], disallow='bicycle')
+    n.con('S_in_bucht', 'S_in_mitte', k('S_in_bucht')[1], rad('S_in_mitte'), allow='bicycle')
+    for a, b in (('S_in_mitte', 'S_in'), ('S_in', 'S_in_m')):
+        n.con(a, b, k(a)[0], k(b)[0])
+        n.con(a, b, rad(a), rad(b))
+    m, km, rm = 'S_in_m', k('S_in_m')[0], rad('S_in_m')
+    n.con(m, 'N_out_m', km, k('N_out_m')[0], disallow='bicycle')
+    n.con(m, 'W_out_m', km, k('W_out_m')[0], disallow='bicycle')
+    n.con(m, 'E_out_m', km, k('E_out_m')[0], disallow='bicycle')
+    n.con(m, 'N_out_m', rm, k('N_out_m')[0], allow='bicycle')
+    n.con(m, 'W_out_m', rm, k('W_out_m')[0], allow='bicycle')
+    n.con(m, 'E_out_m', rm, k('E_out_m')[0], allow='bicycle')
+    # Rechtsabbieger Sued nach Ost lassen Rad geradeaus durch, Geradeausfahrer nach Nord lassen
+    # Rad im Aussenbogen nach West durch (es folgt der Vorfahrtstrasse)
+    n.verbot('S_in_m->N_out_m', 'S_in_m->E_out_m')
+    n.verbot('S_in_m->W_out_m', 'S_in_m->N_out_m')
+
+
+def west_vorschlag1(n):
+    """Vorschlag 1, Naumburger West ostwaerts: Schutzstreifen rechts (eigene Radspur), ab W30 links
+    der Aufstellstreifen fuer Rad nach Nord. Raeder nach Nord wechseln im weichen Uebergang W30
+    schraeg vom Schutzstreifen auf den Aufstellstreifen."""
+    sp = n.spuren
+    r_, k_ = sp['W_in'].index('rad'), sp['W_in'].index('kfz')
+    rb, kb, ab = sp['W_in_b'].index('rad'), sp['W_in_b'].index('kfz'), len(sp['W_in_b']) - 1
+    n.con('W_in', 'W_in_b', r_, rb, allow='bicycle')
+    n.con('W_in', 'W_in_b', r_, ab, allow='bicycle')
+    n.con('W_in', 'W_in_b', k_, kb)
+    rm, km, am = sp['W_in_m'].index('rad'), sp['W_in_m'].index('kfz'), len(sp['W_in_m']) - 1
+    for i in (rb, kb, ab):
+        n.con('W_in_b', 'W_in_m', i, (rm, km, am)[(rb, kb, ab).index(i)])
+    s_rad, s_kfz = sp['S_out_m'].index('rad'), sp['S_out_m'].index('kfz')
+    e_kfz, n_kfz = n.kfz('E_out_m')[0], n.kfz('N_out_m')[0]
+    n.con('W_in_m', 'S_out_m', rm, s_rad, allow='bicycle')
+    n.con('W_in_m', 'E_out_m', rm, e_kfz, allow='bicycle')
+    n.con('W_in_m', 'N_out_m', am, n_kfz, allow='bicycle')
+    n.con('W_in_m', 'S_out_m', km, s_kfz, disallow='bicycle')
+    n.con('W_in_m', 'E_out_m', km, e_kfz, disallow='bicycle')
+    n.con('W_in_m', 'N_out_m', km, n_kfz, disallow='bicycle')
+    # Kfz rechts nach Sued lassen Rad geradeaus nach Ost durch
+    n.verbot('W_in_m->E_out_m', 'W_in_m->S_out_m')
+
+
+def bogen_bahn(p_start, d_in, p_end, d_out, R, n=24):
+    """Gerade, Kreisbogen mit Radius R, Gerade (wie die Furten im Plan, plan/build_vorschlag1.py)."""
+    la, lb = math.hypot(*d_in), math.hypot(*d_out)
+    a, b = (d_in[0] / la, d_in[1] / la), (d_out[0] / lb, d_out[1] / lb)
+    det = a[0] * (-b[1]) - a[1] * (-b[0])
+    if abs(det) < 1e-6:
+        return [p_start, p_end]
+    rx, ry = p_end[0] - p_start[0], p_end[1] - p_start[1]
+    s_ = (rx * (-b[1]) - ry * (-b[0])) / det
+    S = (p_start[0] + a[0] * s_, p_start[1] + a[1] * s_)
+    th = math.acos(max(-1, min(1, a[0] * b[0] + a[1] * b[1])))
+    T = min(R * math.tan(th / 2), max(s_ - 0.2, 0.1), max(math.dist(S, p_end) - 0.2, 0.1))
+    R = T / math.tan(th / 2)
+    A = (S[0] - a[0] * T, S[1] - a[1] * T)
+    sg = 1 if a[0] * b[1] - a[1] * b[0] > 0 else -1
+    C = (A[0] - a[1] * R * sg, A[1] + a[0] * R * sg)
+    a0 = math.atan2(A[1] - C[1], A[0] - C[0])
+    pts = [p_start, A] + [(C[0] + R * math.cos(a0 + sg * th * i / n), C[1] + R * math.sin(a0 + sg * th * i / n)) for i in range(1, n)]
+    B_ = (S[0] + b[0] * T, S[1] + b[1] * T)
+    return pts + [B_, p_end]
+
+
+def furten_vorschlag1(prefix, net):
+    """Vorschlag 1: Radfurten als Kreisboegen wie im Plan. Aussenbogen Sued nach West (R 11 m) vor
+    der Haltlinie Nord vorbei auf die Nordseite der Naumburger West, Kioskecke West nach Sued
+    (R 4,5 m), Rad links West nach Nord (R 7 m). Ziel am rechten Rand der Zielspur."""
+    import re
+    r = ET.parse(net).getroot()
+    lanes = {l.get('id'): ([tuple(map(float, p.split(','))) for p in l.get('shape').split()], float(l.get('width', 3.2)), l.get('allow') or '')
+             for e in r.findall('edge') for l in e.findall('lane')}
+    con = open(prefix + '.con.xml').read()
+
+    def ersetze(m):
+        fr, to, fl, tl, rest = m.group(1), m.group(2), m.group(3), m.group(4), m.group(5)
+        if not re.search(r' allow="[^"]*bicycle', rest):
+            return m.group(0)
+        A, wa, _ = lanes[f'{fr}_{fl}']
+        Bp, wb, ab = lanes[f'{to}_{tl}']
+        rel = fr[0] + to[0]
+        if rel not in V1_FURT_RADIUS:
+            return m.group(0)
+        a0, a1, b0, b1 = A[-2], A[-1], Bp[0], Bp[1]
+        ub = (b1[0] - b0[0], b1[1] - b0[1])
+        L = math.hypot(*ub)
+        rechts = (ub[1] / L, -ub[0] / L)
+        q = 0.0 if ab == 'bicycle' else max(wb / 2 - 0.8, 0)
+        ziel = (b0[0] + rechts[0] * q, b0[1] + rechts[1] * q)
+        pts = bogen_bahn(a1, (a1[0] - a0[0], a1[1] - a0[1]), ziel, ub, V1_FURT_RADIUS[rel])
+        rest = re.sub(r' shape="[^"]*"', '', rest)
+        return f'<connection from="{fr}" to="{to}" fromLane="{fl}" toLane="{tl}"{rest} shape="{fmt(pts)}"/>'
+    neu = re.sub(r'<connection from="(S_in_m|W_in_m)" to="(\w+)" fromLane="(\d+)" toLane="(\d+)"([^/]*)/>', ersetze, con)
+    if neu != con:
+        with open(prefix + '.con.xml', 'w') as f:
+            f.write(neu)
+        netconvert(prefix, net)
 
 
 def suedarm_verbindungen(n, var, gesch=False):
@@ -384,6 +525,8 @@ def suedarm_verbindungen(n, var, gesch=False):
     die nur Fahrzeuge der Klasse taxi (Typ pkwx, 'Fehlspur') benutzen duerfen. Alle anderen fahren
     regelgerecht von der rechten Spur geradeaus."""
     k = n.kfz
+    if var == 'vorschlag1':
+        return suedarm_vorschlag1(n)
     # Parkstreifen suedlich der Haltestelle: Bus und Rad schwenken an S70 in den Haltebereich
     # Raeder bleiben am rechten Rand der Fahrspur (Sublane-Modell), in den Haltebereich schwenkt
     # nur der Bus. Sonst teilen sich Rad und ueberholendes Auto am Abzweig auf zwei Bahnen auf, und
@@ -452,7 +595,7 @@ def vorfahrt_abknickend(n):
 # auf die rechte Spur, an den Abbiegepfeilen (S25) schwenkt der Bus nach dem Halt ueber 12 m zur
 # Linksabbiegespur. Am Nordarm (N30) beginnt das Parken, die Spur wird schmaler, dort ebenfalls
 # ein weicher Uebergang ueber 10 m. Halbe Laenge der Knotenflaeche je Knoten in m.
-WEICHE_UEBERGAENGE = {'S25': 6.0, 'S45': 6.0, 'S70': 5.0, 'N30': 5.0}
+WEICHE_UEBERGAENGE = {'S25': 6.0, 'S45': 6.0, 'S70': 5.0, 'N30': 5.0, 'W30': 5.0}
 
 
 def baue_variante(var, arme):
@@ -496,7 +639,7 @@ def baue_variante(var, arme):
         stationen = [MUND[a], ARM_LEN]
         if a == 'S':
             stationen = [MUND[a], S_ABBIEGER, S_BUCHT[0], S_BUCHT[1], ARM_LEN]
-        if a == 'N' or (a == 'W' and var == 'radwege'):
+        if a == 'N' or (a == 'W' and var in ('radwege', 'vorschlag1')):
             stationen = [MUND[a], G_INNEN, ARM_LEN]
         namen = {MUND[a]: f'M{a}', ARM_LEN: f'{a}0'}
         if a == 'W':
@@ -521,7 +664,7 @@ def baue_variante(var, arme):
                 n.node(namen[s], punkt_bei(pts, s))
         knoten = [(s_inner, inner)] + [(s, namen[s]) for s in stationen]
         teile = {'S': ['m', '', 'mitte', 'bucht', 'fern'], 'N': ['m', 'b', '']}.get(a, ['m', ''])
-        if a == 'W' and var == 'radwege':
+        if a == 'W' and var in ('radwege', 'vorschlag1'):
             teile = ['m', 'b', '']
         for (s0, k0), (s1, k1), teil in zip(knoten, knoten[1:], teile):
             grenze = grenzlinie(a, pts, teil)
@@ -538,10 +681,12 @@ def baue_variante(var, arme):
         # Alle Querungen liegen auf einem eigenen Knoten direkt am Knotenrand. Laegen sie im
         # Hauptknoten, wuerde ein Abbieger, der fuer Fussgaenger wartet, auf der Bahn des
         # einfaedelnden Gegenverkehrs stehen (siehe README, Abschnitt Ueberlappungen).
-        suf = '_b' if a == 'N' or (a == 'W' and var == 'radwege') else ''
+        suf = '_b' if a == 'N' or (a == 'W' and var in ('radwege', 'vorschlag1')) else ''
         n.crossing(f'M{a}', f'{a}_in{suf} {a}_out{suf}', a in zebra)
 
     suedarm_verbindungen(n, var)
+    if var == 'vorschlag1':
+        west_vorschlag1(n)
     if var in ABKNICKEND:
         vorfahrt_abknickend(n)
     if var in EMPFEHLUNG and W_N_WARTET:
@@ -815,7 +960,7 @@ def suedkurven(prefix, net, var):
     r = ET.parse(net).getroot()
     lanes = {l.get('id'): [tuple(map(float, p.split(','))) for p in l.get('shape').split()]
              for e in r.findall('edge') for l in e.findall('lane')}
-    v_s = TEMPO_OSM['S'] if var == 'bestand' else V30
+    v_s = TEMPO_OSM['S'] if var in TEMPO_BESTAND else V30
     con = open(prefix + '.con.xml').read()
 
     def ersetze(m):
@@ -837,16 +982,45 @@ def suedkurven(prefix, net, var):
         netconvert(prefix, net)
 
 
+def _weite_bahn(A, Bl, k):
+    a0, a1, b0, b1 = A[-2], A[-1], Bl[0], Bl[1]
+    da, db = math.dist(a0, a1), math.dist(b0, b1)
+    ua = ((a1[0] - a0[0]) / da, (a1[1] - a0[1]) / da)
+    ub = ((b1[0] - b0[0]) / db, (b1[1] - b0[1]) / db)
+    d = math.dist(a1, b0)
+    P1 = (a1[0] + ua[0] * d * k, a1[1] + ua[1] * d * k)
+    P2 = (b0[0] - ub[0] * d * k, b0[1] - ub[1] * d * k)
+    pts = []
+    for i in range(17):
+        t = i / 16
+        pts.append(((1 - t) ** 3 * a1[0] + 3 * (1 - t) ** 2 * t * P1[0] + 3 * (1 - t) * t * t * P2[0] + t ** 3 * b0[0],
+                    (1 - t) ** 3 * a1[1] + 3 * (1 - t) ** 2 * t * P1[1] + 3 * (1 - t) * t * t * P2[1] + t ** 3 * b0[1]))
+    return pts
+
+
 def weite_kurven(prefix, net):
     r = ET.parse(net).getroot()
     lanes = {l.get('id'): [tuple(map(float, p.split(','))) for p in l.get('shape').split()]
              for e in r.findall('edge') for l in e.findall('lane')}
+    import re
     zeilen = []
     von = {fr for fr, _ in WEITE_KURVEN}
+    con_alt = open(prefix + '.con.xml').read()
+    vorhanden = {}
+    for m_ in re.finditer(r'    <connection from="(\w+)" to="(\w+)" fromLane="(\d+)" toLane="(\d+)"([^/]*)/>\n?', con_alt):
+        vorhanden[m_.group(1, 2, 3, 4)] = m_
     for c in r.findall('connection'):
         if c.get('from') not in von or c.get('to').startswith(':'):
             continue
         k = WEITE_KURVEN.get((c.get('from'), c.get('to')))
+        alt = vorhanden.get((c.get('from'), c.get('to'), c.get('fromLane'), c.get('toLane')))
+        if alt is not None:
+            # schon im Netzentwurf vorgegeben (z. B. Vorschlag 1): dort nur die Bahnform ergaenzen
+            if k is not None and 'shape=' not in alt.group(5) and not re.search(r' allow="[^"]*bicycle', alt.group(5)):
+                A = lanes[f"{c.get('from')}_{c.get('fromLane')}"]
+                Bl = lanes[f"{c.get('to')}_{c.get('toLane')}"]
+                zeilen.append(('ersetze', alt.group(0), _weite_bahn(A, Bl, k), alt))
+            continue
         if k is None:
             # Werden fuer eine Kante Verbindungen vorgegeben, raet netconvert dort keine weiteren.
             # Deshalb alle uebrigen Verbindungen dieser Kante unveraendert mit ausschreiben.
@@ -856,23 +1030,16 @@ def weite_kurven(prefix, net):
             continue
         A = lanes[f"{c.get('from')}_{c.get('fromLane')}"]
         Bl = lanes[f"{c.get('to')}_{c.get('toLane')}"]
-        a0, a1, b0, b1 = A[-2], A[-1], Bl[0], Bl[1]
-        da, db = math.dist(a0, a1), math.dist(b0, b1)
-        ua = ((a1[0] - a0[0]) / da, (a1[1] - a0[1]) / da)
-        ub = ((b1[0] - b0[0]) / db, (b1[1] - b0[1]) / db)
-        d = math.dist(a1, b0)
-        P1 = (a1[0] + ua[0] * d * k, a1[1] + ua[1] * d * k)
-        P2 = (b0[0] - ub[0] * d * k, b0[1] - ub[1] * d * k)
-        pts = []
-        for i in range(17):
-            t = i / 16
-            pts.append(((1 - t) ** 3 * a1[0] + 3 * (1 - t) ** 2 * t * P1[0] + 3 * (1 - t) * t * t * P2[0] + t ** 3 * b0[0],
-                        (1 - t) ** 3 * a1[1] + 3 * (1 - t) ** 2 * t * P1[1] + 3 * (1 - t) * t * t * P2[1] + t ** 3 * b0[1]))
         zeilen.append(f'    <connection from="{c.get("from")}" to="{c.get("to")}" fromLane="{c.get("fromLane")}" '
-                      f'toLane="{c.get("toLane")}" shape="{fmt(pts)}"/>')
+                      f'toLane="{c.get("toLane")}" shape="{fmt(_weite_bahn(A, Bl, k))}"/>')
     if not zeilen:
         return
-    con = open(prefix + '.con.xml').read().replace('</connections>', '\n'.join(zeilen) + '\n</connections>')
+    con = con_alt
+    for z in [z for z in zeilen if isinstance(z, tuple)]:
+        _, alt_text, pts, alt = z
+        con = con.replace(alt_text, alt_text.replace('/>', f' shape="{fmt(pts)}"/>', 1))
+    neu = [z for z in zeilen if not isinstance(z, tuple)]
+    con = con.replace('</connections>', '\n'.join(neu) + ('\n' if neu else '') + '</connections>')
     with open(prefix + '.con.xml', 'w') as f:
         f.write(con)
     netconvert(prefix, net)
@@ -920,7 +1087,7 @@ BUS_TAKT = 6   # je Richtung und Stunde, Annahme 10-Minuten-Takt (Linien 60 und 
 # Links- und Geradeausspur auf den letzten 25 m und klarer Bogen der Vorfahrt. Geradeaus aus der
 # Linksabbiegespur heisst dann eine durchgezogene Linie ueberfahren, Annahme 8 %.
 FEHLSPUR = {'bestand': 0.25, 'rvl': 0.15, 't30_zebra': 0.15, 'geschuetzt': 0.05, 'minikreisel': 0.0,
-            'markierung': 0.08, 'radwege': 0.08, 'zone': 0.15}
+            'markierung': 0.08, 'radwege': 0.08, 'zone': 0.15, 'vorschlag1': 0.0}
 
 # Fussgaenger je Stunde, Schaetzung nach Beobachtung des Nutzers (Oktober 2026).
 # Die Nordquerung ueber die Giesserstrasse Nord ist die meistgenutzte (etwa 100 je Stunde),
@@ -1008,7 +1175,7 @@ def stopp_kante(var):
 
 def nachfrage(var, bus, ende):
     stopp = stopp_kante(var)
-    lim = 50 if var == 'bestand' else 30
+    lim = 50 if var in TEMPO_BESTAND else 30
     anteil_schnell, faktor = SCHNELL[lim]
     z = ['<routes>', VTYPES.replace('{sig}', str(SIGMA_PKW)).replace('{tgm}', str(TIMEGAP_MINOR)).replace('{imp}', str(IMPATIENCE)).replace('{schnell}', faktor).replace('{impn}', str(IMPATIENCE if IMPATIENCE_SICHT is None else IMPATIENCE_SICHT))]
     flows = []
@@ -1038,14 +1205,14 @@ def nachfrage(var, bus, ende):
             if fs:
                 flow(f'pkw_{rel}.f', 'pkwf', rel, q * fs)
     kurz = {'bestand': ((150, 90), (450, 150), (300, 120))}.get(var, ((150, 90), (900, 150)))
-    if var in ('bestand', 'markierung', 'zone', 'radwege'):
+    if var in ('bestand', 'markierung', 'zone', 'radwege'):   # nicht in vorschlag1: Schutzstreifen, Halteverbot ganztags
         # Kurzhalter am Kiosk (Ortsbeobachtung, Schaetzung): etwa alle 10 Minuten haelt jemand im
         # absoluten Haltverbot auf der Nordseite der Naumburger West, 1 bis 3 Minuten mit Warnblinker,
         # und holt etwas am Kiosk. Halt mit parking=true, weil SUMO das Vorbeifahren ueber die
         # Gegenspur nicht abbilden kann (sonst staut sich alles hinter dem Halter).
         # Mit Grenzmarkierung und Kontrolle (Annahme, keine Poller) halb so oft.
         takt = KURZ_TAKT if var == 'bestand' else 2400
-        kante_w = 'W_out_b' if var == 'radwege' else 'W_out'
+        kante_w = 'W_out_b' if var in ('radwege', 'vorschlag1') else 'W_out'
         for i, (beginn, dauer) in enumerate(kurz):
             flows.append((beginn, f'    <flow id="pkw_SW.k{i}" type="pkw" begin="{beginn}" end="{ende}" period="{takt}" '
                                   f'from="{kante(var, "S")[0]}" to="{kante(var, "W")[1]}" departLane="best" departSpeed="max">'
@@ -1074,7 +1241,7 @@ def nachfrage(var, bus, ende):
         busflow('bus_SW', 'SW', 60, halt)
         busflow('bus_WS', 'WS', 120)
     for pid, q, etappen in FUSS:
-        if var == 'radwege':
+        if var in ('radwege', 'vorschlag1'):
             # Westarm ist hier in zwei Kanten geteilt (Radfahrstreifen auf den letzten 30 m)
             m_ = {('W_out', 3): ('W_out_b', 1), ('W_in', -3): ('W_in_b', -1), ('W_out', 40): ('W_out', 25)}
             etappen = [(*m_.get((v, p), (v, p)), *m_.get((n_, np_), (n_, np_))) for v, p, n_, np_ in etappen]
@@ -1120,6 +1287,8 @@ def main():
         if var not in ('geschuetzt', 'minikreisel'):
             weite_kurven(prefix, os.path.join(OUT, f'{var}.net.xml'))
             suedkurven(prefix, os.path.join(OUT, f'{var}.net.xml'), var)
+        if var == 'vorschlag1':
+            furten_vorschlag1(prefix, os.path.join(OUT, f'{var}.net.xml'))
         with open(os.path.join(OUT, f'{var}.rou.xml'), 'w') as f:
             f.write(nachfrage(var, args.bus, args.ende))
     with open(os.path.join(OUT, 'haltestelle.add.xml'), 'w') as f:

@@ -25,7 +25,7 @@ import xml.etree.ElementTree as ET
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
 
-from shapely.geometry import Polygon
+from shapely.geometry import LineString, Point, Polygon
 from shapely.prepared import prep
 
 import build as B
@@ -43,7 +43,7 @@ ROH = os.path.join(ERG, 'roh')
 
 VARIANTEN = list(B.AKTIV)   # vorübergehend nur Bestand, siehe build.py
 ALLE = list(B.VARIANTEN)
-TITEL = {'bestand': 'Bestand', 'markierung': 'Markierung und Tempo 30 (Empfehlung)', 'zone': 'Tempo-30-Zone, rechts vor links (Vergleich, nicht empfohlen)',
+TITEL = {'bestand': 'Bestand', 'vorschlag1': 'Vorschlag 1 der Initiative', 'markierung': 'Markierung und Tempo 30 (Empfehlung)', 'zone': 'Tempo-30-Zone, rechts vor links (Vergleich, nicht empfohlen)',
          'radwege': 'Rote Radwege', 'rvl': 'Rechts vor links, Tempo 30 (verworfen)',
          'minikreisel': 'Minikreisel mit Zebrastreifen (verworfen)', 't30_zebra': 'Tempo 30 und Zebra Nord und West (verworfen)',
          'geschuetzt': 'Geschützte Kreuzung (verworfen)'}
@@ -86,7 +86,7 @@ SCHRITT = 1.0 if SCHNELL else 0.5
 ZAEHLWERTE = ('konflikte_fz', 'konflikte_fz_ssmtyp', 'konflikte_fuss', 'bus_spurwechsel', 'bus_spurwechsel_konflikte',
               'fahrten_knoten', 'ueberfahren_bordstein', 'ueberfahren_insel', 'teleports', 'fuss_teleports',
               'ueberlappungen', 'notbremsungen', 'ueberholen_rad', 'nordquerung_luecken', 'fuss_wege', 'fahrten',
-              'durchfahrt_anzahl')
+              'durchfahrt_anzahl', 'konflikte_kfz_rad_ort', 'bus_furt_kiosk', 'bus_begegnung_west')
 # Dauer eines Spurwechsels in s (kontinuierlicher Spurwechsel in SUMO). Bei 30 bis 40 km/h sind das 25 bis 40 m Fahrweg.
 SPURWECHSEL_S = 6.0      # frueher --lanechange.duration, jetzt ueber maxSpeedLat im Sublane-Modell
 SUBLANE_M = 0.6          # m, Breite der Teilspuren im Sublane-Modell (Raeder rechts in der Spur, Ueberholen in der Spur)
@@ -185,6 +185,44 @@ def typ_von(vid):
     return vid.split('_')[0]
 
 
+RAD_ORTE = {'kiosk': 'Kiosk-Ecke (Südwest)', 'nord': 'vor der Haltlinie Nord (Außenbogen)',
+            'sued_ost': 'Rechtsabbieger Süd nach Ost gegen Rad geradeaus', 'west_nord': 'Links abbiegen West nach Nord',
+            'bogen_sn': 'Rad Süd nach West (Außenbogen) gegen Kfz geradeaus Süd nach Nord',
+            'sonst': 'übrige'}
+
+
+def rad_ort(kfz_rel, rad_rel, x, y):
+    """Ort eines Kfz-Rad-Konflikts fuer die Auswertung (Vorschlag 1 gegen Bestand)."""
+    if kfz_rel == 'SE' and rad_rel == 'SN':
+        return 'sued_ost'
+    if kfz_rel == 'SN' and rad_rel == 'SW':
+        return 'bogen_sn'
+    if 'WN' in (kfz_rel, rad_rel):
+        return 'west_nord'
+    if x < -3 and y < -3:
+        return 'kiosk'
+    if y > 3 or (kfz_rel[0] == 'N' and rad_rel == 'SW'):
+        return 'nord'
+    return 'sonst'
+
+
+def kiosk_furt(var):
+    """Flaeche der Radfurt West nach Sued an der Kioskecke und ihr Rand zur Fahrbahn, sonst None."""
+    r = ET.parse(os.path.join(NETZE, f'{var}.net.xml')).getroot()
+    lanes = {l.get('id'): l for e in r.findall('edge') for l in e.findall('lane')}
+    for c in r.findall('connection'):
+        if c.get('from') != 'W_in_m' or c.get('to') != 'S_out_m' or not c.get('via'):
+            continue
+        if (lanes[f"W_in_m_{c.get('fromLane')}"].get('allow') or '') != 'bicycle':
+            continue
+        l = lanes[c.get('via')]
+        pts = [tuple(map(float, p.split(','))) for p in l.get('shape').split()]
+        w = float(l.get('width', 1.6))
+        ls = LineString(pts)
+        return ls.buffer(w / 2, cap_style=2), ls.offset_curve(w / 2)   # links der Fahrtrichtung liegt die Fahrbahn
+    return None
+
+
 def rel_von(vid):
     return vid.split('_')[1].split('.')[0]
 
@@ -211,6 +249,7 @@ def auswerten(var, seed, f):
     querung_n = []                     # Zeitpunkte, an denen Fahrzeuge die Nordquerung passieren
     zuletzt = {}
     offen = []                         # Verlust auf N_zu, Zuordnung nach der Schlangenlaenge
+    bus_west = {}                      # (Bus West, Bus Ost) -> kleinster seitlicher Abstand der Umrisse
     ueberhol = {}                      # (Kfz, Rad) -> [war dahinter, kleinster Abstand]
     ueberhol_ab = []                   # kleinster Abstand je Ueberholvorgang
     durch = {}                         # Pkw: [Summe Tempo im Knoten, Schritte, kleinstes und groesstes Tempo bis 40 m, Startzeit]
@@ -281,6 +320,9 @@ def auswerten(var, seed, f):
             konf['mit_rad'] += 1
             if len(typen) == 2:
                 konf['kfz_rad'] += 1
+                rad_id, kfz_id = (a, b) if typ_von(a) == 'rad' else (b, a)
+                konf['kfz_rad_' + rad_ort(rel_von(kfz_id).replace('x', ''), rel_von(rad_id),
+                                          *((px_, py_) if pos and pos != 'NA' else (0.0, 0.0)))] += 1
         if {'bus', 'lkw', 'sattel'} & typen:
             konf['mit_bus_lkw'] += 1
         if '_SNx' in a or '_SNx' in b:
@@ -406,6 +448,19 @@ def auswerten(var, seed, f):
             else:
                 ext[vid_] += los_
         offen = []
+        # Busse begegnen sich auf der Naumburger West (seitlicher Abstand der Umrisse)
+        bw = [(v.get('id'), float(v.get('x')), float(v.get('y')), math.radians(float(v.get('angle')))) for v in fz
+              if v.get('id').startswith('bus_') and float(v.get('x')) < -12 and abs(float(v.get('y'))) < 15]
+        for i1, x1, y1, a1 in bw:
+            for i2, x2, y2, a2 in bw:
+                if i1 >= i2 or math.cos(a1 - a2) > -0.8:
+                    continue
+                ux, uy = math.sin(a1), math.cos(a1)
+                dx, dy = x2 - x1, y2 - y1
+                lang, quer = dx * ux + dy * uy, abs(dx * uy - dy * ux)
+                if -LAENGE['bus'] < lang < LAENGE['bus']:
+                    k_ = (i1, i2)
+                    bus_west[k_] = min(bus_west.get(k_, 99.0), quer - BREITE['bus'])
         # Kfz ueberholen Raeder
         raeder, kfz_ = [], []
         for v in fz:
@@ -548,6 +603,9 @@ def auswerten(var, seed, f):
     for rel, v_ in frei_rel.items():
         werte.append(('durchfahrt_frei_kmh', rel, st.mean(v_)))
 
+    werte.append(('bus_begegnung_west', 'anzahl', len(bus_west)))
+    if bus_west:
+        werte.append(('bus_begegnung_west_abstand_m', 'min', min(bus_west.values())))
     werte.append(('ueberholen_rad', 'alle', len(ueberhol_ab)))
     werte.append(('ueberholen_rad', 'unter15', sum(1 for a in ueberhol_ab if a < UEBERHOL_ABSTAND)))
     werte.append(('ueberholen_rad', 'unter10', sum(1 for a in ueberhol_ab if a < 1.0)))
@@ -563,6 +621,8 @@ def auswerten(var, seed, f):
     werte.append(('fuss_wege', 'diag', len(dw)))
     for g in ('alle', 'kreuzen_einbiegen', 'auffahren', 'mit_rad', 'kfz_rad', 'mit_bus_lkw', 'fehlspur', 'schwer', 'ueberschneidung', 'ausserhalb'):
         werte.append(('konflikte_fz', g, konf[g]))
+    for o in RAD_ORTE:
+        werte.append(('konflikte_kfz_rad_ort', o, konf['kfz_rad_' + o]))
     for g, n in konf.items():
         if g.startswith('typ'):
             werte.append(('konflikte_fz_ssmtyp', g[3:], n))
@@ -628,6 +688,34 @@ def auswerten(var, seed, f):
             ueber[(typ, 'bordstein')] += 1
         if ins:
             ueber[(typ, 'insel')] += 1
+    # Bus West nach Sued ueber die Radfurt an der Kioskecke (nur wo es sie gibt)
+    furt = kiosk_furt(var)
+    if furt is not None:
+        fpoly, innen = furt
+        bus_fahrten, bus_drauf, tiefe = 0, 0, []
+        for vid, seq in spuren.items():
+            if not vid.startswith('bus_WS') or len(seq) < 2 or not im_fenster(seq[0][0]):
+                continue
+            posen = K.posen('bus', [p[1] for p in seq], [p[2] for p in seq], [p[3] for p in seq], SCHRITT, K.ausholen_fuer(vid))
+            bus_fahrten += 1
+            t_max = 0.0
+            for F in posen:
+                if math.hypot(F[0], F[1]) > 30:
+                    continue
+                for ecken_ in K.umrisse('bus', (F[0], F[1]), F[2], F[3], schrumpf=0.05):
+                    sch = Polygon(ecken_).intersection(fpoly)
+                    if sch.is_empty or sch.area < 0.05:
+                        continue
+                    pts_ = list(sch.exterior.coords) if sch.geom_type == 'Polygon' else [c for g in sch.geoms for c in g.exterior.coords]
+                    t_max = max(t_max, max(innen.distance(Point(p)) for p in pts_))
+            if t_max > 0:
+                bus_drauf += 1
+                tiefe.append(t_max)
+        werte.append(('bus_furt_kiosk', 'fahrten', bus_fahrten))
+        werte.append(('bus_furt_kiosk', 'ueberfahren', bus_drauf))
+        if tiefe:
+            werte.append(('bus_furt_kiosk_tiefe_m', 'max', max(tiefe)))
+            werte.append(('bus_furt_kiosk_tiefe_m', 'mittel', st.mean(tiefe)))
     for typ in ('pkw', 'lkw', 'sattel', 'bus'):
         werte.append(('fahrten_knoten', typ, fahrten_k[typ]))
         werte.append(('ueberfahren_bordstein', typ, ueber[(typ, 'bordstein')]))
@@ -727,6 +815,19 @@ def bericht(rows, laeufe, bus):
         ('Kfz überholt Rad (Vorgänge je Stunde, Sublane-Modell)', ('ueberholen_rad', 'alle')),
         ('davon Überholabstand < 1,5 m (StVO innerorts)', ('ueberholen_rad', 'unter15')),
         ('davon Überholabstand < 1,0 m', ('ueberholen_rad', 'unter10')),
+        ('Kfz gegen Rad an der Kiosk-Ecke (Südwest)', ('konflikte_kfz_rad_ort', 'kiosk')),
+        ('Kfz gegen Rad vor der Haltlinie Nord bzw. im Außenbogen', ('konflikte_kfz_rad_ort', 'nord')),
+        ('Kfz gegen Rad: Rechtsabbieger Süd nach Ost gegen Rad geradeaus', ('konflikte_kfz_rad_ort', 'sued_ost')),
+        ('Kfz gegen Rad: links abbiegen West nach Nord', ('konflikte_kfz_rad_ort', 'west_nord')),
+        ('Kfz gegen Rad: Rad Süd nach West gegen Kfz geradeaus Süd nach Nord', ('konflikte_kfz_rad_ort', 'bogen_sn')),
+        ('Kfz gegen Rad: übrige', ('konflikte_kfz_rad_ort', 'sonst')),
+        ('Bus West nach Süd: Fahrten', ('bus_furt_kiosk', 'fahrten')),
+        ('davon über die Radfurt an der Kiosk-Ecke', ('bus_furt_kiosk', 'ueberfahren')),
+        ('dabei größte Tiefe in die Furt in m (Furt 1,6 m breit)', ('bus_furt_kiosk_tiefe_m', 'max')),
+        ('Busbegegnungen auf der Naumburger West je Stunde', ('bus_begegnung_west', 'anzahl')),
+        ('dabei kleinster seitlicher Abstand der Busse in m', ('bus_begegnung_west_abstand_m', 'min')),
+        ('Süd: größte Schlange (Fahrzeuge)', ('schlange_fz_max', 'S')),
+        ('Süd: Rückstau größter Wert in m', ('rueckstau_max_m', 'S')),
         ('Überholabstand im Median in m', ('ueberholen_rad_abstand_m', 'median')),
         ('Mittlerer Zeitverlust Kfz in s', ('zeitverlust_s', 'alle|Kfz')),
         ('Mittlerer Zeitverlust Rad in s', ('zeitverlust_s', 'alle|Rad')),

@@ -33,7 +33,7 @@ h1{font-family:var(--display);font-weight:700;font-size:clamp(27px,5vw,40px);lin
 @media (max-width:860px){.stage{grid-template-columns:minmax(0,1fr)}}
 .mapcol{display:grid;gap:10px;min-width:0}
 @media (min-width:861px){.mapcol{position:sticky;top:12px}}
-.tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.tabs{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:6px}
 @media (max-width:520px){.tabs{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .tabs button{font:inherit;font-family:var(--display);font-weight:600;font-size:15px;line-height:1.15;text-align:left;border:1px solid var(--line);background:var(--chip);color:var(--fg);border-radius:8px;padding:8px 10px;cursor:pointer;min-height:44px}
 .tabs button small{display:block;font-family:var(--body);font-weight:400;font-size:12.5px;color:var(--muted)}
@@ -86,7 +86,7 @@ details ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
 @media (max-width:520px){.szliste{grid-template-columns:minmax(0,1fr)}}
 .szliste button{display:grid;grid-template-columns:28px minmax(0,1fr);gap:8px;align-items:center;font-size:14px;line-height:1.2}
 .szliste button b{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#d62828;color:#fff;font-size:14px}
-.szvgl{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.szvgl{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:6px}
 @media (max-width:520px){.szvgl{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .szvgl button{font-size:13.5px;min-height:40px}
 .szvgl button:disabled{opacity:.55;cursor:default}
@@ -115,6 +115,11 @@ details ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
           <defs>
             <symbol id="p-L" viewBox="-3 -1 5 2" overflow="visible">
               <path d="M-4.5 .18 H-1.6 Q-.9 .18 -.9 -.5 V-.65 H-1.25 L-.6 -1.35 L.05 -.65 H-.3 V-.5 Q-.3 .75 -1.6 .75 H-4.5 Z" fill="#fff" fill-opacity=".85"/>
+            </symbol>
+            <symbol id="p-LGR" viewBox="-3 -1 5 2" overflow="visible">
+              <path d="M-4.5 -.18 H-1 V-.5 L0 0 L-1 .5 V.18 H-4.5 Z" fill="#fff" fill-opacity=".85"/>
+              <path d="M-2.8 .18 Q-2.2 .18 -2.2 .7 V.9 H-2.55 L-1.9 1.55 L-1.25 .9 H-1.6 V.7 Q-1.6 -.18 -2.8 -.18 Z" fill="#fff" fill-opacity=".85"/>
+              <path d="M-2.8 -.18 Q-2.2 -.18 -2.2 -.7 V-.9 H-2.55 L-1.9 -1.55 L-1.25 -.9 H-1.6 V-.7 Q-1.6 .18 -2.8 .18 Z" fill="#fff" fill-opacity=".85"/>
             </symbol>
             <symbol id="p-GR" viewBox="-3 -1 5 2" overflow="visible">
               <path d="M-4.5 -.18 H-1 V-.5 L0 0 L-1 .5 V.18 H-4.5 Z" fill="#fff" fill-opacity=".85"/>
@@ -204,6 +209,7 @@ const D=/*__DATEN__*/null;
 const NS='http://www.w3.org/2000/svg';
 const VAR=[
   {id:'bestand',t:'Bestand',k:'heute',x:'Abknickende Vorfahrt von Süd nach West, Stoppschild am Nordarm, Ost wartepflichtig. Tempo 50 auf der Gießerstraße, Tempo 30 auf der Naumburger Straße West (Streckenschild) und Tempo-30-Zone Ost. Auf der Ostseite wird bis an die Ecke geparkt. An der Kioskecke stehen oft Falschparker im Haltverbot.'},
+  {id:'vorschlag1',t:'Vorschlag 1',k:'der Initiative',x:'Vorschlag der Initiative, Vorfahrt und Tempo wie heute. Südarm nach Norden nur noch eine Kfz-Spur (Pfeil links, geradeaus, rechts), daneben ein roter Radfahrstreifen mit Furt geradeaus in den Nordarm und im Außenbogen der Vorfahrt vor der Haltlinie Nord vorbei auf die Naumburger Straße West. Schutzstreifen auf der Naumburger Straße West (Halteverbot Südseite ganztags) und im Nordarm, rote Furt um die Kioskecke und Radfahrstreifen auf der Westseite des Südarms bis zum Ende des Halteverbots. Aufstellstreifen für Rad links nach Nord. Sperrfläche und zwei Parkplätze an der Ostseite des Südarms, keine Falschparker und Kurzhalter mehr.'},
   {id:'markierung',t:'Markierung',k:'Empfehlung, Tempo 30',x:'Vorfahrt wie heute, aber Tempo 30 auf allen Armen (Zeichen 274, eine Zone ist an einer Vorfahrtstraße nicht zulässig). Klarer Bogen der Vorfahrt, durchgezogene Linie zwischen Links- und Geradeausspur, Grenzmarkierung (Zeichen 299) an der Ostecke statt Parken und im Haltverbot an der Kioskecke gegen Falschparker, breitere Haltlinie Nord und Wartelinie Ost, zusätzliche Vorfahrtschilder. Keine Zebrastreifen.'},
   {id:'radwege',t:'Rote Radwege',k:'Radfahrstreifen',x:'Wie Markierung mit Tempo 30, dazu rot eingefärbte Radfahrstreifen auf der Gießerstraße Süd in beiden Richtungen und auf den letzten 30 m der Naumburger Straße West Richtung Knoten, rote Furten durch den Knoten. Nord- und Ostarm sind zu schmal, dort Piktogramme. Dafür entfallen Parkplätze auf der Westseite der Gießerstraße Süd.'},
   {id:'zone',t:'Tempo-30-Zone',k:'nur Vergleich',x:'Nicht empfohlen, weil sich die Menschen an die Vorfahrtstraße gewöhnt haben, nur zum Vergleich. Alle Vorfahrtschilder entfallen, in der Zone gilt rechts vor links und Tempo 30 (Zeichen 274.1). Grenzmarkierung an der Ostecke wie bei Markierung. Keine Zebrastreifen, keine Wartelinien.'}
@@ -657,7 +663,7 @@ for(const s of [1,2,4]){const b=document.createElement('button');b.textContent=s
   b.addEventListener('click',()=>{tempo=s;for(const x of $('speed').children)x.setAttribute('aria-pressed',x===b?'true':'false');});$('speed').appendChild(b);}
 $('play').addEventListener('click',()=>setPlay(!playing));
 $('zeit').addEventListener('input',e=>{T=parseFloat(e.target.value);render();});
-const VKURZ={bestand:'Heute',markierung:'Markierung (Empfehlung)',radwege:'Rote Radwege',zone:'Zone (Vergleich)'};
+const VKURZ={bestand:'Heute',vorschlag1:'Vorschlag 1',markierung:'Markierung (Empfehlung)',radwege:'Rote Radwege',zone:'Zone (Vergleich)'};
 function setModus(m){
   modus=m;$('m-frei').setAttribute('aria-pressed',m==='frei');$('m-sz').setAttribute('aria-pressed',m==='sz');
   $('szkarte').hidden=m!=='sz';$('tabs').hidden=m==='sz';$('untertitel').classList.toggle('an',m==='sz');

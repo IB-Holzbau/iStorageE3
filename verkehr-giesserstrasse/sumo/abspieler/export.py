@@ -644,6 +644,9 @@ def parkreihen(var):
     if var == 'radwege':
         # Radfahrstreifen statt Parkstreifen auf der Westseite der Giesserstrasse Sued
         r = [x for x in r if x[:2] != ('S', 'out')]
+    if var == 'vorschlag1':
+        # zwei neue Laengsparkplaetze an der Ostseite des Suedarms (Plan: etwa 26 bis 38 m)
+        r.append(('S', 'in', 26.5, 37.5, 'mitte'))
     if var == 'geschuetzt':
         r += [('E', 'in', G['d_p']['E'] + 2.5, 120.0, 'm'), ('E', 'out', 31.0, 120.0, 'm')]
     else:
@@ -720,7 +723,7 @@ def schilder(var, lanes, cross):
             # Tempo 30 streckenbezogen (Zeichen 274) auch auf der Giesserstrasse
             for a in 'SN':
                 sg(a, 'in', 27.0, 2.4, 't30')
-    sg('W', 'in', 38.0, 0.6, 'hv', 'Mo–Fr 6–14 h')
+    sg('W', 'in', 38.0, 0.6, 'hv', 'ganztags' if var == 'vorschlag1' else 'Mo–Fr 6–14 h')
     # absolutes Haltverbot Naumburger West Nordseite (Kurzhalter zum Kiosk)
     sg('W', 'out', 13.0, 0.6, 'hv', 'Anfang ←', zu_fahrer='out')
     if var != 'radwege':
@@ -746,10 +749,19 @@ def radfurten(var):
         via = c.get('via') or ''
         # rote Furt nur entlang der Hauptachse: West -> Sued (rechts um die Kioskecke) und
         # Sued -> Nord geradeaus ueber die Muendung des Ostarms
-        if (c.get('from'), c.get('to')) not in (('W_in_m', 'S_out_m'), ('S_in_m', 'N_out_m')):
+        if (c.get('from'), c.get('to')) not in (('W_in_m', 'S_out_m'), ('S_in_m', 'N_out_m'), ('S_in_m', 'W_out_m'), ('W_in_m', 'N_out_m')):
             continue
         if f"{c.get('from')}_{c.get('fromLane')}" in rad and via in intern and via.startswith(':J'):
-            pts = intern[via]
+            # interne Bahnen mit innerem Halt bestehen aus mehreren Stuecken, alle anhaengen
+            pts = list(intern[via])
+            for _ in range(4):
+                e_, _, i_ = via.rpartition('_')
+                nxt = next((c2.get('via') for c2 in r.findall('connection')
+                            if c2.get('from') == e_ and c2.get('fromLane') == i_ and c2.get('via')), None)
+                if not nxt or nxt not in intern:
+                    break
+                pts += intern[nxt][1:]
+                via = nxt
             if len(pts) >= 2 and LineString(pts).length > 2:
                 out.append(pts)
     return out
@@ -819,7 +831,8 @@ def karte(var, bauten):
         proedge[l['edge']].append(l)
     for e, ls in proedge.items():
         ls.sort(key=lambda l: l['index'])
-        if not e.startswith('S_') or e.startswith('ring'):
+        schutz_w = var == 'vorschlag1' and e.startswith('W_in')
+        if (not e.startswith('S_') and not schutz_w) or e.startswith('ring'):
             continue
         links = ls[-1]
         if '_in' in e and len(links['pts']) >= 2:
@@ -830,7 +843,9 @@ def karte(var, bauten):
             off = LineString(l['pts']).offset_curve(l['width'] / 2)
             if off.is_empty or off.length <= 1 or 'custom2' in (l['allow'], nachbar['allow']):
                 continue
-            if 'bus' in l['allow']:
+            if schutz_w:
+                trenn.append(linie(list(off.coords)))      # Schutzstreifen: Leitlinie
+            elif 'bus' in l['allow']:
                 schmal.append(linie(list(off.coords)))     # breite Strichlinie Haltebereich
             elif 'bicycle' in (l['allow'], nachbar['allow']):
                 fest.append(linie(list(off.coords)))       # Breitstrich am Radfahrstreifen
@@ -839,7 +854,14 @@ def karte(var, bauten):
             else:
                 trenn.append(linie(list(off.coords)))
 
-    abkn = var in B.ABKNICKEND or var == 'geschuetzt'
+    abkn = (var in B.ABKNICKEND or var == 'geschuetzt') and var != 'vorschlag1'
+    if var == 'vorschlag1':
+        # Mittellinie der abknickenden Vorfahrt durch den Knoten, Radius 8 m (Plan, y gespiegelt)
+        k['bogen'] = linie(B.bogen_bahn((-2.9, -14.5), (0.195, 0.98), (-24.0, 4.4), (-0.99, 0.138), 8.0))
+        # Sperrflaeche am Ostbordstein des Suedarms zwischen Radfahrstreifen und Bordstein
+        for l in lanes:
+            if l['edge'] in ('S_in', 'S_in_m') and l['allow'] == 'custom2':
+                sperr.append(pfad(LineString(l['pts']).buffer(l['width'] / 2, cap_style=2)))
     if abkn:
         # Leitlinien durch den Knoten (Luftbild). 1) Bogen mit grossem Radius von der Linie
         # zwischen Linksabbieger und Geradeaus-Spur des Suedarms zur Nordwest-Ecke. Er trennt
@@ -959,9 +981,21 @@ def karte(var, bauten):
             p_ = r_.punkt(s_, q_)
             pr = r_.punkt(s_ - 1, q_)
             texte.append(['30', r2(p_[0]), r2(-p_[1]), winkel_svg(pr[0] - p_[0], pr[1] - p_[1]) + 90, 2.4, 1.8])
-    if var == 'radwege':
+    if var in ('radwege', 'vorschlag1'):
         rad = [l for l in lanes if l['allow'] == 'bicycle']
-        k['radweg'] = pfad(unary_union([LineString(l['pts']).buffer(l['width'] / 2, cap_style=2, join_style=2) for l in rad]).simplify(0.02))
+        flaechen = [LineString(l['pts']).buffer(l['width'] / 2, cap_style=2, join_style=2) for l in rad]
+        if var == 'vorschlag1':
+            # Schutzstreifen 1,5 m am rechten Rand der Kfz-Spur: Naumburger West westwaerts, Nordarm nordwaerts
+            for l in lanes:
+                if l['edge'] in ('W_out', 'W_out_b', 'W_out_m', 'N_out_m', 'N_out_b') and l['allow'] not in ('pedestrian', 'custom1', 'custom2'):
+                    ls_ = LineString(l['pts'])
+                    band = ls_.offset_curve(-(l['width'] / 2 - 0.75))
+                    if not band.is_empty and band.length > 1:
+                        flaechen.append(band.buffer(0.75, cap_style=2))
+                    rand = ls_.offset_curve(-(l['width'] / 2 - 1.5))
+                    if not rand.is_empty and rand.length > 1:
+                        trenn.append(linie(list(rand.coords)))
+        k['radweg'] = pfad(unary_union(flaechen).simplify(0.02))
         k['radfurt'] = [[linie(f), 1.6] for f in radfurten(var)]
         k['radsym'] = []
         for l in rad:
@@ -996,7 +1030,8 @@ def karte(var, bauten):
             p = ls.interpolate(ls.length - 4.0)
             q = ls.interpolate(ls.length - 3.0)
             idx = sorted(x['index'] for x in proedge['S_in'] if x['allow'] != 'bicycle')
-            pfeile.append([r2(p.x), r2(-p.y), winkel_svg(q.x - p.x, q.y - p.y), 'L' if l['index'] == idx[-1] else 'GR'])
+            art = 'LGR' if len(idx) == 1 else ('L' if l['index'] == idx[-1] else 'GR')
+            pfeile.append([r2(p.x), r2(-p.y), winkel_svg(q.x - p.x, q.y - p.y), art])
     k['pfeile'] = pfeile
     k['park'] = parkautos(var)
     k['schilder'] = schilder(var, lanes, cross)

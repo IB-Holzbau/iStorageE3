@@ -29,3 +29,30 @@ Für jede Fahrbeziehung im Hauptknoten fahren Pkw und die schweren Fahrzeuge, di
 | WS | Lkw | 20.7 |
 | WS | Pkw | 0.0 |
 | WS | Sattelzug | 57.7 |
+
+## vorschlag1
+
+| Beziehung | Fahrzeug | außerhalb Fahrbahn m² |
+|---|---|---|
+| EN | Pkw | 0.0 |
+| ES | Pkw | 0.0 |
+| EW | Pkw | 0.0 |
+| NE | Pkw | 0.0 |
+| NS | Lkw | 7.7 |
+| NS | Pkw | 0.1 |
+| NW | Lkw | 1.6 |
+| NW | Pkw | 0.0 |
+| SE | Pkw | 0.0 |
+| SN | Lkw | 0.0 |
+| SN | Pkw | 0.0 |
+| SW | Gelenkbus 18 m | 6.9 |
+| SW | Lkw | 1.6 |
+| SW | Pkw | 0.0 |
+| SW | Sattelzug | 1.5 |
+| WE | Pkw | 3.5 |
+| WN | Lkw | 0.2 |
+| WN | Pkw | 0.0 |
+| WS | Gelenkbus 18 m | 71.1 |
+| WS | Lkw | 42.6 |
+| WS | Pkw | 7.2 |
+| WS | Sattelzug | 81.2 |
