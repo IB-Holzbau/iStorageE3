@@ -25,10 +25,10 @@ Für jede Fahrbeziehung im Hauptknoten fahren Pkw und die schweren Fahrzeuge, di
 | WE | Pkw | 0.0 |
 | WN | Lkw | 0.0 |
 | WN | Pkw | 0.0 |
-| WS | Gelenkbus 18 m | 52.6 |
-| WS | Lkw | 26.3 |
-| WS | Pkw | 0.4 |
-| WS | Sattelzug | 63.5 |
+| WS | Gelenkbus 18 m | 46.9 |
+| WS | Lkw | 20.7 |
+| WS | Pkw | 0.0 |
+| WS | Sattelzug | 57.7 |
 
 ## markierung
 
@@ -106,7 +106,7 @@ Für jede Fahrbeziehung im Hauptknoten fahren Pkw und die schweren Fahrzeuge, di
 | WE | Pkw | 0.0 |
 | WN | Lkw | 0.0 |
 | WN | Pkw | 0.0 |
-| WS | Gelenkbus 18 m | 59.3 |
+| WS | Gelenkbus 18 m | 59.4 |
 | WS | Lkw | 32.4 |
 | WS | Pkw | 0.9 |
 | WS | Sattelzug | 70.1 |

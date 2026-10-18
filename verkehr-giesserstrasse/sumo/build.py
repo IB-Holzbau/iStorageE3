@@ -127,6 +127,10 @@ def querschnitt(a, richtung, teil, var='bestand'):
         spuren = [('sperr', 3.6), ('kfz', 3.6)]
     if var == 'geschuetzt' and teil in ('m', 'f', 'b', 'innen'):
         spuren = [s for s in spuren if s[0] != 'park']
+    if var == 'bestand' and a == 'S' and richtung == 'out' and teil in ('m', ''):
+        # Falschparker im Halteverbot an der Kioskecke (Ortsbeobachtung): ein Lieferwagen steht
+        # 0,4 m in die Fahrspur, die Spur ist dort entsprechend schmaler
+        spuren = [('park', 2.6), ('kfz', 3.2)]
     if var in ECK_SPERR and a == 'E' and teil == 'm':
         # Grenzmarkierung (Zeichen 299) statt Parken an der Ecke, Sichtfeld frei
         spuren = [('sperr', w) if k == 'park' else (k, w) for k, w in spuren]
@@ -768,6 +772,7 @@ KFZ = {'SW': 260, 'WS': 240, 'SN': 200, 'NS': 130, 'NW': 78, 'WN': 60, 'NE': 10,
 LKW = {'SW': 8, 'WS': 8, 'NS': 4, 'SN': 3, 'NW': 2, 'WN': 2}
 SATTEL = {'SW': 3, 'WS': 3}
 RAD = {'SW': 45, 'WS': 45, 'SN': 25, 'NS': 30, 'WN': 22, 'NW': 15, 'EW': 8, 'WE': 8}
+KURZ_TAKT = 1800   # s je Kurzhalter-Fluss, drei Fluesse versetzt, zusammen etwa alle 10 Minuten einer
 BUS_TAKT = 6   # je Richtung und Stunde, Annahme 10-Minuten-Takt (Linien 60 und 60E)
 # Anteil der Geradeausfahrer Sued nach Nord, die die Linksabbiegespur nutzen (Ortsbeobachtung
 # Bestand etwa 25 %). Mit Tempo 30 und klarer Fuehrung weniger, mit Inseln kaum noch, im Kreisel nicht moeglich.
@@ -857,6 +862,19 @@ def nachfrage(var, bus, ende):
             flow(f'pkw_{rel}', 'pkw', rel, q * (1 - fs))
             if fs:
                 flow(f'pkw_{rel}.f', 'pkwf', rel, q * fs)
+    kurz = {'bestand': ((150, 90), (450, 150), (300, 120))}.get(var, ((150, 90), (900, 150)))
+    if var in ('bestand', 'markierung', 'zone', 'radwege'):
+        # Kurzhalter am Kiosk (Ortsbeobachtung, Schaetzung): etwa alle 10 Minuten haelt jemand im
+        # absoluten Haltverbot auf der Nordseite der Naumburger West, 1 bis 3 Minuten mit Warnblinker,
+        # und holt etwas am Kiosk. Halt mit parking=true, weil SUMO das Vorbeifahren ueber die
+        # Gegenspur nicht abbilden kann (sonst staut sich alles hinter dem Halter).
+        # Mit Grenzmarkierung und Kontrolle (Annahme, keine Poller) halb so oft.
+        takt = KURZ_TAKT if var == 'bestand' else 2400
+        kante_w = 'W_out_b' if var == 'radwege' else 'W_out'
+        for i, (beginn, dauer) in enumerate(kurz):
+            flows.append((beginn, f'    <flow id="pkw_SW.k{i}" type="pkw" begin="{beginn}" end="{ende}" period="{takt}" '
+                                  f'from="{KANTE["S"][0]}" to="{KANTE["W"][1]}" departLane="best" departSpeed="max">'
+                                  f'\n        <stop edge="{kante_w}" startPos="0.5" endPos="6.5" duration="{dauer}" parking="true"/>\n    </flow>'))
     for rel, q in LKW.items():
         flow(f'lkw_{rel}', 'lkw', rel, q)
     for rel, q in SATTEL.items():

@@ -112,4 +112,10 @@
     </flow>
     <flow id="bus_WS" type="bus" begin="120" end="4200" period="600" from="W_in" to="S_out_fern" departLane="best" departSpeed="max">
     </flow>
+    <flow id="pkw_SW.k0" type="pkw" begin="150" end="4200" period="2400" from="S_in_fern" to="W_out" departLane="best" departSpeed="max">
+        <stop edge="W_out" startPos="0.5" endPos="6.5" duration="90" parking="true"/>
+    </flow>
+    <flow id="pkw_SW.k1" type="pkw" begin="900" end="4200" period="2400" from="S_in_fern" to="W_out" departLane="best" departSpeed="max">
+        <stop edge="W_out" startPos="0.5" endPos="6.5" duration="150" parking="true"/>
+    </flow>
 </routes>

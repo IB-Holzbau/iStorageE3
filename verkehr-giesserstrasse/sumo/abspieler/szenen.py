@@ -50,6 +50,9 @@ SZENEN = [
     dict(nr=8, titel='Sicht vom Kiosk über die Naumburger Straße',
          text='Wer vom Kiosk über die Naumburger Straße West will, sieht wegen Schaltkasten und Parkern die Autos spät. Grüne Linien zeigen, wen die Person sieht, rote gestrichelte, wer verdeckt ist.',
          kennzahl=('fuss', 'Fußgänger auf der Querung bedrängt')),
+    dict(nr=9, titel='Kurzhalter am Kiosk im Haltverbot',
+         text='Jemand hält mit Warnblinker im absoluten Haltverbot auf der Nordseite der Naumburger Straße und holt schnell etwas am Kiosk. Der Wagen verdeckt die Sicht, die Person quert die Straße. Die Person ist nur gezeichnet, SUMO lässt die anderen Fahrzeuge am Halter vorbei.',
+         kennzahl=None),
 ]
 
 
@@ -238,6 +241,21 @@ def s7_bus(zeit, konf):
     return best
 
 
+def s9_kurz(zeit, konf):
+    steh = defaultdict(float)
+    best = None
+    for t, fz, ps in zeit:
+        for v in fz:
+            if '.k' in v[0] and v[4] < 0.1 and v[1] < -8:
+                steh[v[0]] += DT
+                if im_fenster(t) and steh[v[0]] > 20:
+                    nah = sum(1 for o in fz if o[0] != v[0] and o[4] > 2 and math.hypot(o[1] - v[1], o[2] - v[2]) < 25)
+                    sc = nah - abs(steh[v[0]] - 40) * 0.05
+                    if best is None or sc > best[0]:
+                        best = (sc, t, [v[0], 'kurz_' + v[0]], (v[1], v[2]), {})
+    return best
+
+
 def s8_kiosk(zeit, konf, mw):
     warte = defaultdict(float)
     best = None
@@ -267,6 +285,7 @@ def ausschnitt(zeit, konf, te, fokus, export):
             for p in ps:
                 roh['p:' + p[0]].append((fr, p[1], p[2], 0.0, ''))
     tracks, ids = export.kodiere(roh, DT, fenster=False)
+    kurz = [k for k, i in enumerate(ids) if '.k' in i and not i.startswith('p:')]
     fk = []
     for f in fokus:
         for key in (f, 'p:' + f):
@@ -276,13 +295,14 @@ def ausschnitt(zeit, konf, te, fokus, export):
     ringe = [[round(c['t'] - t0, 1), round(c['x'], 2), round(-c['y'], 2), 'k', 1 if c['wert'] < 1 else 0]
              for c in konf if t0 <= c['t'] <= t1 and not c['langsam']]
     return dict(n=int(round((t1 - t0) / DT)) + 1, schritt=DT, tracks=tracks, konflikte=sorted(ringe),
-                te=round(te - t0, 1), fokus=fk)
+                te=round(te - t0, 1), fokus=fk, kurz=kurz)
 
 
 def baue(varianten, export, mn, mw):
     """Gibt {'liste': SZENEN ohne Suchfunktion, 'clips': {nr: {var: clip}}} zurueck."""
     filter_ = {1: lambda z, k: s1_nordquerung(z, k, mn), 2: s2_rad_links, 3: s3_nord_ost, 4: s4_engstelle,
-               5: s5_stopp, 6: lambda z, k: s6_fehlspur(z, k, mn), 7: s7_bus, 8: lambda z, k: s8_kiosk(z, k, mw)}
+               5: s5_stopp, 6: lambda z, k: s6_fehlspur(z, k, mn), 7: s7_bus, 8: lambda z, k: s8_kiosk(z, k, mw),
+               9: s9_kurz}
     clips = defaultdict(dict)
     texte = defaultdict(dict)
     for var in varianten:

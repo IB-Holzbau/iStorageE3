@@ -159,6 +159,7 @@ details ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
         <span><i class="sw" style="background:#2e7d32;width:10px"></i>Rad</span>
         <span><i class="sw" style="background:#1b2129;width:9px;border-radius:50%"></i>Fußgänger</span>
         <span><i class="sw" style="background:#8c919a"></i>parkend</span>
+        <span><i class="sw" style="background:#e9e6df;outline:2px dashed #d62828;outline-offset:1px"></i>Falschparker bzw. Kurzhalter im Haltverbot</span>
       </div>
     </div>
     <aside class="side">
@@ -199,8 +200,8 @@ details ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px}
 const D=/*__DATEN__*/null;
 const NS='http://www.w3.org/2000/svg';
 const VAR=[
-  {id:'bestand',t:'Bestand',k:'heute',x:'Abknickende Vorfahrt von Süd nach West, Stoppschild am Nordarm, Ost wartepflichtig. Tempo 50 auf der Gießerstraße, Tempo 30 auf der Naumburger Straße West (Streckenschild) und Tempo-30-Zone Ost. Auf der Ostseite wird bis an die Ecke geparkt.'},
-  {id:'markierung',t:'Markierung',k:'Tempo 30',x:'Vorfahrt wie heute, aber Tempo 30 auf allen Armen (Zeichen 274, eine Zone ist an einer Vorfahrtstraße nicht zulässig). Klarer Bogen der Vorfahrt, durchgezogene Linie zwischen Links- und Geradeausspur, Grenzmarkierung (Zeichen 299) an der Ostecke statt Parken, breitere Haltlinie Nord und Wartelinie Ost, zusätzliche Vorfahrtschilder. Keine Zebrastreifen.'},
+  {id:'bestand',t:'Bestand',k:'heute',x:'Abknickende Vorfahrt von Süd nach West, Stoppschild am Nordarm, Ost wartepflichtig. Tempo 50 auf der Gießerstraße, Tempo 30 auf der Naumburger Straße West (Streckenschild) und Tempo-30-Zone Ost. Auf der Ostseite wird bis an die Ecke geparkt. An der Kioskecke stehen oft Falschparker im Haltverbot.'},
+  {id:'markierung',t:'Markierung',k:'Tempo 30',x:'Vorfahrt wie heute, aber Tempo 30 auf allen Armen (Zeichen 274, eine Zone ist an einer Vorfahrtstraße nicht zulässig). Klarer Bogen der Vorfahrt, durchgezogene Linie zwischen Links- und Geradeausspur, Grenzmarkierung (Zeichen 299) an der Ostecke statt Parken und im Haltverbot an der Kioskecke gegen Falschparker, breitere Haltlinie Nord und Wartelinie Ost, zusätzliche Vorfahrtschilder. Keine Zebrastreifen.'},
   {id:'zone',t:'Tempo-30-Zone',k:'rechts vor links',x:'Alle Vorfahrtschilder entfallen, in der Zone gilt rechts vor links und Tempo 30 (Zeichen 274.1). Grenzmarkierung an der Ostecke wie bei Markierung. Keine Zebrastreifen, keine Wartelinien.'},
   {id:'radwege',t:'Rote Radwege',k:'Radfahrstreifen',x:'Wie Markierung mit Tempo 30, dazu rot eingefärbte Radfahrstreifen auf der Gießerstraße Süd in beiden Richtungen und auf den letzten 30 m der Naumburger Straße West Richtung Knoten, rote Furten durch den Knoten. Nord- und Ostarm sind zu schmal, dort Piktogramme. Dafür entfallen Parkplätze auf der Westseite der Gießerstraße Süd.'}
 ];
@@ -240,7 +241,7 @@ function decode(v){
     tr.push({typ,f0:d[1],n,xs,ys,a1,a2,bl,idx:tr.length});
   }
   const k=raw.konflikte.map(c=>({t:c[0],x:c[1],y:c[2],k:c[3],s:c[4]}));
-  return cache[v]={tr,k,n:raw.n,karte:raw.karte,dt:raw.schritt||D.schritt,te:raw.te,fokus:raw.fokus||[],ort:raw.ort,text:raw.text,zeit:raw.zeit};
+  return cache[v]={tr,k,n:raw.n,karte:raw.karte,kurz:raw.kurz||[],dt:raw.schritt||D.schritt,te:raw.te,fokus:raw.fokus||[],ort:raw.ort,text:raw.text,zeit:raw.zeit};
 }
 // ---------- Schilder
 // Verkehrszeichen nach StVO-Vorlage (vereinfachte Proportionen), Groesse s in Metern der Karte
@@ -345,6 +346,12 @@ function zeichneKarte(k){
     el('rect',{x:-2.2,y:-.88,width:4.4,height:1.76,rx:.5,fill:PARKC[c],stroke:'#fff','stroke-width':.12},g);
     el('rect',{x:.4,y:-.68,width:.8,height:1.36,rx:.2,fill:'#fff','fill-opacity':.45},g);
   }
+  for(const [x,y,r,L,B] of (k.falsch||[])){
+    const g=el('g',{transform:`translate(${x} ${y}) rotate(${r})`},gPark);
+    el('rect',{x:-L/2,y:-B/2,width:L,height:B,rx:.45,fill:L>5?'#e9e6df':'#8c919a',stroke:'#fff','stroke-width':.12},g);
+    el('rect',{x:-L/2-.35,y:-B/2-.35,width:L+.7,height:B+.7,rx:.6,fill:'none',stroke:'#d62828','stroke-width':.2,'stroke-dasharray':'.6 .4'},g);
+    el('title',{},g).textContent='Falschparker im absoluten Haltverbot';
+  }
   if(k.haeuschen)el('path',{d:k.haeuschen,fill:'#9fb7c9',stroke:'#4a6274','stroke-width':.15},gStatic);
   if(k.kasten){el('path',{d:k.kasten,fill:'#7d8288',stroke:'#3d4247','stroke-width':.12},gStatic);}
   if(k.kiosk){const [x,y]=k.kiosk;
@@ -384,7 +391,9 @@ function baueAgent(t){
     el('rect',{x:-3.6,y:-.925,width:4.5,height:1.85,rx:.6,fill:c,stroke:'rgba(0,0,0,.35)','stroke-width':.08},s);
     el('rect',{x:-.95,y:-.74,width:.75,height:1.48,rx:.2,fill:'#dfe9f2','fill-opacity':.85},s);
     el('rect',{x:-3.25,y:-.7,width:.45,height:1.4,rx:.15,fill:'#dfe9f2','fill-opacity':.6},s);
-    bl=blinker(s,3.6,1.85,.9);segs.push(s);return {g,segs,bl};}
+    bl=blinker(s,3.6,1.85,.9);segs.push(s);
+    let rahmen=null;if((decode(ds).kurz||[]).includes(t.idx)){rahmen=el('rect',{x:-3.95,y:-1.27,width:5.2,height:2.55,rx:.7,fill:'none',stroke:'#d62828','stroke-width':.2,'stroke-dasharray':'.6 .4',visibility:'hidden'},s);el('title',{},s).textContent='Kurzhalter im absoluten Haltverbot, Warnblinker';}
+    return {g,segs,bl,rahmen};}
   if(t.typ==='lkw'){const s=el('g',{},g);
     el('rect',{x:-8.6,y:-1.25,width:7.7,height:2.5,rx:.3,fill:'#f3efe6',stroke:'#8a8172','stroke-width':.12},s);
     el('rect',{x:-.8,y:-1.2,width:2.2,height:2.4,rx:.45,fill:'#e07b00'},s);
@@ -444,7 +453,8 @@ function render(){
       place(a.segs[1],Hx,Hy,h2);
     }
     const b=t.bl[k];
-    for(const c of a.bl){const s=+c.getAttribute('data-s');c.setAttribute('visibility',b&&blinkAn&&((b===1&&s<0)||(b===2&&s>0))?'visible':'hidden');}
+    for(const c of a.bl){const s=+c.getAttribute('data-s');c.setAttribute('visibility',b&&blinkAn&&(b===3||(b===1&&s<0)||(b===2&&s>0))?'visible':'hidden');}
+    if(a.rahmen)a.rahmen.setAttribute('visibility',b===3?'visible':'hidden');
   }
   for(const [id,a] of aktiv)if(!seen.has(id)){a.g.remove();aktiv.delete(id);}
   gFx.replaceChildren();gSicht.replaceChildren();
@@ -471,6 +481,8 @@ function hindernisse(V){
   polys.push(D.kasten);
   for(const [x,y,r] of decode(szVar).karte.park){const a=r*Math.PI/180,c=Math.cos(a),s=Math.sin(a);
     polys.push([[-2.2,-.88],[2.2,-.88],[2.2,.88],[-2.2,.88]].map(([u,v])=>[x+u*c-v*s,y+u*s+v*c]));}
+  for(const [x,y,r,L,B] of (decode(szVar).karte.falsch||[])){const a=r*Math.PI/180,c=Math.cos(a),s=Math.sin(a);
+    polys.push([[-L/2,-B/2],[L/2,-B/2],[L/2,B/2],[-L/2,B/2]].map(([u,v])=>[x+u*c-v*s,y+u*s+v*c]));}
   return polys;
 }
 function fzPoly(L){

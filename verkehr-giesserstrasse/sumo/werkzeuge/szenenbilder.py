@@ -22,7 +22,7 @@ with sync_playwright() as p:
     pg.goto('file://' + os.path.join(ROOT, 'grafik', 'abspieler.html'))
     pg.wait_for_timeout(700)
     pg.evaluate("window.__abspieler.setModus('sz')")
-    for nr in range(1, 9):
+    for nr in range(1, 10):
         te = pg.evaluate(f"(()=>{{const c=window.__abspieler.daten().szenen.clips[{nr}];return c&&c['{VAR}']?c['{VAR}'].te:null}})()")
         if te is None:
             print('Szene', nr, 'fehlt in', VAR)

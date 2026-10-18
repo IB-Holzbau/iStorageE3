@@ -183,9 +183,55 @@ def blinker_regeln(vid, typ, ab, blink, dt):
     return out
 
 
+def kurzhalter_fussweg(roh, dt):
+    """Fuer jeden Kurzhalter (Fahrzeug-ID mit .k) einen Fussgaenger erzeugen, der waehrend des Halts
+    vom Auto ueber die Westquerung zum Kiosk geht und zurueck. Nur Darstellung, die Person ist nicht
+    Teil der SUMO-Rechnung."""
+    ziel = punkt('W', 'in', 12.0, 1.2)
+    neu = {}
+    for vid, seq in roh.items():
+        if '.k' not in vid or vid.startswith(('p:', 'd:')):
+            continue
+        steh = [p for a, p in zip(seq, seq[1:]) if abs(a[1] - p[1]) < 0.02 and abs(a[2] - p[2]) < 0.02]
+        if len(steh) * dt < 30:
+            continue
+        f0, f1 = steh[0][0], steh[-1][0]
+        x0, y0 = steh[0][1], steh[0][2]
+        tuer = punkt('W', 'out', 13.0, 0.6)
+        weg = [(x0, y0), tuer, ziel]
+        laenge = sum(math.hypot(b[0] - a[0], b[1] - a[1]) for a, b in zip(weg, weg[1:]))
+        n_geh = int(laenge / 1.3 / dt)
+        frames = []
+        start = f0 + int(4 / dt)
+        zurueck = f1 - int(3 / dt) - n_geh
+        if zurueck <= start + n_geh:
+            continue
+
+        def ort(f):
+            t = f / n_geh * laenge
+            for a, b in zip(weg, weg[1:]):
+                d = math.hypot(b[0] - a[0], b[1] - a[1])
+                if t <= d:
+                    return (a[0] + (b[0] - a[0]) * t / d, a[1] + (b[1] - a[1]) * t / d)
+                t -= d
+            return weg[-1]
+        for f in range(start, f1 - int(3 / dt) + 1):
+            if f < start + n_geh:
+                x, y = ort(f - start)
+            elif f < zurueck:
+                x, y = ziel
+            else:
+                x, y = ort(n_geh - min(n_geh, f - zurueck))
+            frames.append((f, x, y, 0.0, ''))
+        if frames:
+            neu['p:kurz_' + vid] = frames
+    roh.update(neu)
+
+
 def kodiere(roh, dt, fenster=True):
     """Kodiert Bahnen fuer den Abspieler. roh ist id -> [(frame, x, y, winkel, spur)], Frames unter 0
     sind Vorlauf fuer die Schleppkurve. Fahrzeuge mit Lenkgeometrie, Fussgaenger als Punkte."""
+    kurzhalter_fussweg(roh, dt)
     out, ids = [], []
     for vid, seq in roh.items():
         if vid.startswith(('p:', 'd:')):
@@ -225,6 +271,12 @@ def kodiere(roh, dt, fenster=True):
                         ys[i] -= math.sin(a) * off
                 poses = K.posen(ktyp, xs, ys, ws, dt, K.ausholen_fuer(vid))
                 blink = blinker_regeln(vid, ktyp, ab, None, dt) if ktyp != 'rad' else [0] * len(xs)
+                if '.k' in vid:
+                    # Kurzhalter: Warnblinker (3) waehrend des Halts
+                    for i in range(1, len(ab)):
+                        if abs(ab[i][1] - ab[i - 1][1]) < 0.02 and abs(ab[i][2] - ab[i - 1][2]) < 0.02:
+                            blink[i] = 3
+                            blink[i - 1] = 3
             # nur Frames ab Fensterbeginn
             k0 = next((i for i, p in enumerate(ab) if p[0] >= 0), None)
             if k0 is None:
@@ -356,7 +408,8 @@ def bahnen_und_konflikte(var, f):
         konf.append([round(zeit, 1), r2(x), r2(-y), 'a' if art in (1, 2, 3, 4, 18) else 'k', 1 if schwer else 0])
     konf += fuss_konf
     konf.sort()
-    return {'n': n_frames, 'tracks': out, 'konflikte': konf, 'rel': [relation(i) if not i.startswith(('p:', 'd:')) else '' for i in ids]}
+    return {'n': n_frames, 'tracks': out, 'konflikte': konf, 'rel': [relation(i) if not i.startswith(('p:', 'd:')) else '' for i in ids],
+            'kurz': [k for k, i in enumerate(ids) if '.k' in i and not i.startswith('p:')]}
 
 
 # ---------------------------------------------------------------- Karte
@@ -578,6 +631,12 @@ def schilder(var, lanes, cross):
             for a in 'SN':
                 sg(a, 'in', 27.0, 2.4, 't30')
     sg('W', 'in', 38.0, 0.6, 'hv', 'Mo–Fr 6–14 h')
+    # absolutes Haltverbot Naumburger West Nordseite (Kurzhalter zum Kiosk)
+    sg('W', 'out', 13.0, 0.6, 'hv', 'Anfang ←', zu_fahrer='out')
+    if var != 'radwege':
+        # absolutes Haltverbot Giesserstrasse Sued Westseite von der Kioskecke bis zur Parkreihe
+        sg('S', 'out', 11.0, 0.6, 'hv', 'Anfang ↓', zu_fahrer='out')
+        sg('S', 'out', 44.0, 0.6, 'hv', '↑ Ende', zu_fahrer='out')
     sg('N', 'in', 30.5, 0.6, 'hv', '', teil='')
     for c in cross:
         if c['zebra']:
@@ -604,6 +663,16 @@ def radfurten(var):
             if len(pts) >= 2 and LineString(pts).length > 2:
                 out.append(pts)
     return out
+
+
+def grenzmarkierung_rand(a, seite, s0, s1, teil='m'):
+    # Zeichen 299 als schmales Zickzack (1,2 m) am Fahrbahnrand, wo kein Parkstreifen ist
+    r = rahmen(a, teil)
+    q_aussen = kante_q(a, seite, True, teil)
+    sg_ = 1 if seite == 'out' else -1
+    qa, qi = q_aussen - sg_ * 0.2, q_aussen - sg_ * 1.2
+    n = max(int((s1 - s0) / 1.2), 2)
+    return linie([r.punkt(s0 + (s1 - s0) * i / n, qa if i % 2 else qi) for i in range(n + 1)])
 
 
 def grenzmarkierung(a, seite, s0, s1, teil='m'):
@@ -772,6 +841,21 @@ def karte(var, bauten):
             k['haeuschen'] = pfad(Polygon(hh))
     if var in B.ECK_SPERR:
         k['grenz'] = [grenzmarkierung('E', 'in', 9.6, 16.6)]
+        if var != 'radwege':
+            # Grenzmarkierung im Halteverbot an der Kioskecke, damit dort weniger gehalten wird
+            k['grenz'].append(grenzmarkierung('S', 'out', 11.0, 44.0))
+        # Grenzmarkierung im Halteverbot Naumburger West Nordseite (Kurzhalter), am Fahrbahnrand
+        k['grenz'].append(grenzmarkierung_rand('W', 'out', 12.5, 30.0))
+    if var in ('bestand', 'markierung', 'zone'):
+        # Falschparker im Halteverbot an der Kioskecke (Ortsbeobachtung: meist 1 bis 2 Fahrzeuge,
+        # mit Grenzmarkierung und Kontrolle angenommen 0 bis 1, gezeichnet 1)
+        r = rahmen('S')
+        q_aussen = kante_q('S', 'out', True)
+        k['falsch'] = []
+        for s0, lang, breit in (((13.0, 5.6, 2.1), (22.0, 4.5, 1.85)) if var == 'bestand' else ((22.0, 4.5, 1.85),)):
+            p = r.punkt(s0 + lang / 2, q_aussen - 0.25 - breit / 2)
+            pr = r.punkt(s0 + lang / 2 + 1, q_aussen - 0.25 - breit / 2)
+            k['falsch'].append([r2(p[0]), r2(-p[1]), winkel_svg(pr[0] - p[0], pr[1] - p[1]), lang, breit])
     if var in ('markierung', 'radwege'):
         k['deutlich'] = 1          # breitere Haltlinie Nord und Wartelinie Ost
     if var == 'radwege':

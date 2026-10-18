@@ -73,6 +73,9 @@ Die Initiative hat im Oktober 2026 Luftbilder (Geoportal Leipzig, Google), Stra�
 | Diagonalquerer | wenige Leute gehen schräg über den Knoten zum Kiosk, aber nur, wenn wirklich frei ist | siehe unten, ohne Gewicht im Vergleich |
 | Kiosk Südwestecke | „Lebensmittel A. Prinz“ in der abgeschrägten Hausecke, Bordstein folgt der Abschrägung | gezeichnet |
 | Schaltkasten | großer Verteilerkasten mit Werbung auf dem Gehweg der Naumburger Seite an der Südwestecke, Sichthindernis | gezeichnet, Sichtbehinderung nicht modelliert |
+| Haltverbot Gießerstraße Süd Westseite | absolutes Haltverbot von der Kioskecke bis zur Parkreihe, oft missachtet, meist 1 bis 2 Falschparker (Lieferwagen, Pkw am Kiosk) | Schilder 283 Anfang und Ende. Bestand mit 2 Falschparkern (rot gestrichelt), ein Lieferwagen ragt 0,4 m in die Fahrspur (Spur dort 3,2 statt 3,6 m), sie verdecken Sichtlinien. Markierung und Zone mit Grenzmarkierung 299, angenommen nur noch 0 bis 1 (gezeichnet 1), Radwege mit Radfahrstreifen ohne Falschparker |
+| Kurzhalter Naumburger West Nordseite | absolutes Haltverbot, trotzdem hält oft jemand 1 bis 3 Minuten mit Warnblinker und holt etwas am Kiosk | Bestand etwa alle 10 Minuten einer (3 versetzte Flüsse, 90 bis 150 s Halt), in SUMO mit `parking=true`, weil SUMO das Vorbeifahren über die Gegenspur nicht abbildet. Im Abspieler Warnblinker, rot gestrichelter Rahmen und eine gezeichnete Person, die zum Kiosk und zurück geht (nur Darstellung). In den Varianten Grenzmarkierung am Fahrbahnrand, angenommen halb so oft |
+| Poller | kommen für die Initiative nicht in Frage | in keiner Variante, Halteverbote nur über Markierung, Beschilderung und Kontrolle (Annahme) |
 | Baustellenschilder 2023 | Halteverbot und Gefahrzeichen an der Kioskecke waren mobil | nicht gezeichnet |
 
 ## Modellaufbau
@@ -191,8 +194,9 @@ Im Abspieler gibt es neben dem freien Abspielen den Modus **Kritische Szenen**. 
 | 6 | Ohne Blinker geradeaus aus der Abbiegespur | Geradeausfahrer in der Linksabbiegespur nahe der Nordquerung, mit Fußgänger dort |
 | 7 | Bus wechselt nach dem Halt quer auf die Abbiegespur | Spurwechsel eines Busses nach West mit dem meisten Verkehr ringsum |
 | 8 | Sicht vom Kiosk über die Naumburger Straße | Person wartet an der Westquerung auf der Kioskseite, viele Fahrzeuge in Sicht |
+| 9 | Kurzhalter am Kiosk im Haltverbot | Kurzhalter auf der Nordseite West steht, viel Verkehr ringsum |
 
-Alle acht Szenen kommen in allen vier Varianten vor. `python3 werkzeuge/szenenbilder.py <ordner> [variante]` macht Bilder am kritischen Moment.
+Alle neun Szenen kommen in allen vier Varianten vor. `python3 werkzeuge/szenenbilder.py <ordner> [variante]` macht Bilder am kritischen Moment.
 
 **Blinken (Ortsbeobachtung, Schätzung).** Geradeausfahrer (Süd nach Nord, Nord nach Süd, West nach Ost, Ost nach West) blinken nie, auch nicht beim Spurwechsel am Südarm oder wenn sie in der Linksabbiegespur fahren. Abbieger, auch auf der abknickenden Vorfahrt, blinken zu etwa 88 %, und zwar nach ihrer Route ab etwa 35 m vor der Knotenmitte bis zum Verlassen des Knotens, danach sofort aus. Beim Einordnen und Busse beim Ein- und Ausschwenken an der Haltestelle blinkt es zur Seite des Spurwechsels. Busse blinken immer. Der Test prüft, dass niemand im Knotenbereich entgegen seiner Abbiegerichtung oder nach dem Verlassen des Knotens blinkt. Das ist nur im Abspieler dargestellt. In SUMO selbst wirkt das Blinken nicht, wartende Fahrer und Fußgänger kennen dort die Absicht der anderen. Die Unsicherheit durch fehlende Blinker ist deshalb in den Kennzahlen nicht enthalten, sie zeigt sich nur in Szene 6.
 
