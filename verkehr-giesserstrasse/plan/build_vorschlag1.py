@@ -173,6 +173,9 @@ def overlay():
     s.append(linie(offset(wl, 0.75), 0.15, '0.8 0.8'))
     s.append(rad(-17, -2.75, 82, links=True))
     s.append(f'<path d="{d(bogen((-11.6, -1.9), (0.99, 0.135), (3.8, -9.0), (0.124, -0.992), 7.0))}" fill="none" stroke="#e8a33d" stroke-width="1.3" stroke-opacity="0.8" stroke-dasharray="0.8 0.6"/>')
+    # Mittellinie der abknickenden Vorfahrt (Leitlinie) vom Südarm durch den Knoten in die Naumburger West
+    ml = bogen((-2.9, 14.5), (0.195, -0.98), (-24.0, -4.4), (-0.99, -0.138), 8.0)
+    s.append(linie(ml, 0.16, '1.5 1.5'))
     # Nummern
     for (x, y, n) in [(-36, 3.4, 1), (-6.5, -9.5, 2), (-6.3, 21.5, 3), (6.0, 18.0, 4), (3.6, 32.0, 5), (-24, -0.9, 6)]:
         s.append(nummer(x, y, n))
