@@ -523,7 +523,7 @@ def baue_variante(var, arme):
 ZULAUF_NORD = os.environ.get('ZULAUF_NORD', '1') != '0'   # 0 = alter gleichmaessiger Zulauf zum Vergleich
 AMPEL_ABSTAND = 350.0      # m von der Knotenmitte
 AMPEL_VORLAUF = 100.0      # m Einfahrstrecke vor der Ampel
-AMPEL_GRUEN, AMPEL_GELB, AMPEL_ROT = 35, 3, 42
+AMPEL_GRUEN, AMPEL_GELB, AMPEL_ROT = int(os.environ.get('KAL_GRUEN', '35')), 3, 80 - 3 - int(os.environ.get('KAL_GRUEN', '35'))
 ZULAUF_KANTEN = ('N_vor', 'N_zu', 'N_ab', 'N_weg')
 
 
@@ -817,16 +817,15 @@ def netconvert(prefix, net):
 
 # ---------------------------------------------------------------- Nachfrage
 # Spitzenstunde aus dem Browsermodell (modell/src/sim.js, DEMAND), Fahrzeuge je Stunde.
-# Zufluss Nord nach Ortsbeobachtung erhoeht (am Stoppschild warten haeufig 1 bis 3 Fahrzeuge).
-# Gewuenscht waren rund 300 Kfz je Stunde (60 % Sued, 35 % West, 5 % Ost). Damit ist der Nordarm
-# im Modell ueberlastet (Zeitverlust 80 bis 290 s, Schlange waechst). Gewaehlt sind 224 Kfz je
-# Stunde in derselben Aufteilung: die Haelfte der Zeit wartet mindestens ein Fahrzeug, ein Viertel
-# der Zeit zwei oder mehr, stabil (Schaetzung, siehe README).
+# Zufluss Nord kalibriert an der Ortsbeobachtung: am Stopp Nord stehen hoechstens etwa 6 Autos,
+# typisch 1 bis 3. Mit Pulks von der Ampel in 350 m ergibt das 157 Kfz je Stunde (frueher 224,
+# Aufteilung gleich, etwa 60 % Sued, 35 % West, 5 % Ost) zusammen mit der Lueckenannahme unten
+# (impatience 1,0, jmTimegapMinor 0,6 s). Kalibrierlaeufe siehe README.
 # Sued nach Nord nach Ortsbeobachtung erhoeht: viele fahren zuegig geradeaus durch (Schaetzung 200
 # statt 110 Pkw je Stunde in der Morgenspitze).
-KFZ = {'SW': 260, 'WS': 240, 'SN': 200, 'NS': 130, 'NW': 78, 'WN': 60, 'NE': 10,
+KFZ = {'SW': 260, 'WS': 240, 'SN': 200, 'NS': 91, 'NW': 55, 'WN': 60, 'NE': 7,
        'SE': 20, 'WE': 20, 'EW': 22, 'ES': 10, 'EN': 12}
-LKW = {'SW': 8, 'WS': 8, 'NS': 4, 'SN': 3, 'NW': 2, 'WN': 2}
+LKW = {'SW': 8, 'WS': 8, 'NS': 3, 'SN': 3, 'NW': 1, 'WN': 2}
 SATTEL = {'SW': 3, 'WS': 3}
 RAD = {'SW': 45, 'WS': 45, 'SN': 25, 'NS': 30, 'WN': 22, 'NW': 15, 'EW': 8, 'WE': 8}
 KURZ_TAKT = 1800   # s je Kurzhalter-Fluss, drei Fluesse versetzt, zusammen etwa alle 10 Minuten einer
@@ -870,26 +869,31 @@ FUSS_GESCH = {('W_out', 3): ('W_out_b', 1), ('W_in', -3): ('gWi', 1), ('S_in', -
 # Bogen hoechstens 20 km/h, und wer aus West nach Nord abbiegt, wartet klar auf ihn (StVO, er
 # verlaesst die Vorfahrtstrasse nach links).
 EMPFEHLUNG = {'markierung', 'radwege'}
-IMPATIENCE_SICHT = 0.5         # 0,35 und 0,25 getestet, siehe README (Sensitivitaet)
+IMPATIENCE_SICHT = None        # None = wie IMPATIENCE. 0,35 und 0,25 getestet, siehe README (Sensitivitaet)
 BOGEN_TEMPO = None          # 20 km/h getestet: mehr schwere Konflikte, verworfen
 W_N_WARTET = False          # getestet: keine Verbesserung, verworfen
 
-# impatience 0.5: Wartepflichtige akzeptieren nach laengerem Warten kleinere Luecken.
-IMPATIENCE = 0.5
+# Lueckenannahme der Wartepflichtigen, kalibriert an der Schlange am Stopp Nord (siehe README).
+# impatience 1,0: wer laenger wartet, nimmt deutlich kleinere Luecken (SUMO-Bereich 0 bis 1,
+# vorher 0,5). jmTimegapMinor 0,6 s: Zeitluecke vor einem bevorrechtigten Fahrzeug (SUMO-Standard
+# 1 s). Mit nur angepasster Menge haette Nord unter 150 Kfz je Stunde sinken muessen. Gilt fuer alle
+# Varianten gleich. Umgebungsvariablen KAL_IMP und KAL_TGM nur fuer Kalibrierlaeufe.
+IMPATIENCE = float(os.environ.get('KAL_IMP', '1.0'))
+TIMEGAP_MINOR = float(os.environ.get('KAL_TGM', '0.6'))
 
 # Schnelle Fahrer (Ortsbeobachtung, Schaetzung): aus Sued und West faehrt ein Teil deutlich zu
 # schnell, bei Tempo 50 etwa 20 % mit 10 bis 15 km/h darueber, bei Tempo 30 etwa 10 % mit 5 bis
 # 10 km/h darueber.
 SCHNELL = {50: (0.20, 'normc(1.25,0.04,1.18,1.32)'), 30: (0.10, 'normc(1.25,0.05,1.15,1.35)')}
 
-VTYPES = '''    <vType id="pkw" impatience="{imp}" vClass="passenger" length="4.5" width="1.85" accel="2.6" decel="4.5" sigma="0.5" speedFactor="normc(1,0.1,0.8,1.3)"/>
-    <vType id="pkwf" impatience="{imp}" vClass="passenger" length="4.5" width="1.85" accel="2.8" decel="4.5" sigma="0.4" speedFactor="{schnell}"/>
-    <vType id="pkwn" impatience="{impn}" vClass="passenger" length="4.5" width="1.85" accel="2.6" decel="4.5" sigma="0.5" speedFactor="normc(1,0.1,0.8,1.3)"/>
-    <vType id="pkwx" impatience="{imp}" vClass="taxi" length="4.5" width="1.85" accel="2.6" decel="4.5" sigma="0.5" speedFactor="normc(1,0.1,0.8,1.3)"/>
-    <vType id="lkw" impatience="{imp}" vClass="truck" length="10.0" width="2.5" accel="1.3" decel="4.0" sigma="0.5" maxSpeed="12.5" speedFactor="normc(1,0.05,0.8,1.1)"/>
-    <vType id="sattel" impatience="{imp}" vClass="truck" length="16.5" width="2.55" accel="1.0" decel="4.0" sigma="0.5" maxSpeed="11.7" guiShape="truck/semitrailer"/>
-    <vType id="bus" impatience="{imp}" vClass="bus" length="18.0" width="2.55" accel="1.1" decel="4.0" sigma="0.3" maxSpeed="11.1" guiShape="bus/flexible" personCapacity="100"/>
-    <vType id="rad" impatience="{imp}" vClass="bicycle" length="1.8" width="0.8" accel="1.0" decel="3.0" sigma="0.5" maxSpeed="6.5" speedFactor="normc(0.85,0.15,0.5,1.2)"/>
+VTYPES = '''    <vType id="pkw" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="passenger" length="4.5" width="1.85" accel="2.6" decel="4.5" sigma="0.5" speedFactor="normc(1,0.1,0.8,1.3)"/>
+    <vType id="pkwf" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="passenger" length="4.5" width="1.85" accel="2.8" decel="4.5" sigma="0.4" speedFactor="{schnell}"/>
+    <vType id="pkwn" impatience="{impn}" jmTimegapMinor="{tgm}" vClass="passenger" length="4.5" width="1.85" accel="2.6" decel="4.5" sigma="0.5" speedFactor="normc(1,0.1,0.8,1.3)"/>
+    <vType id="pkwx" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="taxi" length="4.5" width="1.85" accel="2.6" decel="4.5" sigma="0.5" speedFactor="normc(1,0.1,0.8,1.3)"/>
+    <vType id="lkw" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="truck" length="10.0" width="2.5" accel="1.3" decel="4.0" sigma="0.5" maxSpeed="12.5" speedFactor="normc(1,0.05,0.8,1.1)"/>
+    <vType id="sattel" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="truck" length="16.5" width="2.55" accel="1.0" decel="4.0" sigma="0.5" maxSpeed="11.7" guiShape="truck/semitrailer"/>
+    <vType id="bus" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="bus" length="18.0" width="2.55" accel="1.1" decel="4.0" sigma="0.3" maxSpeed="11.1" guiShape="bus/flexible" personCapacity="100"/>
+    <vType id="rad" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="bicycle" length="1.8" width="0.8" accel="1.0" decel="3.0" sigma="0.5" maxSpeed="6.5" speedFactor="normc(0.85,0.15,0.5,1.2)"/>
     <vType id="fuss" vClass="pedestrian" width="0.6" length="0.3" speedFactor="normc(1,0.15,0.6,1.4)" jmDriveAfterRedTime="-1"/>
     <vType id="kiwa" vClass="pedestrian" width="0.7" length="1.8" maxSpeed="1.0" desiredMaxSpeed="1.0" speedFactor="normc(1,0.05,0.9,1.1)" jmDriveAfterRedTime="-1"/>'''
 
@@ -911,7 +915,7 @@ def nachfrage(var, bus, ende):
     stopp = stopp_kante(var)
     lim = 50 if var == 'bestand' else 30
     anteil_schnell, faktor = SCHNELL[lim]
-    z = ['<routes>', VTYPES.replace('{imp}', str(IMPATIENCE)).replace('{schnell}', faktor).replace('{impn}', str(IMPATIENCE_SICHT))]
+    z = ['<routes>', VTYPES.replace('{tgm}', str(TIMEGAP_MINOR)).replace('{imp}', str(IMPATIENCE)).replace('{schnell}', faktor).replace('{impn}', str(IMPATIENCE if IMPATIENCE_SICHT is None else IMPATIENCE_SICHT))]
     flows = []
 
     def flow(fid, typ, rel, q):
