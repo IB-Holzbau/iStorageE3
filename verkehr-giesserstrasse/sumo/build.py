@@ -35,6 +35,9 @@ PLAIN = os.environ.get('SUMO_PLAIN', os.path.join(ROOT, 'build'))
 VERGLEICH = ['bestand', 'markierung', 'radwege', 'zone']   # Zone nur als Vergleich, nicht empfohlen
 VERWORFEN = ['rvl', 't30_zebra', 'geschuetzt', 'minikreisel']
 VARIANTEN = VERGLEICH + VERWORFEN
+# Nutzerentscheidung: erst den Bestand fertig bauen und kalibrieren, die Varianten danach neu
+# rechnen. Bis dahin bauen, rechnen und exportieren alle Werkzeuge nur AKTIV.
+AKTIV = ['bestand']
 # Gruppen fuer die Regeln
 ABKNICKEND = {'bestand', 't30_zebra', 'markierung', 'radwege'}   # abknickende Vorfahrt Sued <-> West
 RECHTS_VOR_LINKS = {'rvl', 'zone'}
@@ -91,7 +94,11 @@ GEHWEG = 2.5
 QUERSCHNITT = {
     # (Arm, Richtung): {Abschnitt: Spuren}, Abschnitt '*' gilt fuer alle uebrigen
     ('S', 'out'): {'*': [('park', 2.2), ('kfz', 3.6)]},
-    ('S', 'in'): {'fern': [('park', 2.4), ('kfz', 4.8)],
+    # Fern: 4,8 m Fahrbahn neben den Parkern. Raeder halten etwa 1 m Abstand zu den Autotueren,
+    # deshalb im Modell 1,2 m Tuerzone (nicht befahren) und 3,6 m Fahrspur. Die Fahrspur ist so
+    # so breit und so ausgerichtet wie die Spur neben dem Haltebereich, im Sublane-Modell springt
+    # an S70 niemand seitlich.
+    ('S', 'in'): {'fern': [('park', 2.4), ('sperr', 1.2), ('kfz', 3.6)],
                   'bucht': [('bus', 3.6), ('kfz', 3.6)],
                   '*': [('kfz', 3.6), ('kfz', 3.6)]},
     # Nord: ab 30 m noerdlich Laengsparken auf der Westseite (Luftbild), Fahrspuren dort 3,1 m
@@ -378,11 +385,15 @@ def suedarm_verbindungen(n, var, gesch=False):
     regelgerecht von der rechten Spur geradeaus."""
     k = n.kfz
     # Parkstreifen suedlich der Haltestelle: Bus und Rad schwenken an S70 in den Haltebereich
-    n.con('S_in_fern', 'S_in_bucht', k('S_in_fern')[0], k('S_in_bucht')[0])
+    # Raeder bleiben am rechten Rand der Fahrspur (Sublane-Modell), in den Haltebereich schwenkt
+    # nur der Bus. Sonst teilen sich Rad und ueberholendes Auto am Abzweig auf zwei Bahnen auf, und
+    # SUMO setzt das Rad dabei seitlich um.
+    n.con('S_in_fern', 'S_in_bucht', k('S_in_fern')[0], k('S_in_bucht')[0], **({} if var == 'radwege' else {'allow': 'bus'}))
     n.con('S_in_fern', 'S_in_bucht', k('S_in_fern')[0], k('S_in_bucht')[1])
     n.con('S_in_bucht', 'S_in_mitte', k('S_in_bucht')[0], k('S_in_mitte')[0])
-    # Kein Wechsel der Kfz-Spur hinter der Bucht nach rechts: die Fahrspur laeuft links weiter,
-    # rechts kommen nur Bus und Rad aus dem Haltebereich (sie warten am Spurbeginn S25).
+    # Zwischen Haltestelle und Abbiegepfeilen zwei markierte Spuren nach Norden (Nutzerangabe):
+    # Geradeaus und Raeder schwenken im weichen Uebergang S45 nach rechts, Linksabbieger bleiben links.
+    n.con('S_in_bucht', 'S_in_mitte', k('S_in_bucht')[1], k('S_in_mitte')[0])
     n.con('S_in_bucht', 'S_in_mitte', k('S_in_bucht')[1], k('S_in_mitte')[1])
     if var == 'minikreisel':
         # der rechte Streifen endet vor der Sperrflaeche, Wechsel vorher regulaer
@@ -391,11 +402,13 @@ def suedarm_verbindungen(n, var, gesch=False):
         return
     r, l = k('S_in')
     n.con('S_in_mitte', 'S_in', k('S_in_mitte')[0], r, **({'disallow': 'bicycle'} if gesch else {}))
-    # Die Fahrspur (links neben Bus und Rad aus dem Haltebereich) teilt sich am Spurbeginn S25 in
-    # geradeaus (rechts) und Linksabbieger. Bus und Rad von rechts warten dort (Ortsbeobachtung:
-    # Geradeausfahrer fahren fast mit konstantem Tempo durch).
-    n.con('S_in_mitte', 'S_in', k('S_in_mitte')[1], r)
+    # Rechts geradeaus, links Linksabbieger, ohne Wechsel an den Abbiegepfeilen (S25). Keine
+    # Verbindung von links nach rechts: sonst knicken die Bahnen dort ab, und die rechte Spur muesste
+    # reissverschlussartig warten (Ortsbeobachtung: Geradeausfahrer fahren fast gleichmaessig durch).
     n.con('S_in_mitte', 'S_in', k('S_in_mitte')[1], l)
+    if not gesch and var != 'radwege':
+        # Bus nach West schwenkt nach dem Halt im weichen Uebergang S25 schraeg zur Abbiegespur
+        n.con('S_in_mitte', 'S_in', k('S_in_mitte')[0], l, allow='bus')
     if gesch:
         n.con('S_in_mitte', 'aS', k('S_in_mitte')[0], 0)
     kette = ['S_in', 'S_in_f', 'S_in_m'] if gesch else ['S_in', 'S_in_m']
@@ -432,6 +445,14 @@ def vorfahrt_abknickend(n):
     # Nord und Ost sind beide wartepflichtig, untereinander gilt rechts vor links (Ost wartet auf Nord)
     n.verbot('N_in_m->E_out_m', 'E_in_m->W_out_m')
     n.verbot('N_in_m->W_out_m', 'E_in_m->W_out_m')
+
+
+# Weiche Uebergaenge am Suedarm (Spurenbild): Am Suedende des Haltebereichs (S70) schwenkt der
+# Bus ueber 10 m in die Bucht, am Nordende (S45) wechseln Geradeausfahrer und Raeder ueber 12 m
+# auf die rechte Spur, an den Abbiegepfeilen (S25) schwenkt der Bus nach dem Halt ueber 12 m zur
+# Linksabbiegespur. Am Nordarm (N30) beginnt das Parken, die Spur wird schmaler, dort ebenfalls
+# ein weicher Uebergang ueber 10 m. Halbe Laenge der Knotenflaeche je Knoten in m.
+WEICHE_UEBERGAENGE = {'S25': 6.0, 'S45': 6.0, 'S70': 5.0, 'N30': 5.0}
 
 
 def baue_variante(var, arme):
@@ -485,7 +506,19 @@ def baue_variante(var, arme):
         if a == 'N':
             namen[G_INNEN] = 'N30'
         for s in stationen:
-            n.node(namen[s], punkt_bei(pts, s))
+            hl = WEICHE_UEBERGAENGE.get(namen[s]) if not kreisel else None
+            if hl:
+                # Weicher Uebergang: grosse Knotenflaeche, die Verbindungen darin sind hl*2 lang
+                p0, p1 = punkt_bei(pts, s - 1), punkt_bei(pts, s + 1)
+                L_ = math.dist(p0, p1)
+                ux, uy = (p1[0] - p0[0]) / L_, (p1[1] - p0[1]) / L_
+                nx, ny = -uy, ux
+                c = punkt_bei(pts, s)
+                q0 = 13.0
+                rect = [(c[0] + ux * a_ + nx * b_, c[1] + uy * a_ + ny * b_) for a_, b_ in ((-hl, -q0), (hl, -q0), (hl, q0), (-hl, q0))]
+                n.node(namen[s], c, shape=fmt(rect))
+            else:
+                n.node(namen[s], punkt_bei(pts, s))
         knoten = [(s_inner, inner)] + [(s, namen[s]) for s in stationen]
         teile = {'S': ['m', '', 'mitte', 'bucht', 'fern'], 'N': ['m', 'b', '']}.get(a, ['m', ''])
         if a == 'W' and var == 'radwege':
@@ -524,12 +557,13 @@ def baue_variante(var, arme):
 # geprueft). Der Verkehr aus Nord kommt deshalb in Pulks. Abgebildet mit einer kuenstlichen
 # Zulaufstrecke nur in SUMO (ausserhalb des Abspieler-Ausschnitts): Ampel 350 m vor der
 # Knotenmitte, davor 100 m Einfahrstrecke. Festzeit als Annahme: Umlauf 80 s, Gruen fuer die
-# Giesserstrasse 35 s, 3 s Gelb, 42 s Rot (Querstrasse, Raeumen). Beide Richtungen der
+# Giesserstrasse 55 s, 3 s Gelb, 22 s Rot (Querstrasse, Raeumen). Gruen 55 s ist Teil der
+# Kalibrierung am Stopp Nord (gleichmaessigere Pulks, siehe README). Beide Richtungen der
 # Giesserstrasse haben gleichzeitig Gruen, auch Sued nach Nord faehrt auf diese Ampel zu.
 ZULAUF_NORD = os.environ.get('ZULAUF_NORD', '1') != '0'   # 0 = alter gleichmaessiger Zulauf zum Vergleich
 AMPEL_ABSTAND = 350.0      # m von der Knotenmitte
 AMPEL_VORLAUF = 100.0      # m Einfahrstrecke vor der Ampel
-AMPEL_GRUEN, AMPEL_GELB, AMPEL_ROT = int(os.environ.get('KAL_GRUEN', '35')), 3, 80 - 3 - int(os.environ.get('KAL_GRUEN', '35'))
+AMPEL_GRUEN, AMPEL_GELB, AMPEL_ROT = int(os.environ.get('KAL_GRUEN', '55')), 3, 80 - 3 - int(os.environ.get('KAL_GRUEN', '55'))
 ZULAUF_KANTEN = ('N_vor', 'N_zu', 'N_ab', 'N_weg')
 
 
@@ -550,7 +584,7 @@ def zulauf_nord(n, pts, tempo, prio):
 
 
 AMPEL_TLL = '''<tlLogics>
-    <!-- Annahme: Umlauf 80 s, Gruen Giesserstrasse 35 s, beide Richtungen gleichzeitig -->
+    <!-- Annahme: Umlauf 80 s, Gruen Giesserstrasse 55 s, beide Richtungen gleichzeitig -->
     <tlLogic id="NA" type="static" programID="0" offset="0">
         <phase duration="{g}" state="GG"/>
         <phase duration="{y}" state="yy"/>
@@ -862,15 +896,20 @@ def netconvert(prefix, net):
 
 # ---------------------------------------------------------------- Nachfrage
 # Spitzenstunde aus dem Browsermodell (modell/src/sim.js, DEMAND), Fahrzeuge je Stunde.
-# Zufluss Nord kalibriert an der Ortsbeobachtung: am Stopp Nord stehen hoechstens etwa 6 Autos,
-# typisch 1 bis 3. Mit Pulks von der Ampel in 350 m ergibt das 157 Kfz je Stunde (frueher 224,
-# Aufteilung gleich, etwa 60 % Sued, 35 % West, 5 % Ost) zusammen mit der Lueckenannahme unten
-# (impatience 1,0, jmTimegapMinor 0,6 s). Kalibrierlaeufe siehe README.
+# Zufluss Nord kalibriert an der Ortsbeobachtung: am Stopp Nord warten typisch 2 bis 3 Autos, die
+# halbe Zeit oder mehr wartet jemand, hoechstens etwa 6. Mit Pulks von der Ampel in 350 m ergibt
+# das 176 Kfz je Stunde (Aufteilung etwa 60 % Sued, 35 % West, 5 % Ost) zusammen mit der
+# Lueckenannahme unten (impatience 0,4, jmTimegapMinor 1,1 s). Kalibrierlaeufe siehe README.
 # Sued nach Nord nach Ortsbeobachtung erhoeht: viele fahren zuegig geradeaus durch (Schaetzung 200
 # statt 110 Pkw je Stunde in der Morgenspitze).
-KFZ = {'SW': 260, 'WS': 240, 'SN': 200, 'NS': 91, 'NW': 55, 'WN': 60, 'NE': 7,
+KFZ = {'SW': 260, 'WS': 240, 'SN': 200, 'NS': 102, 'NW': 62, 'WN': 60, 'NE': 8,
        'SE': 20, 'WE': 20, 'EW': 22, 'ES': 10, 'EN': 12}
 LKW = {'SW': 8, 'WS': 8, 'NS': 3, 'SN': 3, 'NW': 1, 'WN': 2}
+# Nur fuer Kalibrierlaeufe: Faktor auf alle Kfz aus Nord (Umgebungsvariable KAL_NORD)
+_KN = float(os.environ.get('KAL_NORD', '1'))
+if _KN != 1:
+    KFZ = {k: (round(v * _KN) if k[0] == 'N' else v) for k, v in KFZ.items()}
+    LKW = {k: (round(v * _KN) if k[0] == 'N' else v) for k, v in LKW.items()}
 SATTEL = {'SW': 3, 'WS': 3}
 RAD = {'SW': 45, 'WS': 45, 'SN': 25, 'NS': 30, 'WN': 22, 'NW': 15, 'EW': 8, 'WE': 8}
 KURZ_TAKT = 1800   # s je Kurzhalter-Fluss, drei Fluesse versetzt, zusammen etwa alle 10 Minuten einer
@@ -919,12 +958,12 @@ BOGEN_TEMPO = None          # 20 km/h getestet: mehr schwere Konflikte, verworfe
 W_N_WARTET = False          # getestet: keine Verbesserung, verworfen
 
 # Lueckenannahme der Wartepflichtigen, kalibriert an der Schlange am Stopp Nord (siehe README).
-# impatience 1,0: wer laenger wartet, nimmt deutlich kleinere Luecken (SUMO-Bereich 0 bis 1,
-# vorher 0,5). jmTimegapMinor 0,6 s: Zeitluecke vor einem bevorrechtigten Fahrzeug (SUMO-Standard
-# 1 s). Mit nur angepasster Menge haette Nord unter 150 Kfz je Stunde sinken muessen. Gilt fuer alle
-# Varianten gleich. Umgebungsvariablen KAL_IMP und KAL_TGM nur fuer Kalibrierlaeufe.
-IMPATIENCE = float(os.environ.get('KAL_IMP', '1.0'))
-TIMEGAP_MINOR = float(os.environ.get('KAL_TGM', '0.6'))
+# impatience 0,4 (SUMO-Bereich 0 bis 1): wer laenger wartet, nimmt etwas kleinere Luecken.
+# jmTimegapMinor 1,1 s: Zeitluecke vor einem bevorrechtigten Fahrzeug (SUMO-Standard 1 s), also
+# etwas vorsichtiger als der Standard. Gilt fuer alle Varianten gleich. Umgebungsvariablen
+# KAL_IMP, KAL_TGM, KAL_GRUEN und KAL_NORD nur fuer Kalibrierlaeufe.
+IMPATIENCE = float(os.environ.get('KAL_IMP', '0.4'))
+TIMEGAP_MINOR = float(os.environ.get('KAL_TGM', '1.1'))
 # Troedeln der Pkw-Fahrer (Krauss sigma, SUMO-Standard 0,5). Beobachtet: Geradeausfahrer aus Sued
 # fahren fast mit konstantem Tempo durch. 0,2 haelt das Wunschtempo ruhiger.
 SIGMA_PKW = float(os.environ.get('KAL_SIGMA', '0.2'))
@@ -934,14 +973,22 @@ SIGMA_PKW = float(os.environ.get('KAL_SIGMA', '0.2'))
 # 10 km/h darueber.
 SCHNELL = {50: (0.20, 'normc(1.25,0.04,1.18,1.32)'), 30: (0.10, 'normc(1.25,0.05,1.15,1.35)')}
 
-VTYPES = '''    <vType id="pkw" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="passenger" length="4.5" width="1.85" accel="2.6" decel="4.5" sigma="{sig}" speedFactor="normc(1,0.1,0.8,1.3)"/>
-    <vType id="pkwf" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="passenger" length="4.5" width="1.85" accel="2.8" decel="4.5" sigma="{sig}" speedFactor="{schnell}"/>
-    <vType id="pkwn" impatience="{impn}" jmTimegapMinor="{tgm}" vClass="passenger" length="4.5" width="1.85" accel="2.6" decel="4.5" sigma="{sig}" speedFactor="normc(1,0.1,0.8,1.3)"/>
-    <vType id="pkwx" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="taxi" length="4.5" width="1.85" accel="2.6" decel="4.5" sigma="{sig}" speedFactor="normc(1,0.1,0.8,1.3)"/>
-    <vType id="lkw" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="truck" length="10.0" width="2.5" accel="1.3" decel="4.0" sigma="0.5" maxSpeed="12.5" speedFactor="normc(1,0.05,0.8,1.1)"/>
-    <vType id="sattel" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="truck" length="16.5" width="2.55" accel="1.0" decel="4.0" sigma="0.5" maxSpeed="11.7" guiShape="truck/semitrailer"/>
-    <vType id="bus" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="bus" length="18.0" width="2.55" accel="1.1" decel="4.0" sigma="0.3" maxSpeed="11.1" guiShape="bus/flexible" personCapacity="100"/>
-    <vType id="rad" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="bicycle" length="1.8" width="0.8" accel="1.0" decel="3.0" sigma="0.5" maxSpeed="6.5" speedFactor="normc(0.85,0.15,0.5,1.2)"/>
+# Sublane-Modell (run.py --lateral-resolution): Raeder fahren rechts in ihrer Spur
+# (latAlignment right) und werden in der Spur ueberholt, wenn Breite und Seitenabstand reichen.
+# maxSpeedLat begrenzt die Quergeschwindigkeit, ein Spurwechsel ueber gut 3 m dauert so bei Pkw
+# etwa 6 s, bei Bus und Lkw etwa 9 s. minGapLat 0,6 m ist der SUMO-Standard fuer den gewuenschten
+# Seitenabstand, gemessen wird der tatsaechliche Ueberholabstand (Ziel StVO 1,5 m). Pkw setzen
+# zufaellig quer in der Spur ein und pendeln leicht um die Spurmitte (lcSigma 0,3), so streuen die
+# Fahrlinien wie im Luftbild. Raeder fahren rechts, Linksabbieger links in ihrer Spur.
+VTYPES = '''    <vType id="pkw" latAlignment="center" lcSigma="0.3" maxSpeedLat="0.5" minGapLat="0.6" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="passenger" length="4.5" width="1.85" accel="2.6" decel="4.5" sigma="{sig}" speedFactor="normc(1,0.1,0.8,1.3)"/>
+    <vType id="pkwf" latAlignment="center" lcSigma="0.3" maxSpeedLat="0.5" minGapLat="0.5" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="passenger" length="4.5" width="1.85" accel="2.8" decel="4.5" sigma="{sig}" speedFactor="{schnell}"/>
+    <vType id="pkwn" latAlignment="center" lcSigma="0.3" maxSpeedLat="0.5" minGapLat="0.6" impatience="{impn}" jmTimegapMinor="{tgm}" vClass="passenger" length="4.5" width="1.85" accel="2.6" decel="4.5" sigma="{sig}" speedFactor="normc(1,0.1,0.8,1.3)"/>
+    <vType id="pkwx" latAlignment="center" lcSigma="0.3" maxSpeedLat="0.5" minGapLat="0.6" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="taxi" length="4.5" width="1.85" accel="2.6" decel="4.5" sigma="{sig}" speedFactor="normc(1,0.1,0.8,1.3)"/>
+    <vType id="lkw" maxSpeedLat="0.35" minGapLat="0.6" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="truck" length="10.0" width="2.5" accel="1.3" decel="4.0" sigma="0.5" maxSpeed="12.5" speedFactor="normc(1,0.05,0.8,1.1)"/>
+    <vType id="sattel" maxSpeedLat="0.35" minGapLat="0.6" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="truck" length="16.5" width="2.55" accel="1.0" decel="4.0" sigma="0.5" maxSpeed="11.7" guiShape="truck/semitrailer"/>
+    <vType id="bus" maxSpeedLat="0.35" minGapLat="0.6" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="bus" length="18.0" width="2.55" accel="1.1" decel="4.0" sigma="0.3" maxSpeed="11.1" guiShape="bus/flexible" personCapacity="100"/>
+    <vType id="rad" maxSpeedLat="0.6" minGapLat="0.6" latAlignment="right" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="bicycle" length="1.8" width="0.8" accel="1.0" decel="3.0" sigma="0.5" maxSpeed="6.5" speedFactor="normc(0.85,0.15,0.5,1.2)"/>
+    <vType id="radl" maxSpeedLat="0.6" minGapLat="0.6" latAlignment="left" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="bicycle" length="1.8" width="0.8" accel="1.0" decel="3.0" sigma="0.5" maxSpeed="6.5" speedFactor="normc(0.85,0.15,0.5,1.2)"/>
     <vType id="fuss" vClass="pedestrian" width="0.6" length="0.3" speedFactor="normc(1,0.15,0.6,1.4)" jmDriveAfterRedTime="-1"/>
     <vType id="kiwa" vClass="pedestrian" width="0.7" length="1.8" maxSpeed="1.0" desiredMaxSpeed="1.0" speedFactor="normc(1,0.05,0.9,1.1)" jmDriveAfterRedTime="-1"/>'''
 
@@ -976,7 +1023,8 @@ def nachfrage(var, bus, ende):
         if stopp and o == 'N' and not (var == 'geschuetzt' and typ == 'rad'):
             stop = f'\n        <stop edge="{stopp}" endPos="-0.5" duration="1"/>'
         flows.append((0, f'    <flow id="{fid}" type="{typ}" begin="0" end="{ende}" period="exp({q / 3600:.6f})" '
-                         f'from="{kante(var, o)[0]}" to="{kante(var, d)[1]}" departLane="best" departSpeed="max">{stop}\n    </flow>'))
+                         f'from="{kante(var, o)[0]}" to="{kante(var, d)[1]}" departLane="best" departSpeed="max" '
+                         f'departPosLat="{"right" if typ == "rad" else "left" if typ == "radl" else ("random" if typ.startswith("pkw") else "center")}">{stop}\n    </flow>'))
 
     for rel, q in KFZ.items():
         fs = anteil_schnell if rel[0] in 'SW' else 0.0
@@ -1007,7 +1055,8 @@ def nachfrage(var, bus, ende):
     for rel, q in SATTEL.items():
         flow(f'sattel_{rel}', 'sattel', rel, q)
     for rel, q in RAD.items():
-        flow(f'rad_{rel}', 'rad', rel, q)
+        # Linksabbiegende Raeder ordnen sich links in ihrer Spur ein (eigener Typ, latAlignment left)
+        flow(f'rad_{rel}', 'radl' if rel in ('SW', 'WN', 'NE', 'ES') else 'rad', rel, q)
     halt = '\n        <stop busStop="hst_naumburger" duration="20"/>'
 
     def busflow(fid, rel, beginn, extra=''):
@@ -1051,6 +1100,7 @@ def main():
     ap.add_argument('--bus', choices=['SW', 'SN'], default='SW', help='Busroute, SW Regelbetrieb Sued <-> West (Standard), SN Baustellenumleitung')
     ap.add_argument('--ende', type=int, default=4200, help='Ende der Nachfrage in s (600 Einschwingen plus 3600)')
     ap.add_argument('--alt', action='store_true', help='auch die verworfenen Varianten bauen')
+    ap.add_argument('--alle', action='store_true', help='alle Vergleichsvarianten bauen, nicht nur AKTIV')
     args = ap.parse_args()
 
     arme = achsen()
@@ -1058,7 +1108,7 @@ def main():
     if os.path.isdir(PLAIN):
         shutil.rmtree(PLAIN)
     os.makedirs(PLAIN)
-    for var in (VARIANTEN if args.alt else VERGLEICH):
+    for var in (VARIANTEN if args.alt else (VERGLEICH if args.alle else AKTIV)):
         print(f'Variante {var}')
         n = baue_variante(var, arme)
         prefix = os.path.join(PLAIN, var)

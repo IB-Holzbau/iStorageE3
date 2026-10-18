@@ -2,6 +2,8 @@
 
 Mikroskopische Verkehrssimulation der Kreuzung in Leipzig-Plagwitz mit dem freien Simulator [Eclipse SUMO](https://eclipse.dev/sumo/). Das Modell vergleicht den Bestand mit der empfohlenen Variante (bessere Markierung mit Tempo 30, abknickende Vorfahrt bleibt), roten Radwegen und als reinen Vergleich einer Tempo-30-Zone mit rechts vor links, und liefert Kennzahlen zu Sicherheit und Wartezeiten für die Bürgerkampagne. Das Browsermodell in `../modell` bleibt das Ideenmodell, dieses SUMO-Modell ist die nachvollziehbare Rechengrundlage.
 
+> **Stand: nur Bestand.** Nutzerentscheidung: Erst wird der Bestand fertig gebaut und kalibriert (Sublane-Modell mit Rädern am rechten Rand, Überholen in der Spur, Streuung der Fahrlinien, weiche Übergänge am Südarm, Kalibrierung am Stopp Nord). Die Varianten werden danach neu gerechnet. Bis dahin bauen, rechnen und exportieren alle Werkzeuge nur den Bestand (`AKTIV` in `build.py`). Im Abspieler sind die Varianten als veraltet gesperrt, die Szenen gibt es nur im Bestand. Die Variantenzahlen weiter unten stammen aus dem Stand vor dem Sublane-Modell und gelten nur noch als grobe Orientierung.
+
 **Abspieler im Browser** in [`grafik/abspieler.html`](grafik/abspieler.html). Die Datei im Browser öffnen, sie läuft ohne Internet (nur die Schrift kommt von Google Fonts). Fünf Minuten der Spitzenstunde je Variante mit 60 Bildern je Sekunde. Spurwechsel dauern einige Sekunden, Bus und Lkw holen beim Abbiegen aus, Gelenkbus und Sattelzug knicken, Blinker zeigen das Abbiegen, Beinahe-Unfälle blinken als Ringe auf. Verkehrszeichen sind nach StVO-Vorlage gezeichnet, mit Mast und einer Marke, die zum jeweiligen Fahrer zeigt.
 
 | Bestand | Markierung und Tempo 30 (Empfehlung) |
@@ -14,7 +16,7 @@ Mikroskopische Verkehrssimulation der Kreuzung in Leipzig-Plagwitz mit dem freie
 
 ```bash
 pip install -r requirements.txt     # SUMO, matplotlib, shapely, pillow
-python3 build.py                    # Netze und Nachfrage aller Varianten
+python3 build.py                    # Netze und Nachfrage (derzeit nur Bestand, --alle für alle Varianten)
 python3 werkzeuge/schleppkurve.py   # Schleppkurven der Fahrbeziehungen
 python3 run.py                      # 10 Läufe je Variante, etwa 2 Minuten
 python3 plots.py                    # Vergleichsdiagramm und Netzbilder nach grafik/
@@ -22,12 +24,14 @@ python3 abspieler/export.py         # Browser-Abspieler grafik/abspieler.html
 python3 werkzeuge/pruefe_abspieler.py   # Überlappungen, Bordstein und Knickwinkel im Abspieler prüfen
 python3 werkzeuge/screenshots.py 60 grafik  # Bilder der Varianten nach 60 s
 python3 werkzeuge/szenenbilder.py /tmp      # Bilder der kritischen Szenen
+python3 werkzeuge/spurenbild.py     # Spurenbild grafik/spuren_<variante>.png (gefahrene Bahnen, zum Vergleich mit dem Luftbild)
 ```
 
 Weitere Schalter
 
 - Standard ist der Regelbetrieb, die Busse fahren in beiden Richtungen zwischen Süd und West. `python3 build.py --bus SN` bildet die derzeitige Baustellenumleitung ab (Naumburger Straße ist Sackgasse, die Busse fahren geradeaus Süd und Nord, so steht es im Oktober 2026 auch in OpenStreetMap).
-- `python3 run.py --laeufe 3 --varianten bestand radwege` für schnelle Proben. Die verworfenen Varianten (`rvl`, `t30_zebra`, `geschuetzt`, `minikreisel`) baut `python3 build.py --alt`, danach lassen sie sich mit `--varianten` rechnen.
+- `python3 run.py --schnell` ist der schnelle Probemodus: 3 Läufe, 20 Minuten nach 5 Minuten Einschwingen, 1 s Schrittweite, Zählwerte auf eine Stunde hochgerechnet, Ergebnis in `ergebnisse/schnell/` (die Hauptergebnisse bleiben unberührt). Etwa ein Fünftel der Rechenzeit, für Proben beim Bauen, nicht für die Kennzahlen. Mit `--varianten` und `--laeufe` kombinierbar.
+- `python3 run.py --laeufe 3 --varianten bestand radwege` für Proben mit voller Dauer. Die verworfenen Varianten (`rvl`, `t30_zebra`, `geschuetzt`, `minikreisel`) baut `python3 build.py --alt`, danach lassen sie sich mit `--varianten` rechnen.
 - `python3 run.py --nur-bericht` schreibt `vergleich.md` aus der vorhandenen CSV neu.
 - `python3 werkzeuge/vorfahrt.py netze/bestand.net.xml J` zeigt, wer am Knoten auf wen wartet.
 - Ansehen mit Oberfläche geht mit `sumo-gui -n netze/bestand.net.xml -r netze/bestand.rou.xml -a netze/haltestelle.add.xml`.
@@ -158,6 +162,43 @@ Gezählt wird die Stunde nach 10 Minuten Einschwingzeit, Mittel aus 10 Läufen m
 
 ## Ergebnisse
 
+### Bestand, aktueller Stand (Sublane-Modell, kalibriert)
+
+10 Läufe, je eine Spitzenstunde. Vollständig in [`ergebnisse/vergleich.md`](ergebnisse/vergleich.md), Spurenbild in [`grafik/spuren_bestand.png`](grafik/spuren_bestand.png).
+
+| je Stunde | Bestand |
+|---|---|
+| Fahrzeugkonflikte im Knoten, davon schwer | 71, 17 |
+| davon Kfz gegen Rad | 23 |
+| Kfz überholt Rad auf den Armen | 248 |
+| davon mit weniger als 1,5 m Seitenabstand (StVO innerorts) | 247 (Median 0,9 m) |
+| davon mit weniger als 1,0 m | 218 |
+| Fußgänger auf Querung bedrängt, davon Fahrzeug schneller als 30 km/h | 18, 5 |
+| Stopp Nord, Anteil der Zeit mit mindestens 1 Wartenden | 50 % |
+| Stopp Nord, Wartende im Mittel, wenn jemand wartet | 2,5 |
+| Stopp Nord, größte Schlange im Mittel (einzelne Läufe) | 9 (6 bis 13) |
+| Nordarm Zeitverlust Kfz | 47 s (E) |
+| Durchfahrt Süd nach Nord ungehindert, Süd nach West ohne Halt | 51 km/h, 35 km/h |
+
+Mehr Konflikte Kfz gegen Rad als vorher (23 statt 11) sind eine Folge des Sublane-Modells. Räder fahren jetzt neben den Autos in derselben Spur, SUMO zählt knappe Begegnungen dabei mit. Fast jedes Überholen in der Spur bleibt unter 1,5 m, weil die Spuren 3,6 m (Süd) und 3,75 m (West) breit sind. Pkw 1,85 m plus Rad 0,8 m lassen dort nur etwa 1 m Abstand.
+
+![Spurenbild Bestand](grafik/spuren_bestand.png)
+
+### Sublane-Modell, Räder und Überholen
+
+**Beobachtung der Initiative.** Radfahrende fahren auf der breiten Gießerstraße ganz rechts in ihrer Spur und werden von Autos in derselben Spur überholt. Zwischen Haltestelle und Abbiegepfeilen gibt es zwei markierte Spuren nach Norden, Radfahrende fahren dort rechts in der rechten Spur. Überholen in der Spur geht nur, wo die Breite reicht, sonst über die linke Spur.
+
+**Umsetzung.** SUMO rechnet mit Teilspuren von 0,6 m (`--lateral-resolution`). Räder fahren rechts in ihrer Spur (`latAlignment right`), wer links abbiegt (Süd nach West, West nach Nord, Nord nach Ost, Ost nach Süd), ordnet sich links in seiner Spur ein. Kfz überholen in der Spur, wenn Breite und der gewünschte Seitenabstand (SUMO-Standard `minGapLat` 0,6 m) reichen, sonst bleiben sie dahinter oder nutzen die linke Spur. Pkw setzen zufällig quer in der Spur ein und pendeln leicht (`lcSigma` 0,3), so streuen die Fahrlinien wie die Reifenspuren im Luftbild. Spurwechsel wandern seitlich mit höchstens 0,5 m/s (Pkw) bzw. 0,35 m/s (Bus, Lkw). Neben den Parkern auf dem Südarm liegt im Modell eine 1,2 m breite Türzone, die Räder halten so Abstand zu Autotüren, und die Fahrspur ist dort so breit und so ausgerichtet wie neben dem Haltebereich.
+
+**Weiche Übergänge.** Am Südende des Haltebereichs schwenkt der Bus über etwa 10 m in die Bucht, am Nordende wechseln Geradeausfahrer und Räder über etwa 12 m auf die rechte Spur, an den Abbiegepfeilen schwenkt der Bus nach dem Halt über etwa 12 m schräg zur Linksabbiegespur. Am Nordarm, wo das Parken beginnt und die Spur schmaler wird, ebenso über 10 m. An den Abbiegepfeilen gibt es keinen Wechsel von links nach rechts mehr, die Bahnen knicken dort nicht ab.
+
+**Kennzahl Überholabstand.** Ein Überholvorgang zählt, wenn ein Kfz in gleicher Richtung von hinten neben ein Rad kommt und es ganz überholt, auf den Armen ab 15 m von der Knotenmitte. Gemessen wird der kleinste Abstand der Umrisse, solange beide nebeneinander sind. Das Sublane-Modell hält Fahrzeuge seitlich etwas zu genau, reale Abstände streuen stärker.
+
+**Spurenbild.** `python3 werkzeuge/spurenbild.py` zeichnet je Variante die gefahrenen Bahnen von 30 Minuten aus Lauf 1 über das Netz, nach Typ gefärbt (`grafik/spuren_<variante>.png`). Es dient dem Vergleich mit dem Luftbild. Sprünge über 6 m (Einsetzen, Teleport) trennen die Linien, eine Fehlbahn im Westarm wie im früheren Bild ist im aktuellen Stand nicht zu sehen.
+
+**Grenzen.** Mit dem Sublane-Modell meldet SUMO etwa 6 Überlappungen je Stunde (vorher unter 1), meist Räder und Fußgänger auf den Querungen oder Linksabbieger im Knoten. Das sind Modellfehler, keine Unfälle. Im Abspieler berühren sich keine Fahrzeuge. Die Kurve Süd nach West lässt sich auch mit Sublane nicht schneiden, ohne in die Bahn der Rechtsabbieger West nach Süd zu geraten.
+
+
 Vollständige Tabellen in [`ergebnisse/vergleich.md`](ergebnisse/vergleich.md), Schleppkurven der Standardbahnen in [`ergebnisse/schleppkurven.md`](ergebnisse/schleppkurven.md) (ohne Ausholen gerechnet, deshalb bei Rechtsabbiegern West nach Süd größer als in der Bordstein-Kennzahl).
 
 ![Vergleich](grafik/vergleich.png)
@@ -206,11 +247,11 @@ Im Abspieler gibt es neben dem freien Abspielen den Modus **Kritische Szenen**. 
 | 4 | Engstelle Ost, Begegnung zwischen Parkern | engste Begegnung zweier Fahrzeuge in Gegenrichtung auf dem Ostarm, schwere Fahrzeuge bevorzugt |
 | 5 | Stopp Nord, Vorfahrt genommen | engster Konflikt zwischen einem Fahrzeug aus Nord und Rad bzw. Auto auf der Vorfahrt Süd und West |
 | 6 | Ohne Blinker geradeaus aus der Abbiegespur | Geradeausfahrer in der Linksabbiegespur nahe der Nordquerung, mit Fußgänger dort |
-| 7 | Bus wechselt nach dem Halt quer auf die Abbiegespur | Spurwechsel eines Busses nach West mit dem meisten Verkehr ringsum |
+| 7 | Bus wechselt nach dem Halt quer auf die Abbiegespur | Bus nach West wechselt vom Haltebereich auf die Linksabbiegespur (im weichen Übergang an den Abbiegepfeilen), meiste Verkehr ringsum |
 | 8 | Sicht vom Kiosk über die Naumburger Straße | Person wartet an der Westquerung auf der Kioskseite, viele Fahrzeuge in Sicht |
 | 9 | Kurzhalter am Kiosk im Haltverbot | Kurzhalter auf der Nordseite West steht, viel Verkehr ringsum |
 
-Alle neun Szenen kommen in Bestand, Empfehlung und Radwegen vor. In der Zone fehlt Szene 2 (Rad West nach Nord steht lange im Knoten), weil das dort in Lauf 1 nicht vorkommt. `python3 werkzeuge/szenenbilder.py <ordner> [variante]` macht Bilder am kritischen Moment.
+Derzeit gibt es die Szenen nur im Bestand, dort kommen alle neun vor. Die Varianten folgen, wenn der Bestand fertig ist. `python3 werkzeuge/szenenbilder.py <ordner> [variante]` macht Bilder am kritischen Moment.
 
 **Blinken (Ortsbeobachtung, Schätzung).** Geradeausfahrer (Süd nach Nord, Nord nach Süd, West nach Ost, Ost nach West) blinken nie, auch nicht beim Spurwechsel am Südarm oder wenn sie in der Linksabbiegespur fahren. Abbieger, auch auf der abknickenden Vorfahrt, blinken zu etwa 88 %, und zwar nach ihrer Route ab etwa 35 m vor der Knotenmitte bis zum Verlassen des Knotens, danach sofort aus. Beim Einordnen und Busse beim Ein- und Ausschwenken an der Haltestelle blinkt es zur Seite des Spurwechsels. Busse blinken immer. Der Test prüft, dass niemand im Knotenbereich entgegen seiner Abbiegerichtung oder nach dem Verlassen des Knotens blinkt. Das ist nur im Abspieler dargestellt. In SUMO selbst wirkt das Blinken nicht, wartende Fahrer und Fußgänger kennen dort die Absicht der anderen. Die Unsicherheit durch fehlende Blinker ist deshalb in den Kennzahlen nicht enthalten, sie zeigt sich nur in Szene 6.
 
@@ -220,7 +261,7 @@ Alle neun Szenen kommen in Bestand, Empfehlung und Radwegen vor. In der Zone feh
 
 **Was im Modell bremste.** Im Mittel fuhren Geradeausfahrer im Bestand nur gut 30 km/h durch den Knoten, die Hälfte fiel unter 20 km/h, auch ohne Vordermann. Die Kurvengeschwindigkeit war nicht der Grund (die Bahn Süd nach Nord erlaubte schon 50 km/h). Gründe waren drei Modelleffekte. Erstens war die Verbindung von der Geradeausspur nach Nord nachrangig gegenüber der Fehlspur-Verbindung von links, SUMO lässt Fahrzeuge vor nachrangigen Verbindungen langsamer anfahren (Einbruch auf etwa 27 km/h kurz vor dem Knoten). Zweitens mussten Geradeausfahrer am Beginn der Abbiegespur reißverschlussartig warten. Drittens bremst das Trödeln der Fahrer (`sigma` 0,5) ständig zufällig.
 
-**Änderungen (alle Varianten).** Die Geradeausverbindung nach Nord hat Vorrang (`pass`), wer aus der Linksabbiegespur geradeaus will (Fehlspur), wartet. Die Kfz-Spur läuft links neben dem Haltebereich durch und teilt sich am Spurbeginn in geradeaus und links, nur Bus und Rad aus dem Haltebereich warten dort. Die Bahn Süd nach Nord im Knoten ist eine gerade Linie statt einer leichten S-Kurve. Trödeln der Pkw `sigma` 0,2 statt 0,5. Süd nach West im Bestand mit Kurventempo 35 km/h statt der von netconvert aus dem Radius berechneten 33 km/h (**Annahme**). Die Bahn Süd nach West ließ sich nicht schneiden. Schon die Bahn von netconvert liegt nur gut 2 m neben der Bahn der Rechtsabbieger West nach Süd, eine geschnittene Bahn hätte beide überdeckt, und SUMO prüft diese Begegnung nicht. Im Abspieler wird der Versatz der Geradeausfahrer über 60 m Fahrweg verteilt, der Kurs ändert sich dort gleichmäßig um wenige Grad (die Straße selbst knickt um etwa 3 Grad).
+**Änderungen (alle Varianten).** Die Geradeausverbindung nach Nord hat Vorrang (`pass`), wer aus der Linksabbiegespur geradeaus will (Fehlspur), wartet. Geradeausfahrer nutzen ab dem Haltebereich die rechte, Linksabbieger die linke Spur, an den Abbiegepfeilen wechselt niemand mehr von links nach rechts (siehe Sublane-Modell). Die Bahn Süd nach Nord im Knoten ist eine gerade Linie statt einer leichten S-Kurve. Trödeln der Pkw `sigma` 0,2 statt 0,5. Süd nach West im Bestand mit Kurventempo 35 km/h statt der von netconvert aus dem Radius berechneten 33 km/h (**Annahme**). Die Bahn Süd nach West ließ sich nicht schneiden. Schon die Bahn von netconvert liegt nur gut 2 m neben der Bahn der Rechtsabbieger West nach Süd, eine geschnittene Bahn hätte beide überdeckt, und SUMO prüft diese Begegnung nicht. Im Abspieler wird der Versatz der Geradeausfahrer über 60 m Fahrweg verteilt, der Kurs ändert sich dort gleichmäßig um wenige Grad (die Straße selbst knickt um etwa 3 Grad).
 
 **Ergebnis (Bestand).** Ungehinderte Geradeausfahrer Süd nach Nord fahren im Mittel mit 48 km/h durch den Knoten, alle zusammen mit 40 km/h (85 %-Wert 53 km/h). Süd nach West im Mittel 30 km/h, ohne Halt 33 km/h, 85 %-Wert 38 km/h, die zügigen Fahrer kommen auf etwa 40 km/h. In den Varianten mit Tempo 30 fahren Geradeausfahrer ungehindert mit 29 km/h, Abbieger nach West ohne Halt mit 28 km/h. Durch das schnellere Durchfahren steigen die schweren Konflikte im Bestand von 15 auf 18 je Stunde, in der Empfehlung von 16 auf 18, also etwa im Rahmen der Streuung von ± 4. Die Kalibrierung am Stopp Nord hält (größte Schlange im Mittel 6,2, einzelne Läufe 4 bis 9, 95 %-Wert 2,2).
 
@@ -228,9 +269,9 @@ Alle neun Szenen kommen in Bestand, Empfehlung und Radwegen vor. In der Zone feh
 
 **Beobachtung der Initiative.** Etwa 350 m nördlich liegt an der Gießerstraße eine Ampel, der Verkehr aus Nord kommt deshalb oft stoßweise. Vermutlich ist es die Kreuzung Karl-Heine-Straße / Gießerstraße, für die laut Recherche (`../recherche/02-kreuzung-daten.md`) 2019/20 eine Ampel vorgesehen war. Die Lage ließ sich hier nicht in OSM nachsehen, weil OSM aus der Rechenumgebung nicht erreichbar war, bitte vor Ort bestätigen.
 
-**Umsetzung (nur SUMO).** Der Nordarm ist um eine künstliche Zulaufstrecke verlängert, außerhalb des Abspieler-Ausschnitts. Die Ampel steht 350 m vor der Knotenmitte, davor liegen 100 m Einfahrstrecke. Festzeit als **Annahme**, Umlauf 80 s, Grün für die Gießerstraße 35 s, 3 s Gelb, 42 s Rot. Beide Richtungen der Gießerstraße haben gleichzeitig Grün, auch Süd nach Nord fährt auf diese Ampel zu. Die Stundenmenge aus Nord bleibt gleich. Auf den 340 m bis zum Knoten lösen sich die Pulks durch unterschiedliche Wunschgeschwindigkeiten etwas auf. Zeitverlust an der Ampel und beim Fahren im Pulk auf der Zulaufstrecke wird abgezogen, nur wer auf der Zulaufstrecke in der Schlange vom Stopp Nord steht, zählt zum Knoten. Im Abspieler zeigt oben eine kleine Anzeige die Phase dieser Ampel. Der alte gleichmäßige Zulauf lässt sich mit `ZULAUF_NORD=0` (dazu `SUMO_NETZE`, `SUMO_PLAIN`, `SUMO_ERG` auf eigene Ordner) weiter rechnen, Ergebnis in [`ergebnisse/vergleich_ohne_ampel_nord.md`](ergebnisse/vergleich_ohne_ampel_nord.md).
+**Umsetzung (nur SUMO).** Der Nordarm ist um eine künstliche Zulaufstrecke verlängert, außerhalb des Abspieler-Ausschnitts. Die Ampel steht 350 m vor der Knotenmitte, davor liegen 100 m Einfahrstrecke. Festzeit als **Annahme**, Umlauf 80 s, Grün für die Gießerstraße anfangs 35 s, seit der zweiten Kalibrierung 55 s, 3 s Gelb, Rest Rot. Beide Richtungen der Gießerstraße haben gleichzeitig Grün, auch Süd nach Nord fährt auf diese Ampel zu. Die Stundenmenge aus Nord bleibt gleich. Auf den 340 m bis zum Knoten lösen sich die Pulks durch unterschiedliche Wunschgeschwindigkeiten etwas auf. Zeitverlust an der Ampel und beim Fahren im Pulk auf der Zulaufstrecke wird abgezogen, nur wer auf der Zulaufstrecke in der Schlange vom Stopp Nord steht, zählt zum Knoten. Im Abspieler zeigt oben eine kleine Anzeige die Phase dieser Ampel. Der alte gleichmäßige Zulauf lässt sich mit `ZULAUF_NORD=0` (dazu `SUMO_NETZE`, `SUMO_PLAIN`, `SUMO_ERG` auf eigene Ordner) weiter rechnen, Ergebnis in [`ergebnisse/vergleich_ohne_ampel_nord.md`](ergebnisse/vergleich_ohne_ampel_nord.md).
 
-Stand vor der Anpassung des Fahrverhaltens aus Süd, die Unterschiede ohne und mit Ampel gelten weiter.
+Stand vor dem Sublane-Modell und der zweiten Kalibrierung, die Unterschiede ohne und mit Ampel gelten sinngemäß weiter.
 
 | je Stunde, ohne Ampel → mit Ampel (beides kalibrierte Menge) | Bestand | Empfehlung | Zone (Vergleich) |
 |---|---|---|---|
@@ -253,22 +294,21 @@ Lesart
 
 ### Kalibrierung am Stopp Nord
 
-**Beobachtung der Initiative.** Am Stopp Nord stehen höchstens etwa 6 Autos, typisch 1 bis 3. Ziel für den Bestand war deshalb eine größte Schlange von im Mittel etwa 6 Fahrzeugen über die zehn Läufe (einzelne Läufe etwa 5 bis 7), typisch 1 bis 3 Wartende und keine dauerhaft wachsende Schlange. Vorher (224 Kfz je Stunde aus Nord, `impatience` 0,5, mit Pulks) waren es im Mittel 12, einzelne Läufe bis 16.
+**Beobachtung der Initiative (zweite Angabe).** Am Stopp Nord warten typisch 2 bis 3 Autos, mindestens eines etwa 50 bis 70 % der Zeit, höchstens etwa 6. Die erste Kalibrierung (höchstens 6, typisch 1 bis 3) ergab nach Sublane-Modell und schnellerer Durchfahrt Süd nach Nord nur noch etwa 20 % der Zeit mit Wartenden, zu wenig.
 
-**Vorgehen.** Zuerst nur die Menge aus Nord verringert (alle Ströme aus Nord gleich, Aufteilung bleibt), Bestand mit je zehn Läufen. Selbst mit 134 Kfz je Stunde blieb die größte Schlange im Mittel bei 7, das liegt unter der Grenze von etwa 150 Kfz je Stunde. Deshalb zusätzlich die Lückenannahme der Wartepflichtigen angepasst. Eine längere Grünzeit an der Ampel (45 statt 35 s) hat kaum etwas geändert.
+**Kalibrierläufe (Bestand, je 10 Läufe, Sublane-Modell).** Menge Nord, Lückenannahme und Grünzeit der Ampel in 350 m.
 
-| Menge Nord Kfz/h | impatience | jmTimegapMinor in s | größte Schlange im Mittel (Läufe) | Anteil Zeit mit Wartenden |
-|---|---|---|---|---|
-| 224 | 0,5 | 1,0 | 11,9 (9 bis 16) | 53 % |
-| 179 | 0,5 | 1,0 | 9,0 (6 bis 14) | 43 % |
-| 157 | 0,5 | 1,0 | 8,1 (5 bis 14) | 41 % |
-| 134 | 0,5 | 1,0 | 7,1 (4 bis 10) | 32 % |
-| 157 | 0,8 | 1,0 | 6,8 (4 bis 10) | 32 % |
-| 168 | 1,0 | 1,0 | 7,1 (5 bis 11) | 31 % |
-| 179 | 1,0 | 0,5 | 7,6 (5 bis 9) | 31 % |
-| **157** | **1,0** | **0,6** | **6,2 (4 bis 9)** | **29 %** |
+| Menge Nord Kfz/h | impatience | jmTimegapMinor in s | Grün Ampel in s | Zeit mit Wartenden | Wartende, wenn jemand wartet | größte Schlange im Mittel (Läufe) |
+|---|---|---|---|---|---|---|
+| 157 | 1,0 | 0,6 | 35 | 21 % | 1,6 | 3,3 |
+| 188 | 0,5 | 1,0 | 50 | 42 % | 2,1 | 8,2 (4 bis 14) |
+| 204 | 0,5 | 1,0 | 60 | 45 % | 2,0 | 8,9 (6 bis 13) |
+| 204 | 0,5 | 1,1 | 60 | 45 % | 2,0 | 8,6 (6 bis 12) |
+| 188 | 0,4 | 1,0 | 50 | 50 % | 2,4 | 9,9 (4 bis 17) |
+| **176** | **0,4** | **1,1** | **55** | **50 %** | **2,4** | **9,1 (6 bis 14)** |
+| 188 | 0,3 | 1,2 | 55 | 64 % | 3,4 | 12,4 (5 bis 22), Nordarm nahe Überlastung |
 
-**Gewählt** sind 157 Kfz je Stunde aus Nord (91 nach Süd, 55 nach West, 7 nach Ost, dazu 3 Lkw, Räder unverändert 45), `impatience` 1,0 (wer länger wartet, nimmt deutlich kleinere Lücken, oberes Ende des SUMO-Bereichs 0 bis 1) und `jmTimegapMinor` 0,6 s (Zeitlücke vor einem bevorrechtigten Fahrzeug, SUMO-Standard 1 s). Damit stehen im Bestand typisch 1 bis 2 Fahrzeuge (95 %-Wert der Schlange 2,4), die größte Schlange liegt im Mittel bei 6,2. Ausreißer bis 9 entstehen, wenn ein Rad oder Lkw am Stopp lange auf Fußgänger und Lücken wartet und gerade ein Pulk ankommt. Lückenannahme und Menge gelten für alle Varianten gleich. Mehr Mut beim Einbiegen erhöht im Bestand die Zahl der Fahrzeugkonflikte etwas. Die Werte ersetzen keine Zählung, sie sind an einer Beobachtung ausgerichtet. Kalibrierläufe lassen sich mit den Umgebungsvariablen `KAL_IMP`, `KAL_TGM` und `KAL_GRUEN` wiederholen.
+**Gewählt** sind 176 Kfz je Stunde aus Nord (102 nach Süd, 62 nach West, 8 nach Ost, dazu 4 Lkw), `impatience` 0,4, `jmTimegapMinor` 1,1 s (SUMO-Standard 1 s) und an der Ampel 55 s Grün bei 80 s Umlauf (Annahme). Im Endlauf wartet 50 % der Zeit mindestens ein Fahrzeug, wenn jemand wartet, im Mittel 2,5, die größte Schlange liegt im Mittel bei 9 (einzelne Läufe 6 bis 13), sie wächst nicht dauerhaft. **Alle drei Ziele zugleich lassen sich mit zufälligen Ankünften nicht erreichen.** Je öfter jemand wartet, desto länger werden die seltenen Spitzen, wenn ein Pulk auf eine lange Lücke trifft. Gewählt ist deshalb der Stand, der Häufigkeit und typische Schlange trifft, die Spitze liegt mit 9 über den beobachteten 6. Vorsichtigere Lückenannahmen bringen mehr Wartende, aber Spitzen bis über 20 und einen Nordarm nahe der Überlastung. Die längere Grünzeit macht die Pulks flacher (Pulkigkeit 1,1 statt 1,4). Kalibrierläufe lassen sich mit den Umgebungsvariablen `KAL_NORD`, `KAL_IMP`, `KAL_TGM` und `KAL_GRUEN` wiederholen.
 
 ## Überlappungen von Fahrzeugen
 
@@ -277,7 +317,7 @@ SUMO kann Fahrzeuge im Knoten übereinanderschieben, wenn die Vorfahrtlogik eine
 ## Grenzen
 
 - Die Nachfrage ist geschätzt, es gibt keine Zählung. Das Modell zeigt Unterschiede zwischen Varianten, nicht die echten Werte. Gerechnet ist die Morgenspitze.
-- Die Wartezeit am Nordarm hängt stark von Lückenannahme (`impatience` 1,0, `jmTimegapMinor` 0,6 s) und Zufluss ab. Beides ist an der beobachteten Schlange am Stopp Nord kalibriert, nicht an einer Zählung.
+- Die Wartezeit am Nordarm hängt stark von Lückenannahme (`impatience` 0,4, `jmTimegapMinor` 1,1 s) und Zufluss ab. Beides ist an der beobachteten Schlange am Stopp Nord kalibriert, nicht an einer Zählung.
 - Die Ampel im Norden ist mit angenommener Festzeit gerechnet (Umlauf 80 s, Grün 35 s). Echte Signalzeiten, eine Koordinierung oder Anforderung durch Fußgänger können die Pulks stärker oder schwächer machen.
 - Die Zone ist ohne Umstellungszeit gerechnet, alle halten sich sofort an rechts vor links. Das ist der Hauptgrund, warum sie nur Vergleich ist.
 - Parken bestimmt nur die Geometrie, Ein- und Ausparken und das Begegnungswarten im Ostarm fehlen. Sichtfelder (Grenzmarkierung, Schaltkasten) wirken in SUMO nicht, sie sind gezeichnet und begründet, aber nicht berechnet.

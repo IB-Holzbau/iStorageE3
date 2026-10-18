@@ -252,8 +252,10 @@ def s7_bus(zeit, konf):
         for v in fz:
             if not v[0].startswith('bus_SW'):
                 continue
-            e, _, i = v[5].rpartition('_')
-            if e in ('S_in_mitte', 'S_in') and v[0] in vorher and vorher[v[0]] != v[5] and vorher[v[0]].rpartition('_')[0] == e:
+            # vom Haltebereich (rechte Spur) auf die Linksabbiegespur, als Spurwechsel oder ueber die
+            # schraege Verbindung im weichen Uebergang S25
+            alt = vorher.get(v[0], '')
+            if v[5] == 'S_in_2' and (alt.startswith(':S25') or alt == 'S_in_mitte_1' or alt == 'S_in_1'):
                 if im_fenster(t):
                     um = sum(1 for o in fz if o[0] != v[0] and math.hypot(o[1] - v[1], o[2] - v[2]) < 20)
                     if best is None or um > best[0]:

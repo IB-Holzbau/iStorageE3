@@ -24,7 +24,7 @@ with sync_playwright() as p:
     pg.on('pageerror', lambda e: fehler.append(str(e)))
     pg.goto('file://' + os.path.join(ROOT, 'grafik', 'abspieler.html'))
     pg.wait_for_timeout(800)
-    tabs = VAR or pg.eval_on_selector_all('#tabs button', 'bs=>bs.map(b=>b.dataset.v)')
+    tabs = VAR or pg.eval_on_selector_all('#tabs button:not([disabled])', 'bs=>bs.map(b=>b.dataset.v)')
     for v in tabs:
         pg.evaluate(f"window.__abspieler.play(false);window.__abspieler.setVariante('{v}');window.__abspieler.setT({T})")
         pg.wait_for_timeout(300)

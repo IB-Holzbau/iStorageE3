@@ -108,7 +108,7 @@ def main():
               'Für jede Fahrbeziehung im Hauptknoten fahren Pkw und die schweren Fahrzeuge, die es dort laut '
               'Nachfrage gibt, die Bahn aus dem SUMO-Netz ab. Angegeben ist die Fläche in m², die ein Fahrzeug '
               'außerhalb der Fahrbahn überstreicht (Gehweg bzw. Insel). Kleine Werte unter 0,3 m² sind Rundungen.\n']
-    for var in B.VERGLEICH:
+    for var in B.AKTIV:
         lanes, cons, weiter = lade(var)
         flaechen = {'pkw': [], 'schwer': []}
         zeilen.append(f'\n## {var}\n')

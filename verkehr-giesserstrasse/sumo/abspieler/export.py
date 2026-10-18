@@ -39,7 +39,7 @@ OSM = os.path.join(ROOT, '..', 'daten', 'map.osm')
 ZIEL = os.path.join(ROOT, 'grafik', 'abspieler.html')
 VORLAGE = os.path.join(HIER, 'vorlage.html')
 
-VARIANTEN = list(B.VERGLEICH)
+VARIANTEN = list(B.AKTIV)   # vorübergehend nur Bestand, siehe build.py
 SCHRITT = 0.2
 START, DAUER = 600.0, 300.0
 SEED = 1
@@ -91,8 +91,8 @@ def simuliere(var, ordner):
            '--step-length', str(SCHRITT), '--begin', '0', '--end', str(START + DAUER + 20), '--seed', str(SEED),
            '--no-step-log', '--no-warnings', '--time-to-teleport', '300', '--ignore-junction-blocker', '15',
            '--pedestrian.striping.jamtime', '30',
-           # Spurwechsel dauern wie in echt einige Sekunden (seitliches Wandern statt Sprung)
-           '--lanechange.duration', str(R.SPURWECHSEL_S),
+           # Sublane-Modell: Spurwechsel wandern seitlich (maxSpeedLat), Raeder fahren rechts in der Spur und werden darin ueberholt
+           '--lateral-resolution', str(R.SUBLANE_M),
            '--device.ssm.probability', '1', '--device.ssm.measures', 'TTC DRAC PET',
            '--device.ssm.thresholds', f'{R.TTC} {R.DRAC} {R.PET}', '--device.ssm.range', '50',
            '--device.ssm.trajectories', 'false', '--device.ssm.write-positions', 'true', '--device.ssm.file', f['ssm'],
@@ -1042,6 +1042,8 @@ def kennzahlen():
             'verlust': m(var, 'zeitverlust_s', 'alle|Kfz'),
             'verlustN': m(var, 'zeitverlust_s', 'N|Kfz'),
             'wartendN': m(var, 'anteil_zeit_wartend', 'N'),
+            'schlangeN': m(var, 'schlange_fz_max', 'N'),
+            'ueberholeng': m(var, 'ueberholen_rad', 'unter15'),
             'wartenFuss': m(var, 'fuss_wartezeit_s', 'alle'),
             'laeufe': len(data.get((var, 'konflikte_fz', 'alle'), [])),
         }

@@ -29,7 +29,7 @@ GRAFIK = os.path.join(ROOT, 'grafik')
 import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build as B  # noqa: E402
-VARIANTEN = list(B.VERGLEICH)
+VARIANTEN = list(B.AKTIV)   # vorübergehend nur Bestand, siehe build.py
 KURZ = {'bestand': 'Bestand', 'markierung': 'Markierung, T30\n(Empfehlung)', 'zone': 'T30-Zone, rvl\n(nur Vergleich)',
         'radwege': 'Rote\nRadwege', 'rvl': 'Rechts vor links\nTempo 30', 'minikreisel': 'Minikreisel\nmit Zebras',
         't30_zebra': 'T30, Zebra\nNord + West', 'geschuetzt': 'Geschützt\nInseln, Radfurten'}

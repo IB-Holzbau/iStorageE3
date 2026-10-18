@@ -35,10 +35,13 @@ import strassenraum as SR
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 NETZE = B.OUT
-ERG = os.environ.get('SUMO_ERG', os.path.join(ROOT, 'ergebnisse'))
+# Schneller Probemodus (--schnell): 3 Laeufe, 20 Minuten nach 5 Minuten Einschwingen, 1 s
+# Schrittweite, Ergebnis in ergebnisse/schnell. Zaehlwerte werden auf eine Stunde hochgerechnet.
+SCHNELL = os.environ.get('SUMO_SCHNELL') == '1'
+ERG = os.environ.get('SUMO_ERG', os.path.join(ROOT, 'ergebnisse', 'schnell') if SCHNELL else os.path.join(ROOT, 'ergebnisse'))
 ROH = os.path.join(ERG, 'roh')
 
-VARIANTEN = list(B.VERGLEICH)
+VARIANTEN = list(B.AKTIV)   # vorübergehend nur Bestand, siehe build.py
 ALLE = list(B.VARIANTEN)
 TITEL = {'bestand': 'Bestand', 'markierung': 'Markierung und Tempo 30 (Empfehlung)', 'zone': 'Tempo-30-Zone, rechts vor links (Vergleich, nicht empfohlen)',
          'radwege': 'Rote Radwege', 'rvl': 'Rechts vor links, Tempo 30 (verworfen)',
@@ -65,6 +68,10 @@ DURCH_KERN, DURCH_ANLAUF, DURCH_FREI, DURCH_HALT = 12.0, 40.0, 0.85, 15 / 3.6
 GERADEAUS = {'SN', 'NS', 'WE', 'EW'}
 RELATIONEN = ['SN', 'SW', 'SE', 'WS', 'WN', 'WE', 'NS', 'NW', 'NE', 'ES', 'EW', 'EN']
 RELNAME = {'S': 'Süd', 'N': 'Nord', 'W': 'West', 'E': 'Ost'}
+# Ueberholen von Raedern (Sublane-Modell): ein Kfz faehrt von hinten am Rad vorbei. Gemessen wird
+# der kleinste seitliche Abstand zwischen den Umrissen, solange beide nebeneinander sind. StVO
+# innerorts 1,5 m. Nur auf den Armen (Rad mindestens 15 m von der Knotenmitte).
+UEBERHOL_ABSTAND = 1.5
 LUECKE_FUSS = 7.0      # s, Zeitluecke, die man an der Nordquerung braucht (8 m bei etwa 1,2 m/s)
 BREITE = {'pkw': 1.85, 'lkw': 2.5, 'sattel': 2.55, 'bus': 2.55, 'rad': 0.8}
 
@@ -73,10 +80,16 @@ WEG = {'pNw2e': 'Nordseite West nach Ost, quert Nordarm', 'pKiwa': 'Nordseite We
        'pSued': 'Quert Südarm am Knoten', 'pEastN': 'Ostseite Süd nach Nord, quert Ostarm', 'pEastS': 'Ostseite Nord nach Süd, quert Ostarm',
        'diag': 'Diagonal über den Knoten zwischen Nordost- und Südwestecke (Kiosk)'}
 
-WARMUP, DAUER = 600, 3600
-SCHRITT = 0.5
+WARMUP, DAUER = (300, 1200) if SCHNELL else (600, 3600)
+SCHRITT = 1.0 if SCHNELL else 0.5
+# Zaehlwerte (je Lauf gezaehlt) werden auf eine Stunde umgerechnet
+ZAEHLWERTE = ('konflikte_fz', 'konflikte_fz_ssmtyp', 'konflikte_fuss', 'bus_spurwechsel', 'bus_spurwechsel_konflikte',
+              'fahrten_knoten', 'ueberfahren_bordstein', 'ueberfahren_insel', 'teleports', 'fuss_teleports',
+              'ueberlappungen', 'notbremsungen', 'ueberholen_rad', 'nordquerung_luecken', 'fuss_wege', 'fahrten',
+              'durchfahrt_anzahl')
 # Dauer eines Spurwechsels in s (kontinuierlicher Spurwechsel in SUMO). Bei 30 bis 40 km/h sind das 25 bis 40 m Fahrweg.
-SPURWECHSEL_S = 6.0
+SPURWECHSEL_S = 6.0      # frueher --lanechange.duration, jetzt ueber maxSpeedLat im Sublane-Modell
+SUBLANE_M = 0.6          # m, Breite der Teilspuren im Sublane-Modell (Raeder rechts in der Spur, Ueberholen in der Spur)
 
 # Grenzwerte
 TTC, DRAC, PET = 1.5, 3.0, 1.0
@@ -107,8 +120,8 @@ def lauf(var, seed):
            '--step-length', str(SCHRITT), '--begin', '0', '--end', str(WARMUP + DAUER + 300), '--seed', str(seed),
            '--no-step-log', '--no-warnings', '--time-to-teleport', '300', '--ignore-junction-blocker', '15',
            '--pedestrian.striping.jamtime', '30',
-           # Spurwechsel dauern wie in echt einige Sekunden (seitliches Wandern statt Sprung)
-           '--lanechange.duration', str(SPURWECHSEL_S),
+           # Sublane-Modell: Spurwechsel wandern seitlich (maxSpeedLat), Raeder fahren rechts in der Spur und werden darin ueberholt
+           '--lateral-resolution', str(SUBLANE_M),
            '--device.ssm.probability', '1', '--device.ssm.measures', 'TTC DRAC PET',
            '--device.ssm.thresholds', f'{TTC} {DRAC} {PET}', '--device.ssm.range', '50',
            '--device.ssm.trajectories', 'false', '--device.ssm.write-positions', 'true', '--device.ssm.file', f['ssm'],
@@ -198,6 +211,8 @@ def auswerten(var, seed, f):
     querung_n = []                     # Zeitpunkte, an denen Fahrzeuge die Nordquerung passieren
     zuletzt = {}
     offen = []                         # Verlust auf N_zu, Zuordnung nach der Schlangenlaenge
+    ueberhol = {}                      # (Kfz, Rad) -> [war dahinter, kleinster Abstand]
+    ueberhol_ab = []                   # kleinster Abstand je Ueberholvorgang
     durch = {}                         # Pkw: [Summe Tempo im Knoten, Schritte, kleinstes und groesstes Tempo bis 40 m, Startzeit]
 
     # ---- Fussgaenger
@@ -391,6 +406,34 @@ def auswerten(var, seed, f):
             else:
                 ext[vid_] += los_
         offen = []
+        # Kfz ueberholen Raeder
+        raeder, kfz_ = [], []
+        for v in fz:
+            x, y = float(v.get('x')), float(v.get('y'))
+            if math.hypot(x, y) > 125:
+                continue
+            a_ = math.radians(float(v.get('angle')))
+            (raeder if typ_von(v.get('id')) == 'rad' else kfz_).append((v.get('id'), x, y, math.sin(a_), math.cos(a_)))
+        for rid, xr, yr, ux, uy in raeder:
+            if math.hypot(xr, yr) < 15:              # im Knoten selbst kein Ueberholen im Sinne der StVO-Regel
+                continue
+            for kid, xk, yk, kx, ky in kfz_:
+                if ux * kx + uy * ky < 0.9:          # nicht gleiche Richtung
+                    continue
+                dx, dy = xk - xr, yk - yr
+                lang, quer = dx * ux + dy * uy, abs(dx * uy - dy * ux)
+                if quer > 4.5 or abs(lang) > 25:
+                    continue
+                typ = typ_von(kid)
+                st_ = ueberhol.setdefault((kid, rid), [False, 99.0])
+                if lang < -LAENGE['rad']:
+                    st_[0] = True
+                elif lang - LAENGE[typ] < 0:
+                    if st_[0]:
+                        st_[1] = min(st_[1], quer - (BREITE[typ] + BREITE['rad']) / 2)
+                elif st_[0] and st_[1] < 99:
+                    ueberhol_ab.append(st_[1])
+                    del ueberhol[(kid, rid)]
         # Fussgaenger auf Querungen und diagonal gegen schnelle Fahrzeuge
         kandidaten = []
         for p in pers:
@@ -505,6 +548,12 @@ def auswerten(var, seed, f):
     for rel, v_ in frei_rel.items():
         werte.append(('durchfahrt_frei_kmh', rel, st.mean(v_)))
 
+    werte.append(('ueberholen_rad', 'alle', len(ueberhol_ab)))
+    werte.append(('ueberholen_rad', 'unter15', sum(1 for a in ueberhol_ab if a < UEBERHOL_ABSTAND)))
+    werte.append(('ueberholen_rad', 'unter10', sum(1 for a in ueberhol_ab if a < 1.0)))
+    if ueberhol_ab:
+        werte.append(('ueberholen_rad_abstand_m', 'median', st.median(ueberhol_ab)))
+
     for g in fuss_v:
         werte.append(('fuss_zeitverlust_s', g, st.mean(fuss_v[g])))
         werte.append(('fuss_wartezeit_s', g, st.mean(fuss_w[g])))
@@ -535,10 +584,14 @@ def auswerten(var, seed, f):
     for vid, seq in bus_spur.items():
         if not seq or not im_fenster(seq[0][0]):
             continue
-        for (t0, e0, l0), (t1, e1, l1) in zip(seq, seq[1:]):
-            if e0 == e1 and l1 > l0 and e0 in ('S_in_mitte', 'S_in'):
-                wechsel += 1
-                wechsel_konf += sum(1 for tk in bus_konf.get(vid, []) if t1 - 4 <= tk <= t1 + 6)
+        # Vom Haltebereich (rechte Spur) auf die Linksabbiegespur, als Spurwechsel oder ueber die
+        # schraege Verbindung im weichen Uebergang S25
+        rechts = [t for t, e, l in seq if e in ('S_in_bucht', 'S_in_mitte') and l == 1]
+        links = [t for t, e, l in seq if e in ('S_in', 'S_in_m', 'S_in_f') and l == 2 and rechts and t > rechts[0]]
+        if rechts and links:
+            t1 = links[0]
+            wechsel += 1
+            wechsel_konf += sum(1 for tk in bus_konf.get(vid, []) if t1 - 6 <= tk <= t1 + 4)
     werte.append(('bus_spurwechsel', 'SW', wechsel))
     werte.append(('bus_spurwechsel_konflikte', 'SW', wechsel_konf))
 
@@ -591,7 +644,8 @@ def auswerten(var, seed, f):
     werte.append(('ueberlappungen', 'alle', len(paare)))
     sf = s.find('safety')
     werte.append(('notbremsungen', 'alle', int(sf.get('emergencyBraking'))))
-    return [(var, seed, k, g, round(w, 3)) for k, g, w in werte]
+    je_h = 3600 / DAUER
+    return [(var, seed, k, g, round(w * je_h if k in ZAEHLWERTE else w, 3)) for k, g, w in werte]
 
 
 def fuss_ttc(px, py, pvx, pvy, lane, pos, sp, laenge, breite, lanelen, form, nach):
@@ -651,7 +705,9 @@ def bericht(rows, laeufe, bus):
     L.append(f'Je Variante {laeufe} Läufe mit festen Startwerten, je Lauf {DAUER // 60} Minuten Spitzenstunde nach '
              f'{WARMUP // 60} Minuten Einschwingzeit. Angegeben ist Mittelwert ± Standardabweichung über die Läufe. '
              f'Busroute {bus}. Die Nachfrage ist geschätzt und das Modell ist nicht kalibriert, die Zahlen zeigen '
-             'Unterschiede zwischen den Varianten, keine absoluten Werte für die echte Kreuzung.\n')
+             'Unterschiede zwischen den Varianten, keine absoluten Werte für die echte Kreuzung.'
+             + (' **Schneller Probemodus**: 1 s Schrittweite, Zählwerte auf eine Stunde hochgerechnet, nur zur groben Orientierung.' if SCHNELL else '')
+             + '\n')
     L.append('## Überblick je Stunde\n')
     L.append('| Kennzahl | ' + ' | '.join(TITEL[v] for v in vs) + ' |')
     L.append('|---|' + '---|' * len(vs))
@@ -668,6 +724,10 @@ def bericht(rows, laeufe, bus):
         ('davon Fahrzeug schneller als 30 km/h', ('konflikte_fuss', 'ueber30')),
         ('davon durch Rad', ('konflikte_fuss', 'durch_rad')),
         ('davon durch Fehlspur-Fahrer', ('konflikte_fuss', 'durch_fehlspur')),
+        ('Kfz überholt Rad (Vorgänge je Stunde, Sublane-Modell)', ('ueberholen_rad', 'alle')),
+        ('davon Überholabstand < 1,5 m (StVO innerorts)', ('ueberholen_rad', 'unter15')),
+        ('davon Überholabstand < 1,0 m', ('ueberholen_rad', 'unter10')),
+        ('Überholabstand im Median in m', ('ueberholen_rad_abstand_m', 'median')),
         ('Mittlerer Zeitverlust Kfz in s', ('zeitverlust_s', 'alle|Kfz')),
         ('Mittlerer Zeitverlust Rad in s', ('zeitverlust_s', 'alle|Rad')),
         ('Mittlerer Zeitverlust Bus in s', ('zeitverlust_s', 'alle|Bus')),
@@ -771,7 +831,16 @@ def main():
     ap.add_argument('--jobs', type=int, default=os.cpu_count() or 2)
     ap.add_argument('--behalte-roh', action='store_true', help='Rohdaten nicht loeschen')
     ap.add_argument('--nur-bericht', action='store_true', help='nur vergleich.md aus kennzahlen.csv neu schreiben')
+    ap.add_argument('--schnell', action='store_true',
+                    help='Probemodus: 3 Laeufe, 20 min, 1 s Schrittweite, Ergebnis in ergebnisse/schnell')
     args = ap.parse_args()
+    if args.schnell and not SCHNELL:
+        # Konstanten haengen am Modul, deshalb mit gesetzter Umgebungsvariable neu starten
+        os.environ['SUMO_SCHNELL'] = '1'
+        argv = [a for a in sys.argv if a != '--schnell']
+        if '--laeufe' not in argv:
+            argv += ['--laeufe', '3']
+        os.execv(sys.executable, [sys.executable] + argv)
     if args.nur_bericht:
         with open(os.path.join(ERG, 'kennzahlen.csv')) as f:
             rows = [(r['variante'], int(r['lauf']), r['kennzahl'], r['gruppe'], float(r['wert'])) for r in csv.DictReader(f)]

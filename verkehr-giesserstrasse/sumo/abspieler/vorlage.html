@@ -627,6 +627,8 @@ function zeigeKennzahlen(v){
     ['Konflikte Kfz gegen Rad','rad',''],
     ['Fußgänger auf der Querung bedrängt','fuss',''],
     ['Konflikte durch Geradeausfahrer aus der Abbiegespur','fehlspur',''],
+    ['Rad überholt mit weniger als 1,5 m','ueberholeng',''],
+    ['Nordarm: größte Schlange (Fahrzeuge)','schlangeN',''],
     ['Nordarm: Anteil der Zeit mit Wartenden','wartendN','%'],
     ['Zeitverlust Kfz am Nordarm','verlustN','s'],
     ['Zeitverlust Kfz','verlust','s'],
@@ -646,8 +648,11 @@ function zeigeKennzahlen(v){
   $('vnote').textContent=`Mittelwerte je Stunde aus ${K.laeufe} simulierten Spitzenstunden. Die Animation zeigt davon fünf Minuten.`;
 }
 // ---------- Bedienung
-for(const v of VAR){const b=document.createElement('button');b.role='tab';b.dataset.v=v.id;b.innerHTML=`${v.t}<small>${v.k}</small>`;
-  b.addEventListener('click',()=>setVariante(v.id));$('tabs').appendChild(b);}
+// Varianten ohne Daten (vorübergehend nur der Bestand gerechnet) erscheinen als veraltet und sind gesperrt
+for(const v of VAR){const b=document.createElement('button');b.role='tab';b.dataset.v=v.id;const da=!!D.varianten[v.id];
+  b.innerHTML=da?`${v.t}<small>${v.k}</small>`:`${v.t}<small>veraltet, wird nach dem Bestand neu gerechnet</small>`;
+  if(!da){b.disabled=true;b.style.opacity='.55';b.style.cursor='default';}
+  b.addEventListener('click',()=>{if(da)setVariante(v.id);});$('tabs').appendChild(b);}
 for(const s of [1,2,4]){const b=document.createElement('button');b.textContent=s+'×';b.setAttribute('aria-pressed',s===tempo?'true':'false');
   b.addEventListener('click',()=>{tempo=s;for(const x of $('speed').children)x.setAttribute('aria-pressed',x===b?'true':'false');});$('speed').appendChild(b);}
 $('play').addEventListener('click',()=>setPlay(!playing));
@@ -664,13 +669,15 @@ function ladeSzene(nr,v){
   szNr=nr;szVar=v||'bestand';
   for(const b of $('szliste').children)b.setAttribute('aria-pressed',+b.dataset.nr===nr);
   const meta=D.szenen.liste.find(x=>x.nr===nr);
+  const AKTIV=Object.keys(VKURZ).filter(k=>D.varianten[k]);
   $('szvgl').replaceChildren(...Object.keys(VKURZ).map(k=>{const b=document.createElement('button');b.textContent=VKURZ[k];
     b.setAttribute('aria-pressed',k===szVar);const da=!!clips[k];b.disabled=!da;
     b.title=da?'':'In dieser Variante kommt die Szene im berechneten Lauf nicht vor';
     b.addEventListener('click',()=>ladeSzene(nr,k));return b;}));
-  const fehlt=Object.keys(VKURZ).filter(k=>!clips[k]);
+  const fehlt=AKTIV.filter(k=>!clips[k]);
   let note='';
-  if(meta.kennzahl){const [key,lbl]=meta.kennzahl;note=`${lbl} je Stunde: `+Object.keys(VKURZ).map(k=>`${VKURZ[k]} ${String(D.kennzahlen[k][key]??'–').replace('.',',')}`).join(', ')+'.';}
+  if(meta.kennzahl){const [key,lbl]=meta.kennzahl;note=`${lbl} je Stunde: `+AKTIV.map(k=>`${VKURZ[k]} ${String((D.kennzahlen[k]||{})[key]??'–').replace('.',',')}`).join(', ')+'.';}
+  if(AKTIV.length<Object.keys(VKURZ).length)note+=' Die Varianten werden nach Fertigstellung des Bestands neu gerechnet.';
   if(fehlt.length)note+=` Nicht gefunden in ${fehlt.map(k=>VKURZ[k]).join(', ')}.`;
   $('sznote').textContent=note.trim();
   if(!v){$('untertitel').innerHTML=`<b>${nr}</b> Diese Szene kommt in keiner Variante vor.`;return;}
