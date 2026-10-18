@@ -190,7 +190,7 @@ NOTIZ = ('<div style="background:#fff;padding:1mm"><b>Vorschlag 1</b> (Zeichnung
 
 
 async def main():
-    bp.OPT.update(name='vorschlag1', titel='Vorschlag 1 der Initiative', overlay=overlay(), meta=False,
+    bp.OPT.update(entfernen=['path[stroke-dasharray="3 3"][stroke-width="0.13"]'], name='vorschlag1', titel='Vorschlag 1 der Initiative', overlay=overlay(), meta=False,
                   hinweis='Radführung entlang der abknickenden Vorfahrt, eine Kfz-Spur nach Norden. Rot = Radverkehr, orange = Rad links abbiegen West nach Nord. Ergänzungen bitte farbig einzeichnen.',
                   notizen=NOTIZ)
     await bp.main()

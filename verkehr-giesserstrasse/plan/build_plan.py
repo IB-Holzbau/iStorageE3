@@ -13,7 +13,7 @@ from playwright.async_api import async_playwright
 
 HIER = os.path.dirname(os.path.abspath(__file__))
 QUELLE = sys.argv[1] if len(sys.argv) > 1 and __name__ == '__main__' else os.path.join(HIER, '..', 'sumo', 'grafik', 'abspieler.html')
-OPT = dict(name='bestand', titel='Eintragsplan Bestand', overlay='', hinweis=None, notizen=None, meta=True, quelle=None)
+OPT = dict(entfernen=[], name='bestand', titel='Eintragsplan Bestand', overlay='', hinweis=None, notizen=None, meta=True, quelle=None)
 EXE = (glob.glob('/opt/pw-browsers/chromium-*/chrome-linux/chrome') or [None])[0]
 
 # Seiten: A3 hoch, 297 x 420 mm. Kartenfeld mit festem Maßstab.
@@ -41,15 +41,16 @@ async def karte_holen():
         pg = await b.new_page(viewport={'width': 1200, 'height': 1400})
         await pg.goto('file://' + os.path.abspath(QUELLE))
         await pg.wait_for_timeout(1500)
-        svg = await pg.evaluate('''() => {
+        svg = await pg.evaluate('''(entf) => {
             const A = window.__abspieler;
             try { A.setModus && A.setModus('frei'); } catch(e) {}
             try { A.setVariante('bestand'); } catch(e) {}
             try { A.setT(0); } catch(e) {}
             const s = document.getElementById('map').cloneNode(true);
             for (const id of ['agents','sicht','fx']) { const g = s.querySelector('#'+id); if (g) g.remove(); }
+            for (const sel of entf) s.querySelectorAll(sel).forEach(e => e.remove());
             return s.innerHTML;
-        }''')
+        }''', OPT['entfernen'])
         await b.close()
         return svg
 
