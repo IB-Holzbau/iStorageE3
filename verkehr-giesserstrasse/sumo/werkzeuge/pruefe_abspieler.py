@@ -15,7 +15,7 @@ import os
 import re
 import sys
 
-from shapely.geometry import Polygon
+from shapely.geometry import LineString, Point, Polygon
 from shapely.prepared import prep
 
 HIER = os.path.dirname(os.path.abspath(__file__))
@@ -62,6 +62,15 @@ def dekodiere(raw, typen):
             frames.append((x / 10, -y / 10, a % 360, (b % 360) if st == 5 else None))
         out.append(dict(typ='pkw' if typ == 'pkwx' else typ, f0=d[1], n=n, frames=frames))
     return out
+
+
+def bucht(var='bestand'):
+    import xml.etree.ElementTree as ET
+    r = ET.parse(os.path.join(ROOT, 'netze', f'{var}.net.xml')).getroot()
+    for l in r.iter('lane'):
+        if l.get('id') == 'S_in_bucht_1':
+            pts = [tuple(map(float, p.split(','))) for p in l.get('shape').split()]
+            return LineString(pts).buffer(2.0)
 
 
 def main():
@@ -135,6 +144,23 @@ def main():
             gesamt += 1
         if zu_stark:
             gesamt += 1
+        # Bus nordwaerts: steht mindestens 15 s im Haltebereich (Spur S_in_bucht_1)
+        halt = []
+        for t in tr:
+            if t['typ'] != 'bus':
+                continue
+            fr = t['frames']
+            nord = any(abs(((h - 10) + 180) % 360 - 180) < 30 and y < -40 for x, y, h, _ in fr)
+            if not nord:
+                continue
+            steh = 0.0
+            for (x0, y0, _, _), (x1, y1, _, _) in zip(fr, fr[1:]):
+                if math.hypot(x1 - x0, y1 - y0) < 0.02 and bucht(var).contains(Point(x1, y1)):
+                    steh += dt
+            halt.append(round(steh, 1))
+        if any(h < 15 for h in halt):
+            gesamt += 1
+        print(f'   Bus nordwaerts im Haltebereich stehend (s): {halt}' + (' ZU KURZ' if any(h < 15 for h in halt) else ''))
         print(f'{var}: {frames} Frames mit Ueberlappung, {len(paare)} Paare; Kfz ueber Bordstein {len(bord)}, ueber Insel/Pflaster {len(ins)}; '
               f'groesster Knick {", ".join(f"{k} {v:.0f} Grad" for k, v in knick.items())}' + (f' UEBER GRENZE {zu_stark}' if zu_stark else '')
               + '; groesste Quergeschwindigkeit ' + ', '.join(f'{k} {v:.2f} m/s' for k, v in sorted(quer.items()))

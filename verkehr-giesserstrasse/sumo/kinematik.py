@@ -180,6 +180,19 @@ def querversatz_weich(typ, xs, ys, dt):
             if sv > 15 and abs(q) < 10 and (best is None or sv > best[1]):
                 best = (a, sv, q)
         lage.append(best)
+    # Halte (mindestens 3 s Stillstand, z.B. Bus an der Haltestelle) sind feste Punkte: Vor einem
+    # Halt gilt der Rueckwaertsfilter (der Wechsel ist beim Anhalten abgeschlossen), nach einem
+    # Halt der Vorwaertsfilter (der Wechsel beginnt erst beim Anfahren).
+    still = [False] * n
+    i = 0
+    while i < n:
+        j = i
+        while j + 1 < n and math.hypot(xs[j + 1] - xs[i], ys[j + 1] - ys[i]) < 0.2:
+            j += 1
+        if (j - i) * dt >= 3.0:
+            for k in range(i, j + 1):
+                still[k] = True
+        i = j + 1
     vmax = V_SEITE.get(typ, 0.5) * dt
 
     def filt(idx):
@@ -190,7 +203,7 @@ def querversatz_weich(typ, xs, ys, dt):
             if L is None:
                 prev = None
                 continue
-            if prev is None or prev[0] != L[0]:
+            if prev is None or prev[0] != L[0] or still[i]:
                 out[i] = L[2]
             else:
                 ds = abs(L[1] - prev[1])
@@ -200,12 +213,37 @@ def querversatz_weich(typ, xs, ys, dt):
         return out
     vf = filt(range(n))
     vb = filt(range(n - 1, -1, -1))
+    vor_halt = [None] * n      # Fahrweg bis zum naechsten Halt
+    nach_halt = [None] * n     # Fahrweg seit dem letzten Halt
+    cum = [0.0]
+    for k in range(1, n):
+        cum.append(cum[-1] + math.hypot(xs[k] - xs[k - 1], ys[k] - ys[k - 1]))
+    letzt = None
+    for k in range(n):
+        if still[k]:
+            letzt = cum[k]
+        nach_halt[k] = None if letzt is None else cum[k] - letzt
+    letzt = None
+    for k in range(n - 1, -1, -1):
+        if still[k]:
+            letzt = cum[k]
+        vor_halt[k] = None if letzt is None else letzt - cum[k]
     ox, oy = list(xs), list(ys)
     for i in range(n):
         L = lage[i]
         if L is None:
             continue
         q = (vf[i] + vb[i]) / 2
+        if still[i]:
+            q = L[2]
+        else:
+            # weich zum Rueckwaerts- bzw. Vorwaertsfilter ueberblenden, je naeher der Halt ist
+            wv = 0.0 if vor_halt[i] is None else max(0.0, 1 - vor_halt[i] / 60)
+            wn = 0.0 if nach_halt[i] is None else max(0.0, 1 - nach_halt[i] / 60)
+            if wv >= wn and wv > 0:
+                q = q + (vb[i] - q) * wv
+            elif wn > 0:
+                q = q + (vf[i] - q) * wn
         p0, u = arme[L[0]]
         # weicher Uebergang zwischen 15 und 20 m zur SUMO-Bahn im Knoten
         w = min(1.0, (L[1] - 15) / 5)
@@ -216,10 +254,42 @@ def querversatz_weich(typ, xs, ys, dt):
 
 
 def glaetten(typ, xs, ys, winkel, dt):
+    """Querversatz auf den Armen weich machen, dann die Bahn je Fahrabschnitt glaetten. Halte von
+    mindestens 3 s (Bus an der Haltestelle, Warten am Stopp) trennen die Abschnitte, damit das
+    Fahrzeug beim Halten genau dort steht, wo SUMO es haelt."""
+    xs, ys = querversatz_weich(typ, xs, ys, dt)
+    n = len(xs)
+    grenzen = []
+    i = 0
+    while i < n:
+        j = i
+        while j + 1 < n and math.hypot(xs[j + 1] - xs[i], ys[j + 1] - ys[i]) < 0.2:
+            j += 1
+        if (j - i) * dt >= 3.0:
+            grenzen.append((i, j))
+        i = j + 1
+    ox, oy, ws = [], [], []
+    a = 0
+    for i, j in grenzen + [(n, n)]:
+        if i > a:
+            gx, gy, gw = _glaetten_abschnitt(typ, xs[a:i + 1] if i < n else xs[a:], ys[a:i + 1] if i < n else ys[a:],
+                                             winkel[a:i + 1] if i < n else winkel[a:], dt)
+            k = i - a if i < n else len(gx)
+            ox += gx[:k]
+            oy += gy[:k]
+            ws += gw[:k]
+        if i < n:
+            ox += xs[i:j + 1]
+            oy += ys[i:j + 1]
+            ws += [ws[-1] if ws else winkel[i]] * (j + 1 - i)
+        a = j + 1
+    return ox, oy, ws
+
+
+def _glaetten_abschnitt(typ, xs, ys, winkel, dt):
     """Glaettet die SUMO-Frontbahn als gleitendes Mittel entlang des Fahrwegs (nicht der Zeit),
     mit langem Fenster auf Geraden und kurzem in Kurven. Im Stand bleibt der Punkt stehen. Gibt
     Positionen und Winkel (aus der geglaetteten Bahn) zurueck."""
-    xs, ys = querversatz_weich(typ, xs, ys, dt)
     n = len(xs)
     cum = [0.0]
     for i in range(1, n):
@@ -269,6 +339,8 @@ def glaetten(typ, xs, ys, winkel, dt):
             letzte = k
         abst[k] = min(abst[k], letzte - k)
     wk = [hk if kurve[k] else min(hg, hk + abst[k]) for k in range(m)]
+    # an Abschnittsenden (Halt, Beginn, Ende) schrumpft das Fenster bis auf den Punkt selbst
+    wk = [min(w, k, m - 1 - k) for k, w in enumerate(wk)]
     W = hg
     u0 = richtung(winkel[0])
     u1 = richtung(winkel[-1])
