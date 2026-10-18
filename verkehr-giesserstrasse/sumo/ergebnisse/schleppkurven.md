@@ -70,7 +70,7 @@ Für jede Fahrbeziehung im Hauptknoten fahren Pkw und die schweren Fahrzeuge, di
 | NW | Lkw | 1.6 |
 | NW | Pkw | 0.0 |
 | SE | Pkw | 0.3 |
-| SN | Lkw | 12.0 |
+| SN | Lkw | 10.9 |
 | SN | Pkw | 0.0 |
 | SW | Gelenkbus 18 m | 3.1 |
 | SW | Lkw | 0.0 |

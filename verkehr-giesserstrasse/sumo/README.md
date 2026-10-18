@@ -63,6 +63,7 @@ Die Initiative hat im Oktober 2026 Luftbilder (Geoportal Leipzig, Google), Stra�
 | Süd nach Nord | viele fahren zügig geradeaus durch | 200 statt 110 Pkw je Stunde, 20 % schnelle Fahrer (Schätzung) |
 | Blinken | Geradeausfahrer blinken nie, auch nicht beim Spurwechsel, Abbieger meistens | im Abspieler so gezeichnet, siehe Kritische Szenen |
 | Südarm Markierung | zwei Spuren nordwärts mit Pfeilen links bzw. geradeaus und rechts, zur Gegenrichtung nur eine Leitlinie (eine früher eingezeichnete schmale Sperrfläche gibt es laut Initiative nicht). Gestrichelte Leitlinie mit großem Radius von der Linie zwischen Links- und Geradeausspur zur Nordwestecke, sie trennt die abknickende Vorfahrt vom Geradeausverkehr. Zweite schräge Linie von der Südost- zur Nordostecke über die Mündung des Ostarms | gezeichnet |
+| Fahrverhalten Süd | Geradeausfahrer nach Nord fahren fast mit konstantem Tempo durch, der leichte Versatz zur Nordspur bremst nicht. Abbieger nach West biegen zügig ab und schneiden die Kurve leicht (Reifenspuren im Luftbild) | siehe Fahrverhalten aus Süd |
 | Fehlverhalten Süd | etwa ein Viertel der Geradeausfahrer nach Nord nutzt die Linksabbiegespur oder fährt mittig | 25 % im Bestand über eine nur dafür freigegebene Verbindung (Fahrzeugklasse `taxi`), im Abspieler orange und mittig. Mit durchgezogener Linie (Markierung, Radwege) 8 %, in der Zone 15 % |
 | Nordarm | 8,2 m, Westseite Längsparken mit Begrenzungslinie ab etwa 30 m, davor Halteverbot (Schild). STOP-Feld und Haltlinie | Parkstreifen ab 30 m (Fahrspuren dort 3,1 m), Haltlinie vor der Querung, STOP für Fahrer aus Norden lesbar |
 | Zufluss Nord | am Stopp stehen höchstens etwa 6 Autos, typisch 1 bis 3, Verkehr kommt in Pulks von der Ampel etwa 350 m nördlich | Ampel als Zulaufstrecke, Menge und Lückenannahme daran kalibriert, siehe Zulauf Nord und Kalibrierung |
@@ -165,29 +166,31 @@ Kernaussagen je Stunde (Mittel aus 10 Läufen, Morgenspitze)
 
 | | Bestand | Markierung und Tempo 30 (Empfehlung) | Rote Radwege | Tempo-30-Zone (Vergleich) |
 |---|---|---|---|---|
-| Fahrzeugkonflikte im Knoten | 55 | 42 | 49 | 21 |
-| davon schwer | 15 | 16 | 19 | 1,6 |
-| davon Kfz gegen Rad | 12 | 8,5 | 16 | 4,8 |
-| Fußgänger auf Querung bedrängt | 23 | 18 | 19 | 18 |
-| davon Fahrzeug schneller als 30 km/h | 5,6 | 3,4 | 3,8 | 3,5 |
-| Wartezeit Fußgänger in s | 4,0 | 7,2 | 5,3 | 9,4 |
-| Nordarm Zeitverlust Kfz in s | 33 (D) | 23 (C) | 21 (C) | 11 (B) |
-| Nordarm größte Schlange (Fahrzeuge) | 6,2 | 6,0 | 5,6 | 3,6 |
-| Nordarm Anteil der Zeit mit Wartenden | 30 % | 26 % | 26 % | 4 % |
-| Zeitverlust Kfz in s | 15 | 10 | 9 | 12 |
+| Fahrzeugkonflikte im Knoten | 59 | 48 | 52 | 25 |
+| davon schwer | 18 | 18 | 18 | 1,6 |
+| davon Kfz gegen Rad | 11 | 9,6 | 13 | 4,8 |
+| Fußgänger auf Querung bedrängt | 19 | 14 | 14 | 15 |
+| davon Fahrzeug schneller als 30 km/h | 6,9 | 3,7 | 2,7 | 4,3 |
+| Wartezeit Fußgänger in s | 4,1 | 7,6 | 5,5 | 9,5 |
+| Nordarm Zeitverlust Kfz in s | 30 (D) | 21 (C) | 20 (B) | 10 (B) |
+| Nordarm größte Schlange (Fahrzeuge) | 6,2 | 5,8 | 5,5 | 2,8 |
+| Nordarm Anteil der Zeit mit Wartenden | 27 % | 24 % | 23 % | 4 % |
+| Zeitverlust Kfz in s | 15 | 9 | 9 | 8 |
+| Durchfahrt Süd nach Nord ungehindert in km/h | 48 | 29 | 29 | 29 |
+| Durchfahrt Süd nach West ohne Halt in km/h (85 %-Wert aller) | 33 (38) | 28 (32) | 28 (32) | 27 (30) |
 | Stellplätze im Ausschnitt | 88 | 87 | 74 | 87 |
 
-Gerechnet mit Pulks aus Nord (Ampel 350 m nördlich) und mit dem an der Schlange am Stopp Nord kalibrierten Bestand, siehe unten.
+Gerechnet mit Pulks aus Nord (Ampel 350 m nördlich), mit dem an der Schlange am Stopp Nord kalibrierten Bestand und mit dem beobachteten Fahrverhalten aus Süd, siehe unten. Durchfahrtstempo je Relation in [`ergebnisse/vergleich.md`](ergebnisse/vergleich.md).
 
 **Streuung.** Die Zahlen schwanken zwischen den zehn Läufen deutlich, bei den schweren Konflikten etwa ± 5 je Stunde. Schon ein zusätzlicher kleiner Fußgängerstrom (die Kinderwagen, 6 je Stunde) mischt die Zufallszahlen neu und verschiebt die schweren Konflikte um bis zu 3. Unterschiede unter etwa 3 bei den schweren Konflikten sind deshalb kein belastbarer Unterschied. Belastbar sind die großen Abstände (alle Konflikte, Zone gegen den Rest, schnelle Fahrzeuge an den Querungen, Nordarm).
 
 Lesart
 
-- **Markierung und Tempo 30 (Empfehlung)** senkt die Fahrzeugkonflikte um knapp ein Viertel (55 auf 42), Kfz gegen Rad um knapp ein Drittel und die schnellen Fahrzeuge an den Querungen um etwa 40 %. Der Nordarm wartet im Mittel 10 s weniger (33 auf 23 s). Die schweren Konflikte bleiben im Rahmen der Streuung gleich (15 und 16), siehe unten.
+- **Markierung und Tempo 30 (Empfehlung)** senkt die Fahrzeugkonflikte um knapp ein Fünftel (59 auf 48), die bedrängten Fußgänger um ein Viertel und die schnellen Fahrzeuge an den Querungen etwa auf die Hälfte. Der Nordarm wartet im Mittel 9 s weniger (30 auf 21 s). Geradeausfahrer aus Süd fahren mit knapp 30 statt knapp 50 km/h durch. Die schweren Konflikte bleiben gleich (18 und 18), siehe unten.
 - **Was bei der Empfehlung bleibt.** Die schweren Konflikte im Modell sind fast alle Lückenkonflikte gegen den Hauptstrom Süd nach West. Über alle zehn Läufe je Stunde: Süd nach West gegen Linksabbieger West nach Nord etwa 5 (Pkw, Lkw und Bus), gegen Räder West nach Nord 1,6, gegen Einbieger aus Ost und Nord zusammen 1,8. Das sind gut zwei Drittel der schweren Konflikte (gezählt vor Ampel und Kalibrierung, damals 13 je Stunde). Wer aus West, Ost oder Nord einbiegt, muss eine Lücke im abbiegenden Hauptstrom finden, der aus der Linksabbiegespur kommt und dessen Ende man schlecht sieht. Das bleibt, solange die abknickende Vorfahrt bleibt. Die Maßnahmen dagegen wirken über Sicht und Aufmerksamkeit (freies Sichtfeld an der Ostecke, breitere Halt- und Wartelinien, zusätzliche Schilder links, Tempo-30-Piktogramme, weniger Falschparker). SUMO kennt Sicht nicht, deshalb sind sie gezeichnet, aber nicht als Zahl eingerechnet. Ihre Wirkung ist eher größer als im Modell.
 - **Geprüft und verworfen** (Sensitivität für Bestand / Markierung / Radwege, schwere Konflikte je Stunde, gerechnet vor dem Kinderwagen-Strom, Grundwerte damals 16 / 14 / 12, Lückenannahme damals `impatience` 0,5). Vorsichtigeres Einbiegen aus Nord und Ost (`impatience` 0,35 statt 0,5) ergibt 16 / 13,5 / 13 bei 61 s Zeitverlust am Nordarm, mit 0,25 sogar 214 s, der Nordarm würde überlaufen. Langsamerer Bogen mit 20 km/h und Linksabbiegen West nach Nord nur mit Warten ergibt 16 / 17 / 20, also schlechter, weil sich die Ströme im Knoten länger überlagern. Beides bleibt deshalb aus dem Modell. Die Lückenannahme ist inzwischen an der Schlange am Stopp Nord kalibriert (siehe Kalibrierung).
-- **Tempo-30-Zone mit rechts vor links (nur Vergleich, nicht empfohlen)** hätte rechnerisch die wenigsten Konflikte (21, schwer 1,6) und wenig Stau am Nordarm. Sie ändert aber die Vorfahrt grundsätzlich, an die sich alle gewöhnt haben, und die Umstellungszeit ist im Modell nicht abgebildet. Fußgänger warten dort am längsten (9,4 s).
-- **Rote Radwege** bringen gegenüber der reinen Markierung im Modell keinen Sicherheitsgewinn, Kfz gegen Rad steigt sogar (16 statt 8,5). Vermutliche Ursache sind Radfahrende, die vom Radfahrstreifen rechts nach West links abbiegen wollen und dafür über die Geradeausspur wechseln, und Rechtsabbieger West nach Süd über den Radfahrstreifen. Ohne Ampel fehlt der geschützte Aufstellbereich. SUMO bildet das Einordnen der Räder grob ab, die Zahl ist eine Tendenz. Dafür kosten die Radwege 14 Stellplätze im Ausschnitt.
+- **Tempo-30-Zone mit rechts vor links (nur Vergleich, nicht empfohlen)** hätte rechnerisch die wenigsten Konflikte (25, schwer 1,6) und wenig Stau am Nordarm. Sie ändert aber die Vorfahrt grundsätzlich, an die sich alle gewöhnt haben, und die Umstellungszeit ist im Modell nicht abgebildet. Fußgänger warten dort am längsten (9,5 s).
+- **Rote Radwege** bringen gegenüber der reinen Markierung im Modell keinen Sicherheitsgewinn, Kfz gegen Rad steigt sogar (13 statt 9,6). Vermutliche Ursache sind Radfahrende, die vom Radfahrstreifen rechts nach West links abbiegen wollen und dafür über die Geradeausspur wechseln, und Rechtsabbieger West nach Süd über den Radfahrstreifen. Ohne Ampel fehlt der geschützte Aufstellbereich. SUMO bildet das Einordnen der Räder grob ab, die Zahl ist eine Tendenz. Dafür kosten die Radwege 14 Stellplätze im Ausschnitt.
 - **Fehlspur.** Mit durchgezogener Linie fast keine Konflikte mehr durch Geradeausfahrer aus der Linksabbiegespur, im Bestand im Modell etwa einer je Stunde.
 - **Bus.** Der Wechsel vom Haltebereich auf die Linksabbiegespur passiert mit jedem Bus nach West (etwa 5 je Stunde), Konflikte dabei bleiben selten. Mit Ausholen beim Rechtsabbiegen überfahren Bus, Lkw und Sattelzug den Bordstein kaum noch (unter 0,5 Fahrten je Stunde).
 
@@ -207,15 +210,27 @@ Im Abspieler gibt es neben dem freien Abspielen den Modus **Kritische Szenen**. 
 | 8 | Sicht vom Kiosk über die Naumburger Straße | Person wartet an der Westquerung auf der Kioskseite, viele Fahrzeuge in Sicht |
 | 9 | Kurzhalter am Kiosk im Haltverbot | Kurzhalter auf der Nordseite West steht, viel Verkehr ringsum |
 
-Alle neun Szenen kommen in allen vier Varianten vor. `python3 werkzeuge/szenenbilder.py <ordner> [variante]` macht Bilder am kritischen Moment.
+Alle neun Szenen kommen in Bestand, Empfehlung und Radwegen vor. In der Zone fehlt Szene 2 (Rad West nach Nord steht lange im Knoten), weil das dort in Lauf 1 nicht vorkommt. `python3 werkzeuge/szenenbilder.py <ordner> [variante]` macht Bilder am kritischen Moment.
 
 **Blinken (Ortsbeobachtung, Schätzung).** Geradeausfahrer (Süd nach Nord, Nord nach Süd, West nach Ost, Ost nach West) blinken nie, auch nicht beim Spurwechsel am Südarm oder wenn sie in der Linksabbiegespur fahren. Abbieger, auch auf der abknickenden Vorfahrt, blinken zu etwa 88 %, und zwar nach ihrer Route ab etwa 35 m vor der Knotenmitte bis zum Verlassen des Knotens, danach sofort aus. Beim Einordnen und Busse beim Ein- und Ausschwenken an der Haltestelle blinkt es zur Seite des Spurwechsels. Busse blinken immer. Der Test prüft, dass niemand im Knotenbereich entgegen seiner Abbiegerichtung oder nach dem Verlassen des Knotens blinkt. Das ist nur im Abspieler dargestellt. In SUMO selbst wirkt das Blinken nicht, wartende Fahrer und Fußgänger kennen dort die Absicht der anderen. Die Unsicherheit durch fehlende Blinker ist deshalb in den Kennzahlen nicht enthalten, sie zeigt sich nur in Szene 6.
+
+### Fahrverhalten aus Süd
+
+**Beobachtung der Initiative.** Geradeausfahrer Süd nach Nord fahren fast mit konstantem Tempo durch den Knoten. Der leichte seitliche Versatz von der Zufahrtsspur zur Nordspur bremst nicht, sie lenken nur minimal. Abbieger Süd nach West (abknickende Vorfahrt) biegen oft zügiger ab und schneiden die Kurve leicht (Reifenspuren im Luftbild).
+
+**Was im Modell bremste.** Im Mittel fuhren Geradeausfahrer im Bestand nur gut 30 km/h durch den Knoten, die Hälfte fiel unter 20 km/h, auch ohne Vordermann. Die Kurvengeschwindigkeit war nicht der Grund (die Bahn Süd nach Nord erlaubte schon 50 km/h). Gründe waren drei Modelleffekte. Erstens war die Verbindung von der Geradeausspur nach Nord nachrangig gegenüber der Fehlspur-Verbindung von links, SUMO lässt Fahrzeuge vor nachrangigen Verbindungen langsamer anfahren (Einbruch auf etwa 27 km/h kurz vor dem Knoten). Zweitens mussten Geradeausfahrer am Beginn der Abbiegespur reißverschlussartig warten. Drittens bremst das Trödeln der Fahrer (`sigma` 0,5) ständig zufällig.
+
+**Änderungen (alle Varianten).** Die Geradeausverbindung nach Nord hat Vorrang (`pass`), wer aus der Linksabbiegespur geradeaus will (Fehlspur), wartet. Die Kfz-Spur läuft links neben dem Haltebereich durch und teilt sich am Spurbeginn in geradeaus und links, nur Bus und Rad aus dem Haltebereich warten dort. Die Bahn Süd nach Nord im Knoten ist eine gerade Linie statt einer leichten S-Kurve. Trödeln der Pkw `sigma` 0,2 statt 0,5. Süd nach West im Bestand mit Kurventempo 35 km/h statt der von netconvert aus dem Radius berechneten 33 km/h (**Annahme**). Die Bahn Süd nach West ließ sich nicht schneiden. Schon die Bahn von netconvert liegt nur gut 2 m neben der Bahn der Rechtsabbieger West nach Süd, eine geschnittene Bahn hätte beide überdeckt, und SUMO prüft diese Begegnung nicht. Im Abspieler wird der Versatz der Geradeausfahrer über 60 m Fahrweg verteilt, der Kurs ändert sich dort gleichmäßig um wenige Grad (die Straße selbst knickt um etwa 3 Grad).
+
+**Ergebnis (Bestand).** Ungehinderte Geradeausfahrer Süd nach Nord fahren im Mittel mit 48 km/h durch den Knoten, alle zusammen mit 40 km/h (85 %-Wert 53 km/h). Süd nach West im Mittel 30 km/h, ohne Halt 33 km/h, 85 %-Wert 38 km/h, die zügigen Fahrer kommen auf etwa 40 km/h. In den Varianten mit Tempo 30 fahren Geradeausfahrer ungehindert mit 29 km/h, Abbieger nach West ohne Halt mit 28 km/h. Durch das schnellere Durchfahren steigen die schweren Konflikte im Bestand von 15 auf 18 je Stunde, in der Empfehlung von 16 auf 18, also etwa im Rahmen der Streuung von ± 4. Die Kalibrierung am Stopp Nord hält (größte Schlange im Mittel 6,2, einzelne Läufe 4 bis 9, 95 %-Wert 2,2).
 
 ### Zulauf Nord mit Ampel (Pulks)
 
 **Beobachtung der Initiative.** Etwa 350 m nördlich liegt an der Gießerstraße eine Ampel, der Verkehr aus Nord kommt deshalb oft stoßweise. Vermutlich ist es die Kreuzung Karl-Heine-Straße / Gießerstraße, für die laut Recherche (`../recherche/02-kreuzung-daten.md`) 2019/20 eine Ampel vorgesehen war. Die Lage ließ sich hier nicht in OSM nachsehen, weil OSM aus der Rechenumgebung nicht erreichbar war, bitte vor Ort bestätigen.
 
 **Umsetzung (nur SUMO).** Der Nordarm ist um eine künstliche Zulaufstrecke verlängert, außerhalb des Abspieler-Ausschnitts. Die Ampel steht 350 m vor der Knotenmitte, davor liegen 100 m Einfahrstrecke. Festzeit als **Annahme**, Umlauf 80 s, Grün für die Gießerstraße 35 s, 3 s Gelb, 42 s Rot. Beide Richtungen der Gießerstraße haben gleichzeitig Grün, auch Süd nach Nord fährt auf diese Ampel zu. Die Stundenmenge aus Nord bleibt gleich. Auf den 340 m bis zum Knoten lösen sich die Pulks durch unterschiedliche Wunschgeschwindigkeiten etwas auf. Zeitverlust an der Ampel und beim Fahren im Pulk auf der Zulaufstrecke wird abgezogen, nur wer auf der Zulaufstrecke in der Schlange vom Stopp Nord steht, zählt zum Knoten. Im Abspieler zeigt oben eine kleine Anzeige die Phase dieser Ampel. Der alte gleichmäßige Zulauf lässt sich mit `ZULAUF_NORD=0` (dazu `SUMO_NETZE`, `SUMO_PLAIN`, `SUMO_ERG` auf eigene Ordner) weiter rechnen, Ergebnis in [`ergebnisse/vergleich_ohne_ampel_nord.md`](ergebnisse/vergleich_ohne_ampel_nord.md).
+
+Stand vor der Anpassung des Fahrverhaltens aus Süd, die Unterschiede ohne und mit Ampel gelten weiter.
 
 | je Stunde, ohne Ampel → mit Ampel (beides kalibrierte Menge) | Bestand | Empfehlung | Zone (Vergleich) |
 |---|---|---|---|
@@ -257,7 +272,7 @@ Lesart
 
 ## Überlappungen von Fahrzeugen
 
-SUMO kann Fahrzeuge im Knoten übereinanderschieben, wenn die Vorfahrtlogik eine Lage nicht erkennt. Das ist ein Modellfehler, kein Unfall, und wird je Lauf gezählt. Bestand, Markierung und Zone um 1 je Stunde, Radwege 7,4 (dort meist Einbieger West nach Süd und Nord nach Süd, die gleichzeitig in die Fahrspur neben dem Radfahrstreifen einfädeln). `werkzeuge/pruefe_abspieler.py` findet im Abspieler je Variante 0 bis 4 kurze Berührungen, meist ein ausschwenkendes Heck neben einem Pkw.
+SUMO kann Fahrzeuge im Knoten übereinanderschieben, wenn die Vorfahrtlogik eine Lage nicht erkennt. Das ist ein Modellfehler, kein Unfall, und wird je Lauf gezählt. Bestand, Markierung und Zone unter 2 je Stunde, Radwege 6,5 (dort meist Einbieger West nach Süd und Nord nach Süd, die gleichzeitig in die Fahrspur neben dem Radfahrstreifen einfädeln). `werkzeuge/pruefe_abspieler.py` findet im Abspieler je Variante 0 bis 4 kurze Berührungen, meist ein ausschwenkendes Heck neben einem Pkw.
 
 ## Grenzen
 

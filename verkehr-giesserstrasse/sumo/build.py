@@ -381,7 +381,8 @@ def suedarm_verbindungen(n, var, gesch=False):
     n.con('S_in_fern', 'S_in_bucht', k('S_in_fern')[0], k('S_in_bucht')[0])
     n.con('S_in_fern', 'S_in_bucht', k('S_in_fern')[0], k('S_in_bucht')[1])
     n.con('S_in_bucht', 'S_in_mitte', k('S_in_bucht')[0], k('S_in_mitte')[0])
-    n.con('S_in_bucht', 'S_in_mitte', k('S_in_bucht')[1], k('S_in_mitte')[0])
+    # Kein Wechsel der Kfz-Spur hinter der Bucht nach rechts: die Fahrspur laeuft links weiter,
+    # rechts kommen nur Bus und Rad aus dem Haltebereich (sie warten am Spurbeginn S25).
     n.con('S_in_bucht', 'S_in_mitte', k('S_in_bucht')[1], k('S_in_mitte')[1])
     if var == 'minikreisel':
         # der rechte Streifen endet vor der Sperrflaeche, Wechsel vorher regulaer
@@ -390,6 +391,9 @@ def suedarm_verbindungen(n, var, gesch=False):
         return
     r, l = k('S_in')
     n.con('S_in_mitte', 'S_in', k('S_in_mitte')[0], r, **({'disallow': 'bicycle'} if gesch else {}))
+    # Die Fahrspur (links neben Bus und Rad aus dem Haltebereich) teilt sich am Spurbeginn S25 in
+    # geradeaus (rechts) und Linksabbieger. Bus und Rad von rechts warten dort (Ortsbeobachtung:
+    # Geradeausfahrer fahren fast mit konstantem Tempo durch).
     n.con('S_in_mitte', 'S_in', k('S_in_mitte')[1], r)
     n.con('S_in_mitte', 'S_in', k('S_in_mitte')[1], l)
     if gesch:
@@ -412,7 +416,9 @@ def suedarm_verbindungen(n, var, gesch=False):
         n.con('S_in_m', 'E_out_m', rad('S_in_m'), k('E_out_m')[0], allow='bicycle')
     # In der geschuetzten Kreuzung nehmen Radfahrende geradeaus und rechts den Radweg, auf der
     # Fahrbahn bleibt nur das direkte Linksabbiegen nach West.
-    n.con(m, 'N_out_m', rm, k('N_out_m')[0], disallow='taxi bicycle' if gesch else 'taxi')
+    # pass: Geradeausfahrer auf der rechten Spur warten nicht auf Fehlspur-Fahrer von links (die
+    # Fehlspur-Verbindung bleibt nachrangig), sonst naehern sie sich dem Knoten zu langsam.
+    n.con(m, 'N_out_m', rm, k('N_out_m')[0], disallow='taxi bicycle' if gesch else 'taxi', **({} if gesch else {'pass': 'true'}))
     n.con(m, 'E_out_m', rm, k('E_out_m')[0], **({'disallow': 'bicycle'} if gesch else {}))
     n.con(m, 'W_out_m', lm, k('W_out_m')[0], **({'speed': f'{BOGEN_TEMPO:.2f}'} if var in EMPFEHLUNG and BOGEN_TEMPO else {}))
     if var != 'minikreisel':
@@ -758,6 +764,45 @@ def fussweg_ecke(G, c, a, sa, b, sb):
 WEITE_KURVEN = {('W_in_m', 'S_out_m'): 0.75, ('N_in_m', 'W_out_m'): 0.75}
 
 
+# Fahrverhalten aus Sued (Ortsbeobachtung): Geradeausfahrer Sued nach Nord fahren fast mit
+# konstantem Tempo durch, der leichte Versatz zur Nordspur bremst nicht. Die Bahn im Knoten ist
+# deshalb eine gerade Linie (netconvert legt sonst eine leichte S-Kurve). Abbieger Sued nach West
+# (abknickende Vorfahrt) biegen zuegig ab und schneiden die Kurve leicht (Reifenspuren im
+# Luftbild). Im Bestand Kurventempo 35 km/h statt der von netconvert aus dem Radius berechneten
+# 33 km/h (Annahme, mit Fahrerstreuung ohne Halt im Mittel etwa 33 km/h, zuegige Fahrer um 40 km/h).
+# Bei Tempo 30 begrenzt das Streckentempo. Die Bahn selbst bleibt: schon die Bahn von netconvert
+# liegt nur gut 2 m neben der Bahn der Rechtsabbieger West nach Sued, eine geschnittene Bahn
+# wuerde sie ueberdecken, und SUMO prueft diese Begegnung nicht (siehe README).
+BOGEN_SW_V = {50: 35 / 3.6}
+
+
+def suedkurven(prefix, net, var):
+    import re
+    r = ET.parse(net).getroot()
+    lanes = {l.get('id'): [tuple(map(float, p.split(','))) for p in l.get('shape').split()]
+             for e in r.findall('edge') for l in e.findall('lane')}
+    v_s = TEMPO_OSM['S'] if var == 'bestand' else V30
+    con = open(prefix + '.con.xml').read()
+
+    def ersetze(m):
+        zu, fl, tl, rest = m.group(1), m.group(2), m.group(3), m.group(4)
+        if 'shape=' in rest:
+            return m.group(0)
+        A, Bl = lanes[f'S_in_m_{fl}'], lanes[f'{zu}_{tl}']
+        a1, b0 = A[-1], Bl[0]
+        if zu == 'N_out_m':
+            return m.group(0)[:-2] + f' shape="{fmt([a1, b0])}"/>'
+        sp = BOGEN_SW_V.get(round(v_s * 3.6))
+        if not sp or 'speed=' in rest:
+            return m.group(0)
+        return m.group(0)[:-2] + f' speed="{sp:.2f}"/>'
+    neu = re.sub(r'<connection from="S_in_m" to="(N_out_m|W_out_m)" fromLane="(\d+)" toLane="(\d+)"([^/]*)/>', ersetze, con)
+    if neu != con:
+        with open(prefix + '.con.xml', 'w') as f:
+            f.write(neu)
+        netconvert(prefix, net)
+
+
 def weite_kurven(prefix, net):
     r = ET.parse(net).getroot()
     lanes = {l.get('id'): [tuple(map(float, p.split(','))) for p in l.get('shape').split()]
@@ -880,16 +925,19 @@ W_N_WARTET = False          # getestet: keine Verbesserung, verworfen
 # Varianten gleich. Umgebungsvariablen KAL_IMP und KAL_TGM nur fuer Kalibrierlaeufe.
 IMPATIENCE = float(os.environ.get('KAL_IMP', '1.0'))
 TIMEGAP_MINOR = float(os.environ.get('KAL_TGM', '0.6'))
+# Troedeln der Pkw-Fahrer (Krauss sigma, SUMO-Standard 0,5). Beobachtet: Geradeausfahrer aus Sued
+# fahren fast mit konstantem Tempo durch. 0,2 haelt das Wunschtempo ruhiger.
+SIGMA_PKW = float(os.environ.get('KAL_SIGMA', '0.2'))
 
 # Schnelle Fahrer (Ortsbeobachtung, Schaetzung): aus Sued und West faehrt ein Teil deutlich zu
 # schnell, bei Tempo 50 etwa 20 % mit 10 bis 15 km/h darueber, bei Tempo 30 etwa 10 % mit 5 bis
 # 10 km/h darueber.
 SCHNELL = {50: (0.20, 'normc(1.25,0.04,1.18,1.32)'), 30: (0.10, 'normc(1.25,0.05,1.15,1.35)')}
 
-VTYPES = '''    <vType id="pkw" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="passenger" length="4.5" width="1.85" accel="2.6" decel="4.5" sigma="0.5" speedFactor="normc(1,0.1,0.8,1.3)"/>
-    <vType id="pkwf" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="passenger" length="4.5" width="1.85" accel="2.8" decel="4.5" sigma="0.4" speedFactor="{schnell}"/>
-    <vType id="pkwn" impatience="{impn}" jmTimegapMinor="{tgm}" vClass="passenger" length="4.5" width="1.85" accel="2.6" decel="4.5" sigma="0.5" speedFactor="normc(1,0.1,0.8,1.3)"/>
-    <vType id="pkwx" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="taxi" length="4.5" width="1.85" accel="2.6" decel="4.5" sigma="0.5" speedFactor="normc(1,0.1,0.8,1.3)"/>
+VTYPES = '''    <vType id="pkw" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="passenger" length="4.5" width="1.85" accel="2.6" decel="4.5" sigma="{sig}" speedFactor="normc(1,0.1,0.8,1.3)"/>
+    <vType id="pkwf" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="passenger" length="4.5" width="1.85" accel="2.8" decel="4.5" sigma="{sig}" speedFactor="{schnell}"/>
+    <vType id="pkwn" impatience="{impn}" jmTimegapMinor="{tgm}" vClass="passenger" length="4.5" width="1.85" accel="2.6" decel="4.5" sigma="{sig}" speedFactor="normc(1,0.1,0.8,1.3)"/>
+    <vType id="pkwx" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="taxi" length="4.5" width="1.85" accel="2.6" decel="4.5" sigma="{sig}" speedFactor="normc(1,0.1,0.8,1.3)"/>
     <vType id="lkw" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="truck" length="10.0" width="2.5" accel="1.3" decel="4.0" sigma="0.5" maxSpeed="12.5" speedFactor="normc(1,0.05,0.8,1.1)"/>
     <vType id="sattel" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="truck" length="16.5" width="2.55" accel="1.0" decel="4.0" sigma="0.5" maxSpeed="11.7" guiShape="truck/semitrailer"/>
     <vType id="bus" impatience="{imp}" jmTimegapMinor="{tgm}" vClass="bus" length="18.0" width="2.55" accel="1.1" decel="4.0" sigma="0.3" maxSpeed="11.1" guiShape="bus/flexible" personCapacity="100"/>
@@ -915,7 +963,7 @@ def nachfrage(var, bus, ende):
     stopp = stopp_kante(var)
     lim = 50 if var == 'bestand' else 30
     anteil_schnell, faktor = SCHNELL[lim]
-    z = ['<routes>', VTYPES.replace('{tgm}', str(TIMEGAP_MINOR)).replace('{imp}', str(IMPATIENCE)).replace('{schnell}', faktor).replace('{impn}', str(IMPATIENCE if IMPATIENCE_SICHT is None else IMPATIENCE_SICHT))]
+    z = ['<routes>', VTYPES.replace('{sig}', str(SIGMA_PKW)).replace('{tgm}', str(TIMEGAP_MINOR)).replace('{imp}', str(IMPATIENCE)).replace('{schnell}', faktor).replace('{impn}', str(IMPATIENCE if IMPATIENCE_SICHT is None else IMPATIENCE_SICHT))]
     flows = []
 
     def flow(fid, typ, rel, q):
@@ -1021,6 +1069,7 @@ def main():
         netconvert(prefix, os.path.join(OUT, f'{var}.net.xml'))
         if var not in ('geschuetzt', 'minikreisel'):
             weite_kurven(prefix, os.path.join(OUT, f'{var}.net.xml'))
+            suedkurven(prefix, os.path.join(OUT, f'{var}.net.xml'), var)
         with open(os.path.join(OUT, f'{var}.rou.xml'), 'w') as f:
             f.write(nachfrage(var, args.bus, args.ende))
     with open(os.path.join(OUT, 'haltestelle.add.xml'), 'w') as f:

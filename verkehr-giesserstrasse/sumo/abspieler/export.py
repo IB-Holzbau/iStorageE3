@@ -131,6 +131,54 @@ RECHTS = {'WS', 'NW', 'EN', 'SE'}
 BLINK_VOR = 35.0      # m vor der Knotenmitte geht der Blinker an
 
 
+GERADE_REL = {'SN', 'NS', 'WE', 'EW'}
+GERADE_FENSTER = 60.0     # m, Laenge, ueber die der Querversatz im Knoten verteilt wird
+
+
+def gerade_glatt(xs, ys, ws):
+    """Nur Darstellung: Geradeausfahrer wechseln im Knoten leicht von der Zufahrtsspur auf die
+    gegenueberliegende Spur (Sued nach Nord etwa 2,7 m auf 19 m). Ohne Glaettung sieht das wie
+    ein Einlenken aus. Die Lage wird nahe am Knoten ueber GERADE_FENSTER Meter Fahrweg gemittelt,
+    so wird der Versatz zu einer flachen Rampe. Weiter weg bleibt die SUMO-Lage."""
+    n = len(xs)
+    if n < 3:
+        return xs, ys, ws
+    s = [0.0]
+    for i in range(1, n):
+        s.append(s[-1] + math.hypot(xs[i] - xs[i - 1], ys[i] - ys[i - 1]))
+    nx, ny = list(xs), list(ys)
+    j0 = j1 = 0
+    h = GERADE_FENSTER / 2
+    for i in range(n):
+        r = math.hypot(xs[i], ys[i])
+        if r > 60:
+            continue
+        w = 1.0 if r < 40 else (60 - r) / 20
+        while s[j0] < s[i] - h:
+            j0 += 1
+        while j1 < n - 1 and s[j1 + 1] <= s[i] + h:
+            j1 += 1
+        # Mittel ueber den Fahrweg (gleichmaessig in s, nicht in Zeit, sonst zaehlen Halte mehr)
+        sx = sy = sw = 0.0
+        for k in range(max(j0, 1), j1 + 1):
+            d = s[k] - s[k - 1]
+            if d <= 0:
+                continue
+            sx += (xs[k] + xs[k - 1]) / 2 * d
+            sy += (ys[k] + ys[k - 1]) / 2 * d
+            sw += d
+        if sw > 1.0:
+            nx[i] = xs[i] + (sx / sw - xs[i]) * w
+            ny[i] = ys[i] + (sy / sw - ys[i]) * w
+    nw = list(ws)
+    for i in range(n):
+        a, b = max(i - 2, 0), min(i + 2, n - 1)
+        dx, dy = nx[b] - nx[a], ny[b] - ny[a]
+        if math.hypot(dx, dy) > 0.5 and math.hypot(xs[i], ys[i]) < 60:
+            nw[i] = math.degrees(math.atan2(dx, dy)) % 360
+    return nx, ny, nw
+
+
 def relation(vid):
     try:
         return vid.split('_')[1].split('.')[0][:2]
@@ -309,6 +357,8 @@ def kodiere(roh, dt, fenster=True):
                         a = math.radians(ws[i])
                         xs[i] += math.cos(a) * off
                         ys[i] -= math.sin(a) * off
+                if relation(vid) in GERADE_REL and ktyp != 'rad':
+                    xs, ys, ws = gerade_glatt(xs, ys, ws)
                 poses = K.posen(ktyp, xs, ys, ws, dt, K.ausholen_fuer(vid))
                 blink = blinker_regeln(vid, ktyp, ab, None, dt) if ktyp != 'rad' else [0] * len(xs)
                 if '.k' in vid:

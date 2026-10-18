@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- generated on 2026-10-18T08:29:15.821921+00:00 by Eclipse SUMO netconvert 1.28.0
+<!-- generated on 2026-10-18T09:02:52.298211+00:00 by Eclipse SUMO netconvert 1.28.0
 <netconvertConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/netconvertConfiguration.xsd">
 
     <input>
@@ -80,11 +80,11 @@
         <lane id=":J_7_0" index="0" disallow="pedestrian custom1 custom2" speed="7.45" length="11.50" width="2.75" shape="2.78,-10.13 3.83,-6.62 5.39,-4.23 7.45,-2.96 10.01,-2.80"/>
     </edge>
     <edge id=":J_8" function="internal">
-        <lane id=":J_8_0" index="0" disallow="taxi" speed="13.89" length="19.06" width="4.10" shape="2.78,-10.13 3.46,-4.51 3.26,-0.59 2.96,3.35 3.37,9.02"/>
-        <lane id=":J_8_1" index="1" allow="taxi" speed="13.89" length="19.06" width="4.10" shape="-0.75,-9.43 3.37,9.02"/>
+        <lane id=":J_8_0" index="0" disallow="taxi" speed="13.89" length="19.03" width="4.10" shape="2.78,-10.13 3.37,9.02"/>
+        <lane id=":J_8_1" index="1" allow="taxi" speed="13.89" length="19.03" width="4.10" shape="-0.75,-9.43 3.37,9.02"/>
     </edge>
     <edge id=":J_10" function="internal">
-        <lane id=":J_10_0" index="0" disallow="pedestrian custom1 custom2" speed="9.14" length="19.53" width="3.75" shape="-0.75,-9.43 -0.46,-4.03 -1.99,0.07 -5.34,2.87 -10.51,4.37"/>
+        <lane id=":J_10_0" index="0" disallow="pedestrian custom1 custom2" speed="9.72" length="19.53" width="3.75" shape="-0.75,-9.43 -0.46,-4.03 -1.99,0.07 -5.34,2.87 -10.51,4.37"/>
     </edge>
     <edge id=":J_11" function="internal">
         <lane id=":J_11_0" index="0" allow="custom1" speed="6.55" length="9.99" width="2.60" shape="-11.43,-2.19 -10.44,-2.29 -9.58,-2.38 -8.83,-2.48 -8.20,-2.59 -7.67,-2.72 -7.24,-2.88 -6.90,-3.09 -6.64,-3.34 -6.47,-3.65 -6.37,-4.02 -6.33,-4.48 -6.36,-5.02 -6.43,-5.65 -6.56,-6.38 -6.73,-7.23 -6.93,-8.20"/>
@@ -231,9 +231,8 @@
         <lane id=":S45_0_1" index="1" disallow="pedestrian custom1 custom2" speed="13.89" length="0.30" width="3.60" shape="-11.19,-43.50 -11.24,-43.80"/>
     </edge>
     <edge id=":S45_2" function="internal">
-        <lane id=":S45_2_0" index="0" allow="bus bicycle" speed="13.89" length="1.40" width="3.60" shape="-4.18,-45.20 -4.12,-44.91"/>
-        <lane id=":S45_2_1" index="1" disallow="pedestrian custom1 custom2" speed="13.89" length="1.40" width="3.60" shape="-7.71,-44.50 -4.12,-44.91"/>
-        <lane id=":S45_2_2" index="2" disallow="pedestrian custom1 custom2" speed="13.89" length="1.40" width="3.60" shape="-7.71,-44.50 -7.66,-44.20"/>
+        <lane id=":S45_2_0" index="0" allow="bus bicycle" speed="13.89" length="0.30" width="3.60" shape="-4.18,-45.20 -4.12,-44.91"/>
+        <lane id=":S45_2_1" index="1" disallow="pedestrian custom1 custom2" speed="13.89" length="0.30" width="3.60" shape="-7.71,-44.50 -7.66,-44.20"/>
     </edge>
     <edge id=":S45_w0" function="walkingarea">
         <lane id=":S45_w0_0" index="0" allow="pedestrian" speed="2.78" length="0.30" width="2.50" shape="-15.17,-43.02 -17.62,-42.53 -17.56,-42.23 -15.11,-42.72"/>
@@ -401,8 +400,8 @@
         <request index="5"  response="1000011100000111" foes="1000011100001111" cont="0"/>
         <request index="6"  response="0111011100000110" foes="0111011100000110" cont="1"/>
         <request index="7"  response="0101000000000000" foes="0101000000000100" cont="0"/>
-        <request index="8"  response="0000001000000000" foes="1101001001111100" cont="0"/>
-        <request index="9"  response="0000000000000000" foes="1101000101111100" cont="0"/>
+        <request index="8"  response="0000000000000000" foes="1101001001111100" cont="0"/>
+        <request index="9"  response="0000000100000000" foes="1101000101111100" cont="0"/>
         <request index="10" response="0000000000000000" foes="1101000001101011" cont="0"/>
         <request index="11" response="0000000000000000" foes="0000000000001000" cont="0"/>
         <request index="12" response="0000011100000000" foes="0010011111001010" cont="0"/>
@@ -456,12 +455,11 @@
         <request index="3" response="00000" foes="00100" cont="0"/>
         <request index="4" response="00000" foes="00000" cont="0"/>
     </junction>
-    <junction id="S45" type="priority" x="-8.76" y="-44.14" incLanes="S_out_mitte_0 S_out_mitte_1 S_out_mitte_2 S_in_bucht_0 S_in_bucht_1 S_in_bucht_2" intLanes=":S45_0_0 :S45_0_1 :S45_2_0 :S45_2_1 :S45_2_2" shape="-17.56,-42.23 0.09,-45.74 0.03,-46.04 -17.62,-42.53">
-        <request index="0" response="00000" foes="00000" cont="0"/>
-        <request index="1" response="00000" foes="00000" cont="0"/>
-        <request index="2" response="01000" foes="01000" cont="0"/>
-        <request index="3" response="00000" foes="00100" cont="0"/>
-        <request index="4" response="00000" foes="00000" cont="0"/>
+    <junction id="S45" type="priority" x="-8.76" y="-44.14" incLanes="S_out_mitte_0 S_out_mitte_1 S_out_mitte_2 S_in_bucht_0 S_in_bucht_1 S_in_bucht_2" intLanes=":S45_0_0 :S45_0_1 :S45_2_0 :S45_2_1" shape="-17.56,-42.23 0.09,-45.74 0.03,-46.04 -17.62,-42.53">
+        <request index="0" response="0000" foes="0000" cont="0"/>
+        <request index="1" response="0000" foes="0000" cont="0"/>
+        <request index="2" response="0000" foes="0000" cont="0"/>
+        <request index="3" response="0000" foes="0000" cont="0"/>
     </junction>
     <junction id="S70" type="priority" x="-13.63" y="-68.66" incLanes="S_out_bucht_0 S_out_bucht_1 S_out_bucht_2 S_in_fern_0 S_in_fern_1 S_in_fern_2" intLanes=":S70_0_0 :S70_0_1 :S70_2_0 :S70_2_1" shape="-22.43,-66.76 -4.78,-70.26 -4.83,-70.55 -22.49,-67.05">
         <request index="0" response="0000" foes="0000" cont="0"/>
@@ -498,15 +496,14 @@
     <connection from="N_zu" to="N_in" fromLane="0" toLane="2" via=":N0_0_0" dir="s" state="M"/>
     <connection from="S_in" to="S_in_m" fromLane="1" toLane="1" via=":MS_2_0" dir="s" state="M"/>
     <connection from="S_in" to="S_in_m" fromLane="2" toLane="2" via=":MS_2_1" dir="s" state="M"/>
-    <connection from="S_in_bucht" to="S_in_mitte" fromLane="1" toLane="1" via=":S45_2_0" dir="s" state="m"/>
-    <connection from="S_in_bucht" to="S_in_mitte" fromLane="2" toLane="1" via=":S45_2_1" dir="s" state="M"/>
-    <connection from="S_in_bucht" to="S_in_mitte" fromLane="2" toLane="2" via=":S45_2_2" dir="s" state="M"/>
+    <connection from="S_in_bucht" to="S_in_mitte" fromLane="1" toLane="1" via=":S45_2_0" dir="s" state="M"/>
+    <connection from="S_in_bucht" to="S_in_mitte" fromLane="2" toLane="2" via=":S45_2_1" dir="s" state="M"/>
     <connection from="S_in_fern" to="S_in_bucht" fromLane="2" toLane="1" via=":S70_2_0" dir="s" state="M"/>
     <connection from="S_in_fern" to="S_in_bucht" fromLane="2" toLane="2" via=":S70_2_1" dir="s" state="M"/>
     <connection from="S_in_m" to="E_out_m" fromLane="1" toLane="2" via=":J_7_0" dir="r" state="m"/>
-    <connection from="S_in_m" to="N_out_m" fromLane="1" toLane="1" disallow="taxi" via=":J_8_0" dir="s" state="m"/>
-    <connection from="S_in_m" to="N_out_m" fromLane="2" toLane="1" allow="taxi" via=":J_8_1" dir="s" state="M"/>
-    <connection from="S_in_m" to="W_out_m" fromLane="2" toLane="1" via=":J_10_0" dir="l" state="M"/>
+    <connection from="S_in_m" to="N_out_m" fromLane="1" toLane="1" pass="1" disallow="taxi" shape="2.78,-10.13 3.37,9.02" via=":J_8_0" dir="s" state="M"/>
+    <connection from="S_in_m" to="N_out_m" fromLane="2" toLane="1" allow="taxi" shape="-0.75,-9.43 3.37,9.02" via=":J_8_1" dir="s" state="m"/>
+    <connection from="S_in_m" to="W_out_m" fromLane="2" toLane="1" speed="9.72" via=":J_10_0" dir="l" state="M"/>
     <connection from="S_in_mitte" to="S_in" fromLane="1" toLane="1" via=":S25_2_0" dir="s" state="m"/>
     <connection from="S_in_mitte" to="S_in" fromLane="2" toLane="1" via=":S25_2_1" dir="s" state="M"/>
     <connection from="S_in_mitte" to="S_in" fromLane="2" toLane="2" via=":S25_2_2" dir="s" state="M"/>
@@ -575,8 +572,7 @@
     <connection from=":S45_0" to="S_out_bucht" fromLane="0" toLane="1" dir="s" state="M"/>
     <connection from=":S45_0" to="S_out_bucht" fromLane="1" toLane="2" dir="s" state="M"/>
     <connection from=":S45_2" to="S_in_mitte" fromLane="0" toLane="1" dir="s" state="M"/>
-    <connection from=":S45_2" to="S_in_mitte" fromLane="1" toLane="1" dir="s" state="M"/>
-    <connection from=":S45_2" to="S_in_mitte" fromLane="2" toLane="2" dir="s" state="M"/>
+    <connection from=":S45_2" to="S_in_mitte" fromLane="1" toLane="2" dir="s" state="M"/>
     <connection from=":S70_0" to="S_out_fern" fromLane="0" toLane="1" dir="s" state="M"/>
     <connection from=":S70_0" to="S_out_fern" fromLane="1" toLane="2" dir="s" state="M"/>
     <connection from=":S70_2" to="S_in_bucht" fromLane="0" toLane="1" dir="s" state="M"/>

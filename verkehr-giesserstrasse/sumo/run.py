@@ -58,6 +58,13 @@ VMAX = {'pkw': 55.5, 'lkw': 12.5, 'sattel': 11.7, 'bus': 11.1, 'rad': 6.5}
 # Schlange, zaehlt sein Verlust zum Knoten. Auf N_ab gehoeren die letzten AB_AMPEL m vor der
 # Ampel zur Ampel, der Rest zum Knoten.
 AB_AMPEL = 100.0
+# Durchfahrtstempo: Mittel des Tempos im Knotenkern (bis 12 m um die Mitte). Geradeaus: ohne
+# Bremsen heisst innerhalb von 40 m um die Mitte nie langsamer als 85 % des eigenen Hoechsttempos
+# dort. Abbieger: ohne Halt heisst dort nie langsamer als 15 km/h.
+DURCH_KERN, DURCH_ANLAUF, DURCH_FREI, DURCH_HALT = 12.0, 40.0, 0.85, 15 / 3.6
+GERADEAUS = {'SN', 'NS', 'WE', 'EW'}
+RELATIONEN = ['SN', 'SW', 'SE', 'WS', 'WN', 'WE', 'NS', 'NW', 'NE', 'ES', 'EW', 'EN']
+RELNAME = {'S': 'Süd', 'N': 'Nord', 'W': 'West', 'E': 'Ost'}
 LUECKE_FUSS = 7.0      # s, Zeitluecke, die man an der Nordquerung braucht (8 m bei etwa 1,2 m/s)
 BREITE = {'pkw': 1.85, 'lkw': 2.5, 'sattel': 2.55, 'bus': 2.55, 'rad': 0.8}
 
@@ -191,6 +198,7 @@ def auswerten(var, seed, f):
     querung_n = []                     # Zeitpunkte, an denen Fahrzeuge die Nordquerung passieren
     zuletzt = {}
     offen = []                         # Verlust auf N_zu, Zuordnung nach der Schlangenlaenge
+    durch = {}                         # Pkw: [Summe Tempo im Knoten, Schritte, kleinstes und groesstes Tempo bis 40 m, Startzeit]
 
     # ---- Fussgaenger
     fuss_v, fuss_w = defaultdict(list), defaultdict(list)
@@ -337,6 +345,15 @@ def auswerten(var, seed, f):
             x, y = float(v.get('x')), float(v.get('y'))
             if typ_von(vid) != 'rad' and math.hypot(x, y) < 70:
                 spuren[vid].append((t, x, y, float(v.get('angle'))))
+            r_ = math.hypot(x, y)
+            if vid.startswith('pkw_') and r_ < DURCH_ANLAUF:
+                d_ = durch.setdefault(vid, [0.0, 0, 99.0, 0.0, t])
+                sp_ = float(v.get('speed'))
+                d_[2] = min(d_[2], sp_)
+                d_[3] = max(d_[3], sp_)
+                if r_ < DURCH_KERN:
+                    d_[0] += sp_
+                    d_[1] += 1
             if vid.startswith('bus_SW'):
                 e, li = v.get('lane').rsplit('_', 1)
                 if e in ('S_in_mitte', 'S_in', 'S_in_f', 'S_in_m', 'S_in_bucht'):
@@ -469,6 +486,24 @@ def auswerten(var, seed, f):
     for k_, v_ in ampel_stau.items():
         werte.append(('ampel_rueckstau_max_m', k_, max(v_) if v_ else 0))
         werte.append(('ampel_rueckstau_p95_m', k_, perzentil(v_, 95) if v_ else 0))
+
+    # ---- Durchfahrtstempo der Pkw je Relation im Knoten (Mittel, 85 %, ohne Halt)
+    je_rel = defaultdict(list)
+    frei_rel = defaultdict(list)
+    for vid, (summe, n_, vmin, vmax, t0) in durch.items():
+        if n_ == 0 or not im_fenster(t0):
+            continue
+        rel = rel_von(vid).replace('x', '')
+        kmh = summe / n_ * 3.6
+        je_rel[rel].append(kmh)
+        if (vmin >= DURCH_FREI * vmax) if rel in GERADEAUS else (vmin >= DURCH_HALT):
+            frei_rel[rel].append(kmh)
+    for rel, v_ in je_rel.items():
+        werte.append(('durchfahrt_kmh', rel, st.mean(v_)))
+        werte.append(('durchfahrt_p85_kmh', rel, perzentil(v_, 85)))
+        werte.append(('durchfahrt_anzahl', rel, len(v_)))
+    for rel, v_ in frei_rel.items():
+        werte.append(('durchfahrt_frei_kmh', rel, st.mean(v_)))
 
     for g in fuss_v:
         werte.append(('fuss_zeitverlust_s', g, st.mean(fuss_v[g])))
@@ -669,6 +704,21 @@ def bericht(rows, laeufe, bus):
     ]
     for name, key in zeilen:
         L.append(f'| {name} | ' + ' | '.join(ms(data[v][key]) for v in vs) + ' |')
+
+    L.append('\n## Durchfahrtstempo der Pkw im Knoten in km/h\n')
+    L.append('Tempo im Knotenkern (bis 12 m um die Mitte), je Fahrzeug gemittelt. Angegeben Mittel / 85 %-Wert über alle Pkw, '
+             'dahinter bei Geradeausfahrern das Mittel der Pkw ohne Bremsen (innerhalb 40 m um die Mitte nie unter 85 % ihres dortigen '
+             'Höchsttempos, also ungehindert), bei Abbiegern ohne Halt (dort nie unter 15 km/h). Fehlspur-Fahrer zählen zu Süd nach Nord.\n')
+    L.append('| Relation | ' + ' | '.join(TITEL[v] for v in vs) + ' |')
+    L.append('|---|' + '---|' * len(vs))
+    for rel in RELATIONEN:
+        zellen = []
+        for v in vs:
+            m_, p_, f_ = data[v][('durchfahrt_kmh', rel)], data[v][('durchfahrt_p85_kmh', rel)], data[v][('durchfahrt_frei_kmh', rel)]
+            zusatz = 'ohne Bremsen' if rel in GERADEAUS else 'ohne Halt'
+            zellen.append(f'{st.mean(m_):.0f} / {st.mean(p_):.0f}, {zusatz} {st.mean(f_):.0f}' if m_ and f_ else
+                          (f'{st.mean(m_):.0f} / {st.mean(p_):.0f}' if m_ else 'n. v.'))
+        L.append(f'| {RELNAME[rel[0]]} nach {RELNAME[rel[1]]} | ' + ' | '.join(zellen) + ' |')
 
     L.append('\n## Fußgängerkonflikte je Querung\n')
     L.append('| Querung über Arm | ' + ' | '.join(TITEL[v] for v in vs) + ' |')
